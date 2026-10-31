@@ -1,0 +1,39 @@
+{
+  "name": "@tsir/console",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The tsir CLI: lifecycle, diagnostics, generators, configuration automation.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "bin": {
+    "tsir": "./src/cli.ts"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/cache": "workspace:*",
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/database": "workspace:*",
+    "@tsir/deploy": "workspace:*",
+    "@tsir/events": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/link": "workspace:*",
+    "@tsir/mail": "workspace:*",
+    "@tsir/migrate": "workspace:*",
+    "@tsir/notify": "workspace:*",
+    "@tsir/queue": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/schedule": "workspace:*",
+    "@tsir/seed": "workspace:*",
+    "@tsir/storage": "workspace:*",
+    "@tsir/validate": "workspace:*",
+    "@tsir/vault": "workspace:*"
+  }
+}

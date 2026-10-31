@@ -1,0 +1,50 @@
+## Example
+
+Declare controllers with decorators against a registry, then compile the registry into a route
+table. The table is plain data, so the same table can run on any runtime.
+
+```ts
+import { Controller, Get, Post, RouteRegistry, compileRoutes } from '@tsir/router';
+
+const registry = new RouteRegistry();
+
+@Controller(registry, '/users')
+class UsersController {
+  @Get('/')
+  list(): string {
+    return 'users';
+  }
+
+  @Post('/')
+  create(): string {
+    return 'created';
+  }
+}
+
+const table = compileRoutes(registry.entries());
+
+for (const route of table.routes) {
+  console.log(route.method, route.path);
+}
+```
+
+## Failure modes
+
+- `RTR_BAD_PATH`: a path is not valid. Paths start with `/`, use `:name` for one segment, and use `*`
+  only as the final segment.
+- `RTR_BAD_STATUS`: a status is not allowed on that route. A 204 or 304 cannot carry a body.
+- `RTR_BAD_HANDLER`: a controller method cannot be a route handler. The message gives the reason.
+- `RTR_EMPTY_CONTROLLER`: a controller class declares no routes.
+- `RTR_DUPLICATE`: the same method and path are declared twice. Two handlers cannot answer one request.
+- `RTR_AMBIGUOUS`: two routes match the same requests, because parameter names do not change how a path
+  matches. Rename one path so the two shapes differ.
+- `RTR_PRINCIPAL_WITHOUT_GUARD`: a route binds `principal` but declares no guard.
+- `RTR_NOT_COMPILED`: the matcher was used before `compileRoutes(registry.entries())` ran. Compile the
+  table at boot and pass the result to the matcher.
+
+## Security notes
+
+Routes are declared in code and compiled before the application starts. A route cannot appear at
+runtime from a request, and the matcher never executes handler code while it is choosing a route.
+Authentication is not part of routing: a route that needs a signed-in user must declare a guard, and
+`RTR_PRINCIPAL_WITHOUT_GUARD` refuses a route that reads a principal without one.

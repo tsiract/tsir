@@ -1,0 +1,36 @@
+{
+  "name": "@tsir/deploy",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "One application, compiled into deployable units: a deterministic unit graph, per-target bindings, and emitters for Cloudflare Workers and AWS Lambda.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./cloudflare": {
+      "types": "./src/cloudflare.ts",
+      "default": "./src/cloudflare.ts"
+    },
+    "./lambda": {
+      "types": "./src/lambda.ts",
+      "default": "./src/lambda.ts"
+    },
+    "./wrangler": {
+      "types": "./src/wrangler.ts",
+      "default": "./src/wrangler.ts"
+    },
+    "./sam": {
+      "types": "./src/sam.ts",
+      "default": "./src/sam.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/core": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/schedule": "workspace:*"
+  }
+}

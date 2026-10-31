@@ -1,0 +1,12 @@
+{
+  "schemaVersion": 1,
+  "pid": 53652,
+  "startedAt": "2026-10-31T14:35:40.109Z",
+  "script": "src/tools/dev.ts",
+  "command": "bun src/tools/dev.ts --port 3000",
+  "version": "0.0.0",
+  "host": "0.0.0.0",
+  "ports": [
+    3000
+  ]
+}

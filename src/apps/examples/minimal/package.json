@@ -1,0 +1,22 @@
+{
+  "name": "@tsir/example-minimal",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The smallest complete Tsir application: one module, typed config, a manifest, and a test.",
+  "scripts": {
+    "dev": "tsir dev",
+    "build": "tsir build",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsir/console": "workspace:*",
+    "@tsir/testing": "workspace:*"
+  }
+}

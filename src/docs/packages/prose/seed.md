@@ -1,0 +1,54 @@
+## Example
+
+Define seeders with an order and the environments they run in, then plan which of them would run.
+Planning is pure, so it can be checked without writing a row. The order is explicit, and two seeders
+with the same order are an error.
+
+```ts
+import { defineSeeder, planSeeders } from '@tsir/seed';
+
+const roles = defineSeeder({
+  name: 'RolesSeeder',
+  order: 10,
+  environments: ['test'],
+  idempotent: true,
+  run: async () => undefined,
+});
+const users = defineSeeder({
+  name: 'UsersSeeder',
+  order: 20,
+  environments: ['test'],
+  idempotent: true,
+  run: async () => undefined,
+});
+
+console.log(planSeeders({ seeders: [users, roles], env: 'test' }));
+```
+
+## Failure modes
+
+- `SED_INVALID`: a seeder definition is incomplete. It needs a non-empty name, an integer order, and a
+  list of environments.
+- `SED_DUPLICATE_NAME`: two seeders have the same name. The name is how `--class` selects a seeder.
+- `SED_UNKNOWN_CLASS`: `--class` named a seeder that does not exist. The message lists the available
+  ones.
+- `SED_ORDER_AMBIGUOUS`: two seeders share an order. Ties are not broken alphabetically, so one must
+  get a different order.
+- `SED_UNDECLARED_CONNECTION`: a seeder does not declare the connection it is run against. Nothing is
+  written.
+- `SED_PRODUCTION_REFUSED`: a run was asked for production. It runs only with `--reference-data`, and
+  only seeders that declare `production: true` will run.
+- `SED_FIXTURE_INVALID`: a fixture does not match its schema.
+- `SED_FIXTURE_NO_INSERT`: a fixture has no `insert`. Pass `insert` to `defineFixture`, or use `build()`
+  and insert the row yourself.
+- `SED_NOT_IDEMPOTENT`: running the seeders twice changed row counts. A seeder declared `idempotent` must
+  upsert or skip rows that already exist.
+- `SED_FAILED`: a seeder threw. In a transaction, that seeder's rows are rolled back and earlier seeders stay
+  committed. Without a transaction, some of its rows may already exist.
+
+## Security notes
+
+A seeder refuses to run in an environment it does not list, and the check happens before any write, so
+a test seeder cannot reach production by accident. Production data is seeded only with the explicit
+reference-data flag, and only from seeders that declare they may run there. Seed data should be fake
+personal data. Keep real credentials out of fixtures.

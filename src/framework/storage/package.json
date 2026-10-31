@@ -1,0 +1,34 @@
+{
+  "name": "@tsir/storage",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/storage — named object-storage disks over one port: bytes in, bytes out, explicit content types, and a URL that says whether it is public or signed.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/drivers/memory.ts",
+      "default": "./src/drivers/memory.ts"
+    },
+    "./local": {
+      "types": "./src/drivers/adapters/local.ts",
+      "default": "./src/drivers/adapters/local.ts"
+    },
+    "./s3": {
+      "types": "./src/drivers/s3.ts",
+      "default": "./src/drivers/s3.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

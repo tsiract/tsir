@@ -1,0 +1,21 @@
+{
+  "name": "@tsir/migrate",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Migration applier for Drizzle journals: advisory locks, checksums, drift, guarded rollback.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/database": "workspace:*"
+  }
+}

@@ -1,0 +1,59 @@
+## Example
+
+Declare each setting by its environment variable name, then load the configuration. A secret is
+returned redacted, so it cannot reach a log by accident.
+
+```ts
+import { defineConfig, env, loadConfig } from '@tsir/config';
+
+const spec = defineConfig({
+  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'development' }),
+  DATABASE_URL: env.secret(),
+  DATABASE_POOL_MAX: env.int({ min: 1, max: 50, default: 10 }),
+});
+
+const config = loadConfig(spec, {
+  env: { DATABASE_URL: 'postgres://app:not-a-real-password@db.internal/app' },
+});
+
+console.log(config.values.APP_ENV, config.values.DATABASE_POOL_MAX);
+console.log(String(config.values.DATABASE_URL));
+```
+
+## Failure modes
+
+- `CFG_INVALID`: the configuration failed to load. It is the wrapper for a list of issues, one per variable
+  or key. Each issue names the variable or key path.
+- `CFG_MISSING_KEY`: a required variable is not set.
+- `CFG_INVALID_DEFAULT`: a declared default does not satisfy its own schema. Defaults are checked
+  exactly like environment values, so fix the declaration.
+- `CFG_UNKNOWN_KEY`: a key in a project file is not declared. The check refuses it unless the file
+  sets `strict: false`.
+- `CFG_MISSING_DEFAULT`: a named connection registry has no default connection.
+- `CFG_UNKNOWN_DEFAULT`: the default names a connection that the registry does not declare.
+- `CFG_AMBIGUOUS_CONNECTION`: one connection sets two transports, for example both a binding and a
+  URL. Keep one.
+- `CFG_SECRET_INLINED`: `tsir.js` holds a secret as a literal value, so the project file is refused. The
+  message lists each key path and its kind, never the value. Move each value to the environment and read
+  it with `{ fromEnv: "NAME" }`, then set `NAME` in `.env`.
+- `CFG_PRESET_MODULE_MISSING`: a preset needs a module that is not installed. The message lists the
+  missing modules and the install command.
+- `CFG_MANAGED_REGION_INVALID`: a generated region in `tsir.js` has an unpaired fence, a nested region, or a
+  duplicate id. The message gives the line. Regions are delimited by `// ── managed:<id>:start` and
+  `// ── managed:<id>:end` and nothing else. For a nested region, close one before opening the next.
+- `CFG_CONFIG_VERSION_STALE`: a project file was written by an older configuration version. The
+  bootstrap command with `--migrate-config` rewrites it.
+
+- `CFG_MODULE_NOT_INSTALLED`: `tsir.js` declares a module that is not installed. The message names the
+  modules, and the hint is the exact `bun add` line that installs them.
+
+## Security notes
+
+Secrets are declared as secrets, so redaction is a property of the schema. A `Redacted` value
+stringifies to a placeholder, serializes to a placeholder, and is only unwrapped by an explicit
+`reveal()` call. Every `reveal()` can be traced with the `onReveal` hook, so accidental reveals show
+up in review. Do not pass `reveal()` results to logs or error messages.
+
+`loadConfig` reads only the environment object you give it, or `process.env` when you give none, and
+writes nothing. The project-file helpers rewrite only the generated block of a file, and a secret is
+never written into that block.

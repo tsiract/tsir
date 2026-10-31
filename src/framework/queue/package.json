@@ -1,0 +1,42 @@
+{
+  "name": "@tsir/queue",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/queue \u2014 named job connections over one port: at-least-once delivery, exponential backoff, a dead-letter table, idempotency keys and a drain that survives SIGTERM.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/drivers/memory.ts",
+      "default": "./src/drivers/memory.ts"
+    },
+    "./sync": {
+      "types": "./src/drivers/sync.ts",
+      "default": "./src/drivers/sync.ts"
+    },
+    "./database": {
+      "types": "./src/drivers/database.ts",
+      "default": "./src/drivers/database.ts"
+    },
+    "./cloudflare-queues": {
+      "types": "./src/drivers/cloudflare-queues.ts",
+      "default": "./src/drivers/cloudflare-queues.ts"
+    },
+    "./sqs": {
+      "types": "./src/drivers/sqs.ts",
+      "default": "./src/drivers/sqs.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

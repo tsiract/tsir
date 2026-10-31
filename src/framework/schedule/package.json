@@ -1,0 +1,22 @@
+{
+  "name": "@tsir/schedule",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/schedule \u2014 cron tasks with overlap prevention: a task is a name, a five-field cron and a handler, and a distributed lock keeps a slow run from stacking on the next tick.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

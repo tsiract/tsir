@@ -1,0 +1,43 @@
+{
+  "name": "@tsir/cache",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/cache \u2014 named cache stores over one port: explicit serialization, per-store capabilities, and no silent fallback.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/drivers/memory.ts",
+      "default": "./src/drivers/memory.ts"
+    },
+    "./null": {
+      "types": "./src/drivers/null.ts",
+      "default": "./src/drivers/null.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    },
+    "./database": {
+      "types": "./src/drivers/database.ts",
+      "default": "./src/drivers/database.ts"
+    },
+    "./cloudflare-kv": {
+      "types": "./src/drivers/cloudflare-kv.ts",
+      "default": "./src/drivers/cloudflare-kv.ts"
+    },
+    "./redis": {
+      "types": "./src/drivers/redis.ts",
+      "default": "./src/drivers/redis.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*"
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/auth",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "auth package",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/drivers/memory.ts",
+      "default": "./src/drivers/memory.ts"
+    },
+    "./bun": {
+      "types": "./src/adapters/bun-password.ts",
+      "default": "./src/adapters/bun-password.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

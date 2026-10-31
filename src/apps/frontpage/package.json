@@ -1,0 +1,12 @@
+{
+  "name": "@tsir/frontpage",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Tsir framework welcome page \u2014 static, dependency-free, served by the dev server.",
+  "scripts": {
+    "dev": "bun ../../tools/dev.ts",
+    "build": "bun ../../tools/dist.ts"
+  }
+}

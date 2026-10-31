@@ -1,0 +1,22 @@
+{
+  "name": "@tsir/vault",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Versioned, authenticated column encryption with an explicit key-state machine. AES-256-GCM through WebCrypto, a self-describing envelope, AAD bound to table and column, and rotation that is resumable because it is a ledger, not a script.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./drizzle": {
+      "types": "./src/drizzle.ts",
+      "default": "./src/drizzle.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/core": "workspace:*"
+  }
+}

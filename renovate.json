@@ -1,0 +1,32 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:strict", ":dependencyDashboard"],
+  "rangeStrategy": "pin",
+  "lockFileMaintenance": { "enabled": true, "schedule": ["before 6am on monday"] },
+  "packageRules": [
+    {
+      "description": "Group the TypeScript toolchain: one PR, one bisect (FND-014).",
+      "groupName": "typescript toolchain",
+      "matchPackageNames": ["typescript", "typescript-eslint", "@types/bun", "eslint"]
+    },
+    {
+      "description": "Group the validator: @tsir/validate pins one zod version (ADR-0011).",
+      "groupName": "validation",
+      "matchPackageNames": ["zod", "@types/node"]
+    },
+    {
+      "description": "Formatting is not worth a separate PR.",
+      "groupName": "formatting",
+      "matchPackageNames": ["prettier"]
+    },
+    {
+      "description": "Security fixes land immediately, outside the weekly schedule.",
+      "matchUpdateTypes": ["patch"],
+      "matchDatasources": ["npm"],
+      "vulnerabilityAlerts": { "enabled": true },
+      "labels": ["security"],
+      "schedule": ["at any time"]
+    }
+  ],
+  "vulnerabilityAlerts": { "enabled": true, "labels": ["security"] }
+}

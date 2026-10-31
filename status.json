@@ -1,0 +1,8 @@
+{
+  "$comment": "Single source of truth for the README status badge. Edited by hand; `make readme` reads it and `make check` fails when README.md and this file disagree.",
+  "phase": 8,
+  "milestone": "production readiness",
+  "status": "pre-alpha",
+  "frameworkVersion": "0.0.0",
+  "updated": "2026-10-30"
+}

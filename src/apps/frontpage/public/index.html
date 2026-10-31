@@ -1,0 +1,2010 @@
+<!doctype html>
+<html lang="en" data-theme="tsir">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="dark light" />
+    <title>Tsir — strictly typed backend framework</title>
+    <meta
+      name="description"
+      content="Tsir is a strictly typed, backend-only TypeScript framework for Bun and Cloudflare Workers: decorator routing compiled ahead of time, constructor injection, Drizzle on D1 (default) or Postgres, versioned encryption, and first-class Workers and AWS Lambda deploy units."
+    />
+    <meta name="generator" content="tsir-frontpage" />
+
+    <!--
+  Frontpage contract (DOC-004, DOC-005):
+  · one file, no external requests, no web fonts, no analytics
+  · inline CSS + inline SVG only
+  · every card's data-status must match the package directory it names in data-src
+  · commands shown here must run in this repository as it stands
+  · no claims of performance or security superiority without evidence
+
+  Tokens (__TSIR_*) are replaced per-request by src/tools/dev.ts and baked at
+  build time by tools/build.ts. Unresolved tokens render as an em dash.
+-->
+
+    <style>
+      /* ── Design tokens ─────────────────────────────────────────────────────── */
+      :root {
+        --bg: #07090d;
+        --bg-elev: #0b0e14;
+        --panel: #0e1219;
+        --panel-2: #121722;
+        --line: #1b232f;
+        --line-strong: #273243;
+
+        --text: #e9eef5;
+        --muted: #93a0b1;
+        --dim: #627082;
+
+        --mint: #7ee2b0;
+        --mint-soft: rgba(126, 226, 176, 0.12);
+        --mint-line: rgba(126, 226, 176, 0.32);
+        --blue: #7aa2f7;
+        --blue-soft: rgba(122, 162, 247, 0.12);
+        --amber: #e6c07b;
+
+        --sans:
+          ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
+          sans-serif;
+        --mono:
+          ui-monospace, 'SFMono-Regular', 'JetBrains Mono', Menlo, Consolas, 'Liberation Mono',
+          monospace;
+
+        --radius: 14px;
+        --radius-sm: 9px;
+        --max: 1160px;
+        --gutter: clamp(20px, 4vw, 40px);
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        -webkit-text-size-adjust: 100%;
+      }
+
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: var(--sans);
+        font-size: 16px;
+        line-height: 1.6;
+        letter-spacing: -0.005em;
+        -webkit-font-smoothing: antialiased;
+        text-rendering: optimizeLegibility;
+      }
+
+      /* Ambient background: two soft washes + a faint engineering grid. */
+      body::before {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -2;
+        background:
+          radial-gradient(900px 520px at 12% -8%, rgba(126, 226, 176, 0.1), transparent 60%),
+          radial-gradient(820px 480px at 92% 4%, rgba(122, 162, 247, 0.1), transparent 62%),
+          radial-gradient(700px 700px at 50% 120%, rgba(126, 226, 176, 0.05), transparent 70%);
+      }
+      body::after {
+        content: '';
+        position: fixed;
+        inset: 0;
+        z-index: -1;
+        pointer-events: none;
+        background-image:
+          linear-gradient(to right, rgba(255, 255, 255, 0.028) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255, 255, 255, 0.028) 1px, transparent 1px);
+        background-size: 64px 64px;
+        mask-image: radial-gradient(ellipse 80% 55% at 50% 0%, #000 30%, transparent 78%);
+      }
+
+      a {
+        color: var(--text);
+        text-decoration: none;
+      }
+      a:hover {
+        color: var(--mint);
+      }
+
+      :focus-visible {
+        outline: 2px solid var(--mint);
+        outline-offset: 3px;
+        border-radius: 4px;
+      }
+
+      .skip {
+        position: absolute;
+        left: -9999px;
+        top: 0;
+        padding: 10px 14px;
+        background: var(--mint);
+        color: #04120b;
+        font-weight: 650;
+        border-radius: 0 0 8px 0;
+        z-index: 50;
+      }
+      .skip:focus {
+        left: 0;
+      }
+
+      .wrap {
+        width: 100%;
+        max-width: var(--max);
+        margin-inline: auto;
+        padding-inline: var(--gutter);
+      }
+
+      code,
+      pre,
+      .mono {
+        font-family: var(--mono);
+        font-variant-ligatures: none;
+      }
+
+      /* ── Header ────────────────────────────────────────────────────────────── */
+      .site-header {
+        border-bottom: 1px solid var(--line);
+        background: color-mix(in srgb, var(--bg) 72%, transparent);
+        backdrop-filter: blur(8px);
+        position: sticky;
+        top: 0;
+        z-index: 10;
+      }
+      .site-header .wrap {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+        min-height: 62px;
+      }
+      .brand {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        font-size: 1.05rem;
+        margin-right: 6px;
+      }
+      .brand svg {
+        display: block;
+      }
+      .brand .sub {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        font-weight: 500;
+        color: var(--dim);
+        letter-spacing: 0.02em;
+        padding: 2px 6px;
+        border: 1px solid var(--line-strong);
+        border-radius: 5px;
+        transform: translateY(-1px);
+      }
+      .nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        margin-left: auto;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+      .nav a {
+        color: var(--muted);
+        font-size: 0.86rem;
+        padding: 6px 10px;
+        border-radius: 7px;
+      }
+      .nav a:hover,
+      .nav a:focus-visible {
+        color: var(--text);
+        background: var(--panel-2);
+      }
+      .nav a[aria-disabled='true'] {
+        color: var(--dim);
+        cursor: default;
+      }
+      .nav a[aria-disabled='true']:hover {
+        color: var(--dim);
+        background: transparent;
+      }
+
+      .chip-version {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--mint);
+        background: var(--mint-soft);
+        border: 1px solid var(--mint-line);
+        padding: 4px 9px;
+        border-radius: 999px;
+        margin-left: 8px;
+        white-space: nowrap;
+      }
+
+      /* ── Hero ──────────────────────────────────────────────────────────────── */
+      .hero {
+        padding: clamp(44px, 7vw, 88px) 0 clamp(28px, 4vw, 44px);
+      }
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 9px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--mint);
+        background: var(--mint-soft);
+        border: 1px solid var(--mint-line);
+        padding: 6px 12px;
+        border-radius: 999px;
+        margin-bottom: 26px;
+      }
+      .eyebrow .dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--mint);
+        box-shadow: 0 0 0 3px rgba(126, 226, 176, 0.16);
+        animation: pulse 2.8s ease-in-out infinite;
+      }
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.45;
+        }
+      }
+
+      h1 {
+        font-size: clamp(2.15rem, 5.4vw, 3.75rem);
+        line-height: 1.06;
+        letter-spacing: -0.035em;
+        font-weight: 760;
+        margin: 0 0 20px;
+        max-width: 20ch;
+        text-wrap: balance;
+      }
+      h1 .accent {
+        background: linear-gradient(100deg, var(--mint) 10%, #b7f0d3 45%, var(--blue) 96%);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+
+      .lede {
+        font-size: clamp(1rem, 1.6vw, 1.12rem);
+        color: var(--muted);
+        max-width: 62ch;
+        margin: 0 0 30px;
+        text-wrap: pretty;
+      }
+      .lede strong {
+        color: var(--text);
+        font-weight: 620;
+      }
+      .lede code {
+        font-size: 0.9em;
+        padding: 1px 5px;
+        border-radius: 5px;
+        background: var(--panel-2);
+        border: 1px solid var(--line);
+        color: #cfe8dd;
+      }
+
+      /* ── Command block ─────────────────────────────────────────────────────── */
+      .command {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        max-width: 520px;
+        background: linear-gradient(180deg, var(--panel-2), var(--panel));
+        border: 1px solid var(--line-strong);
+        border-radius: var(--radius);
+        padding: 14px 14px 14px 18px;
+        box-shadow: 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+      }
+      .command .prompt {
+        color: var(--mint);
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        user-select: none;
+      }
+      .command code {
+        font-size: 0.95rem;
+        color: #dbe7f2;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .command .grow {
+        flex: 1 1 auto;
+        min-width: 0;
+      }
+      .copy {
+        appearance: none;
+        border: 1px solid var(--line-strong);
+        background: var(--panel);
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        letter-spacing: 0.02em;
+        padding: 7px 11px;
+        border-radius: 8px;
+        cursor: pointer;
+        transition:
+          color 120ms ease,
+          border-color 120ms ease,
+          background 120ms ease;
+        white-space: nowrap;
+      }
+      .copy:hover {
+        color: var(--text);
+        border-color: var(--mint-line);
+        background: var(--mint-soft);
+      }
+      .copy[data-copied='true'] {
+        color: var(--mint);
+        border-color: var(--mint-line);
+      }
+
+      /* ── Live status chips ─────────────────────────────────────────────────── */
+      .status-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 22px;
+      }
+      .stat {
+        display: inline-flex;
+        align-items: baseline;
+        gap: 7px;
+        font-family: var(--mono);
+        font-size: 0.73rem;
+        color: var(--muted);
+        background: var(--bg-elev);
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        padding: 5px 11px;
+      }
+      .stat .k {
+        color: var(--dim);
+      }
+      .stat .v {
+        color: #cfe0ef;
+      }
+      .stat .v.ok {
+        color: var(--mint);
+      }
+
+      /* ── Reality check ─────────────────────────────────────────────────────── */
+      .reality {
+        margin-top: 34px;
+        display: flex;
+        gap: 14px;
+        padding: 16px 18px;
+        border: 1px dashed var(--line-strong);
+        border-radius: var(--radius);
+        background: rgba(230, 192, 123, 0.05);
+        max-width: 760px;
+      }
+      .reality svg {
+        flex: 0 0 auto;
+        margin-top: 2px;
+      }
+      .reality p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+      .reality strong {
+        color: var(--amber);
+        font-weight: 620;
+      }
+
+      /* ── Measured sizes ────────────────────────────────────────────── */
+      .sizes {
+        margin-top: 30px;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+        gap: 1px;
+        background: var(--line);
+        border: 1px solid var(--line);
+        border-radius: var(--radius);
+        overflow: hidden;
+        max-width: 880px;
+      }
+      .size {
+        background: var(--bg);
+        padding: 15px 16px 14px;
+      }
+      .size .label {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: var(--dim);
+        display: block;
+        margin-bottom: 7px;
+      }
+      .size .value {
+        font-family: var(--mono);
+        font-size: 1.12rem;
+        color: var(--mint);
+        letter-spacing: -0.01em;
+      }
+      .size .what {
+        display: block;
+        margin-top: 5px;
+        font-size: 0.76rem;
+        color: var(--muted);
+        line-height: 1.35;
+      }
+      .sizes-note {
+        margin: 10px 0 0;
+        font-size: 0.76rem;
+        color: var(--dim);
+        font-family: var(--mono);
+      }
+      @media (max-width: 900px) {
+        .sizes {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 560px) {
+        .sizes {
+          grid-template-columns: minmax(0, 1fr);
+        }
+      }
+
+      /* ── Phase rail ────────────────────────────────────────────────────────── */
+      .phases {
+        margin-top: clamp(38px, 5vw, 56px);
+      }
+      .phases ol {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: grid;
+        grid-template-columns: repeat(9, minmax(0, 1fr));
+        gap: 6px;
+      }
+      .phases li {
+        border-top: 2px solid var(--line-strong);
+        padding-top: 10px;
+        font-size: 0.72rem;
+        color: var(--dim);
+        font-family: var(--mono);
+        line-height: 1.35;
+      }
+      .phases li .n {
+        display: block;
+        color: var(--dim);
+        font-size: 0.66rem;
+      }
+      .phases li[data-active='true'] {
+        border-top-color: var(--mint);
+        color: var(--text);
+      }
+      .phases li[data-active='true'] .n {
+        color: var(--mint);
+      }
+      .phases li[data-done='true'] {
+        color: var(--muted);
+      }
+      .phases li[data-done='true'] .n {
+        color: var(--dim);
+      }
+      .phases li[data-done='true'] .n::after {
+        content: ' ✓';
+        color: var(--mint);
+      }
+
+      /* ── Sections ──────────────────────────────────────────────────────────── */
+      section {
+        padding-block: clamp(40px, 5.5vw, 68px);
+      }
+      .rule {
+        height: 1px;
+        background: linear-gradient(90deg, var(--line-strong), transparent 70%);
+      }
+
+      .section-head {
+        display: flex;
+        align-items: baseline;
+        gap: 16px;
+        flex-wrap: wrap;
+        margin-bottom: 26px;
+      }
+      .section-head h2 {
+        font-size: 1.02rem;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        font-weight: 640;
+        color: var(--text);
+        margin: 0;
+      }
+      .section-head .note {
+        color: var(--dim);
+        font-size: 0.82rem;
+        margin: 0;
+      }
+      .legend {
+        margin-left: auto;
+        display: flex;
+        gap: 14px;
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: var(--dim);
+        flex-wrap: wrap;
+      }
+      .legend span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .legend i {
+        width: 7px;
+        height: 7px;
+        border-radius: 2px;
+        display: inline-block;
+      }
+      .legend .l-designed i {
+        background: var(--mint);
+      }
+      .legend .l-planned i {
+        background: var(--dim);
+      }
+
+      .band {
+        display: grid;
+        grid-template-columns: 168px minmax(0, 1fr);
+        gap: 22px;
+        align-items: start;
+      }
+      .band + .band {
+        margin-top: 26px;
+      }
+      .band-label {
+        font-family: var(--mono);
+        hyphens: none;
+        overflow-wrap: normal;
+        font-size: 0.74rem;
+        color: var(--dim);
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        padding-top: 16px;
+        position: sticky;
+        top: 84px;
+      }
+      .band-label .count {
+        display: block;
+        color: var(--line-strong);
+        font-size: 0.68rem;
+        margin-top: 3px;
+        letter-spacing: 0;
+      }
+
+      /* ── Cards ─────────────────────────────────────────────────────────────── */
+      .cards {
+        --cols: 3;
+        display: grid;
+        grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
+        gap: 12px;
+      }
+      .cards[data-cols='2'] {
+        --cols: 2;
+      }
+      .cards[data-cols='3'] {
+        --cols: 3;
+      }
+      .cards[data-cols='4'] {
+        --cols: 4;
+      }
+      .card {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        padding: 16px 16px 13px;
+        background: linear-gradient(180deg, var(--panel-2), var(--panel));
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        transition:
+          border-color 140ms ease,
+          transform 140ms ease,
+          background 140ms ease;
+      }
+      .card:hover {
+        border-color: var(--line-strong);
+        transform: translateY(-1px);
+      }
+      .card[data-status='designed']:hover {
+        border-color: var(--mint-line);
+      }
+      .card[data-status='implemented'] {
+        border-color: var(--mint-line);
+      }
+      .card[data-status='implemented']:hover {
+        border-color: var(--mint);
+      }
+      .card--wide {
+        grid-column: span 2;
+      }
+
+      .card-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+      }
+      .pkg {
+        font-family: var(--mono);
+        font-size: 0.9rem;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .card[data-status='planned'] .pkg {
+        color: var(--muted);
+      }
+      .phase-tag {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        color: var(--dim);
+        border: 1px solid var(--line);
+        border-radius: 5px;
+        padding: 2px 2px;
+        min-width: 30px;
+        text-align: center;
+        flex: 0 0 auto;
+      }
+      .card[data-status='designed'] .phase-tag {
+        color: var(--mint);
+        border-color: var(--mint-line);
+        background: var(--mint-soft);
+      }
+      .card[data-status='implemented'] .phase-tag {
+        color: var(--mint);
+        border-color: var(--mint-line);
+        background: var(--mint-soft);
+      }
+
+      .purpose {
+        margin: 0;
+        font-size: 0.855rem;
+        color: var(--muted);
+        line-height: 1.5;
+        text-wrap: pretty;
+      }
+      .card-foot {
+        margin-top: auto;
+        padding-top: 8px;
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 8px 10px;
+        flex-wrap: wrap;
+        border-top: 1px solid var(--line);
+      }
+      .src-path {
+        font-family: var(--mono);
+        font-size: 0.66rem;
+        color: var(--dim);
+        line-height: 1.35;
+        min-width: 0;
+        overflow-wrap: anywhere;
+      }
+      .state {
+        margin-left: auto;
+        font-family: var(--mono);
+        font-size: 0.64rem;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--dim);
+        white-space: nowrap;
+      }
+      .card[data-status='designed'] .state {
+        color: var(--mint);
+      }
+      .card[data-status='implemented'] .state {
+        color: var(--mint);
+      }
+      .card[data-status='implemented'] .state::before {
+        content: '● ';
+        color: var(--mint);
+      }
+      .card[data-status='partial'] .state {
+        color: #e6c07b;
+      }
+      .card[data-status='partial'] .state::before {
+        content: '◐ ';
+        color: #e6c07b;
+      }
+      .card[data-status='partial'] .phase-tag {
+        color: #e6c07b;
+        border-color: rgba(230, 192, 123, 0.42);
+      }
+
+      /* protocol / target chips inside wide cards */
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        margin: 2px 0 4px;
+      }
+      .tag {
+        font-family: var(--mono);
+        font-size: 0.7rem;
+        color: #cfe0ef;
+        background: rgba(122, 162, 247, 0.09);
+        border: 1px solid rgba(122, 162, 247, 0.28);
+        border-radius: 6px;
+        padding: 3px 7px;
+      }
+      .tag--mint {
+        color: #caf3e2;
+        background: rgba(126, 226, 176, 0.09);
+        border-color: rgba(126, 226, 176, 0.28);
+      }
+
+      /* side panel next to wide cards */
+      .panel {
+        grid-column: span 2;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: linear-gradient(160deg, rgba(122, 162, 247, 0.055), transparent 60%);
+      }
+      .panel h3 {
+        margin: 0;
+        font-size: 0.86rem;
+        letter-spacing: 0.01em;
+        color: var(--text);
+        font-weight: 620;
+      }
+      .panel p {
+        margin: 0;
+        font-size: 0.83rem;
+        color: var(--muted);
+      }
+      .panel ul {
+        margin: 2px 0 0;
+        padding-left: 18px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+      .panel li {
+        margin-bottom: 4px;
+      }
+      .panel code {
+        color: #cfe8dd;
+        font-size: 0.78rem;
+      }
+
+      /* ── Principles ────────────────────────────────────────────────────────── */
+      .principles {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 12px;
+      }
+      .principle {
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: var(--bg-elev);
+      }
+      .principle svg {
+        display: block;
+        margin-bottom: 12px;
+      }
+      .principle h3 {
+        margin: 0 0 6px;
+        font-size: 0.9rem;
+        font-weight: 640;
+        letter-spacing: -0.005em;
+      }
+      .principle p {
+        margin: 0;
+        font-size: 0.82rem;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      /* ── Next steps ────────────────────────────────────────────────────────── */
+      .steps {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 12px;
+        counter-reset: step;
+      }
+      .step {
+        counter-increment: step;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-sm);
+        background: linear-gradient(180deg, var(--panel-2), var(--panel));
+      }
+      .step::before {
+        content: counter(step, decimal-leading-zero);
+        font-family: var(--mono);
+        font-size: 0.68rem;
+        color: var(--mint);
+        letter-spacing: 0.08em;
+        display: block;
+        margin-bottom: 10px;
+      }
+      .step h3 {
+        margin: 0 0 6px;
+        font-size: 0.9rem;
+        font-weight: 630;
+      }
+      .step p {
+        margin: 0 0 12px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+      .step code {
+        display: block;
+        font-size: 0.78rem;
+        color: #cfe8dd;
+        background: var(--bg);
+        border: 1px solid var(--line);
+        border-radius: 7px;
+        padding: 8px 10px;
+        overflow-x: auto;
+        white-space: nowrap;
+      }
+      .step code + code {
+        margin-top: 6px;
+      }
+      .step .path {
+        font-family: var(--mono);
+        font-size: 0.72rem;
+        color: var(--dim);
+      }
+
+      /* ── Capability chips ──────────────────────────────────────────────────── */
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .chip {
+        font-family: var(--mono);
+        font-size: 0.76rem;
+        color: var(--muted);
+        background: var(--bg-elev);
+        border: 1px dashed var(--line-strong);
+        border-radius: 999px;
+        padding: 6px 12px;
+      }
+      .chip--designed {
+        color: var(--mint);
+        border-style: solid;
+        border-color: var(--mint-line);
+        background: var(--mint-soft);
+      }
+
+      /* ── Footer ────────────────────────────────────────────────────────────── */
+      .site-footer {
+        border-top: 1px solid var(--line);
+        padding-block: 28px 40px;
+        margin-top: 20px;
+        color: var(--dim);
+        font-size: 0.8rem;
+      }
+      .site-footer .wrap {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 14px 26px;
+      }
+      .site-footer .brand {
+        font-size: 0.9rem;
+      }
+      .footer-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px 18px;
+        font-family: var(--mono);
+        font-size: 0.72rem;
+      }
+      .footer-meta span {
+        color: var(--dim);
+      }
+      .footer-meta b {
+        color: var(--muted);
+        font-weight: 500;
+      }
+      .footer-note {
+        margin-left: auto;
+        font-size: 0.72rem;
+        color: var(--dim);
+      }
+
+      /* ── Icon colour hooks ─────────────────────────────────────────────────────
+     Inline SVGs use presentation attributes; these rules let the icon palette
+     follow theme tokens so both themes stay contrast-checked in one place. */
+      svg [stroke='#7ee2b0'] {
+        stroke: var(--mint);
+      }
+      svg [fill='#7ee2b0'] {
+        fill: var(--mint);
+      }
+      svg [stroke='#7aa2f7'] {
+        stroke: var(--blue);
+      }
+      svg [fill='#7aa2f7'] {
+        fill: var(--blue);
+      }
+      svg [stroke='#273243'] {
+        stroke: var(--line-strong);
+      }
+      svg [stroke='#e6c07b'] {
+        stroke: var(--amber);
+      }
+      svg [fill='#e6c07b'] {
+        fill: var(--amber);
+      }
+
+      /* ── Light theme ───────────────────────────────────────────────────────────
+     Not an inversion: a re-derived palette with its own contrast check.
+     Accent hues darken so text on tinted surfaces keeps >= 4.5:1. */
+      @media (prefers-color-scheme: light) {
+        :root {
+          color-scheme: light;
+          --bg: #f6f8fb;
+          --bg-elev: #ffffff;
+          --panel: #ffffff;
+          --panel-2: #f1f5f9;
+          --line: #dde4ec;
+          --line-strong: #c3cedb;
+
+          --text: #0c131c;
+          --muted: #46586b;
+          --dim: #63748a;
+
+          --mint: #0c6b47;
+          --mint-soft: rgba(12, 107, 71, 0.08);
+          --mint-line: rgba(12, 107, 71, 0.3);
+          --blue: #1c4c9c;
+          --blue-soft: rgba(28, 76, 156, 0.08);
+          --amber: #7a4f00;
+
+          --radius: 14px;
+        }
+
+        body::before {
+          background:
+            radial-gradient(900px 520px at 12% -8%, rgba(12, 107, 71, 0.09), transparent 60%),
+            radial-gradient(820px 480px at 92% 4%, rgba(28, 76, 156, 0.09), transparent 62%);
+        }
+        body::after {
+          background-image:
+            linear-gradient(to right, rgba(12, 19, 28, 0.05) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(12, 19, 28, 0.05) 1px, transparent 1px);
+        }
+
+        .site-header {
+          background: color-mix(in srgb, var(--bg) 78%, transparent);
+        }
+        .skip {
+          color: #ffffff;
+        }
+        h1 .accent {
+          background: linear-gradient(100deg, #0c6b47 6%, #12855a 46%, #1c4c9c 96%);
+          -webkit-background-clip: text;
+          background-clip: text;
+          color: transparent;
+        }
+        .command code,
+        .stat .v,
+        .tag,
+        .step code,
+        .panel code,
+        .principle code,
+        .lede code,
+        .tag--mint,
+        .chip--designed {
+          color: var(--text);
+        }
+        .lede code {
+          background: var(--panel-2);
+          border-color: var(--line);
+        }
+        .stat .v.ok {
+          color: var(--mint);
+        }
+        .tag {
+          background: rgba(28, 76, 156, 0.07);
+          border-color: rgba(28, 76, 156, 0.24);
+        }
+        .tag--mint {
+          background: rgba(12, 107, 71, 0.07);
+          border-color: rgba(12, 107, 71, 0.24);
+        }
+        .reality {
+          background: rgba(122, 79, 0, 0.05);
+        }
+        .card {
+          background: var(--panel);
+          box-shadow: 0 1px 2px rgba(12, 19, 28, 0.04);
+        }
+        .card:hover {
+          box-shadow: 0 4px 14px -8px rgba(12, 19, 28, 0.25);
+        }
+        .step,
+        .principle {
+          background: var(--panel);
+        }
+        .step code {
+          background: var(--panel-2);
+        }
+        .command {
+          background: var(--panel);
+          box-shadow: 0 10px 30px -24px rgba(12, 19, 28, 0.5);
+        }
+        .eyebrow .dot {
+          box-shadow: 0 0 0 3px rgba(12, 107, 71, 0.16);
+        }
+      }
+
+      /* ── Responsive ────────────────────────────────────────────────────────── */
+      @media (max-width: 900px) {
+        .band {
+          grid-template-columns: minmax(0, 1fr);
+          gap: 12px;
+        }
+        .band-label {
+          position: static;
+          padding-top: 0;
+        }
+        .cards[data-cols='3'],
+        .cards[data-cols='4'] {
+          --cols: 2;
+        }
+        .card--wide,
+        .panel {
+          grid-column: span 2;
+        }
+        .phases ol {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+          row-gap: 12px;
+        }
+      }
+      @media (max-width: 640px) {
+        .cards {
+          --cols: 1;
+        }
+        .card--wide,
+        .panel {
+          grid-column: span 1;
+        }
+      }
+      @media (max-width: 560px) {
+        .nav a:not(.nav-keep) {
+          display: none;
+        }
+        .phases ol {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .command {
+          flex-wrap: wrap;
+        }
+        .command .grow {
+          flex-basis: 100%;
+          order: 3;
+        }
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation: none !important;
+          transition: none !important;
+        }
+        .card:hover {
+          transform: none;
+        }
+      }
+
+      @media (prefers-contrast: more) {
+        :root {
+          --muted: #b6c3d2;
+          --dim: #8b98a8;
+        }
+        .card,
+        .principle,
+        .step {
+          border-color: var(--line-strong);
+        }
+      }
+
+      noscript .copy {
+        display: none;
+      }
+    </style>
+  </head>
+
+  <body>
+    <a class="skip" href="#main">Skip to content</a>
+
+    <header class="site-header">
+      <div class="wrap">
+        <span class="brand">
+          <svg width="26" height="26" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <rect
+              x="1.15"
+              y="1.15"
+              width="23.7"
+              height="23.7"
+              rx="6.4"
+              stroke="#273243"
+              stroke-width="1.5"
+            />
+            <path d="M7.4 8.9h11.2" stroke="#7ee2b0" stroke-width="2.1" stroke-linecap="round" />
+            <path d="M13 8.9v8.4" stroke="#7ee2b0" stroke-width="2.1" stroke-linecap="round" />
+            <circle cx="18.6" cy="17.3" r="1.55" fill="#7aa2f7" />
+          </svg>
+          tsir
+          <span class="sub">v__TSIR_VERSION__</span>
+        </span>
+
+        <nav class="nav" aria-label="Primary">
+          <a href="#ecosystem">Ecosystem</a>
+          <a href="#principles">Principles</a>
+          <a href="#next-steps">Get started</a>
+          <a href="#status" class="nav-keep">Status</a>
+          <a href="#" aria-disabled="true" title="Documentation site ships in Phase 6">Docs</a>
+          <a href="#" aria-disabled="true" title="Examples ship with Phase 2">Examples</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main">
+      <!-- ── Hero ───────────────────────────────────────────────────────────── -->
+      <div class="hero">
+        <div class="wrap">
+          <span class="eyebrow"
+            ><span class="dot" aria-hidden="true"></span>pre-alpha · phase 0 — scaffolding</span
+          >
+
+          <h1>The backend framework that <span class="accent">shows its work.</span></h1>
+
+          <p class="lede">
+            Tsir is a <strong>strictly typed, backend-only TypeScript framework</strong> for Bun and
+            <strong>Cloudflare Workers</strong>. Decorator routing compiled into an immutable route
+            table, constructor injection with no global container,
+            <strong>Drizzle on D1</strong> (default) or PostgreSQL, versioned AES-256-GCM column
+            encryption that fails closed, and first-class <strong>Workers</strong> and
+            <strong>AWS Lambda</strong> deploy units. REST, gRPC, SOAP and WebSocket are part of the
+            same model, not bolt-ons.
+          </p>
+
+          <div class="command">
+            <span class="prompt" aria-hidden="true">$</span>
+            <span class="grow"><code id="cmd">make install &amp;&amp; make dev</code></span>
+            <button class="copy" type="button" data-copy="make install &amp;&amp; make dev">
+              copy
+            </button>
+          </div>
+
+          <div class="status-row" aria-label="Live environment">
+            <span class="stat"
+              ><span class="k">runtime</span><span class="v ok">bun __TSIR_BUN__</span></span
+            >
+            <span class="stat"><span class="k">env</span><span class="v">__TSIR_ENV__</span></span>
+            <span class="stat"
+              ><span class="k">port</span><span class="v">__TSIR_PORT__</span></span
+            >
+            <span class="stat"
+              ><span class="k">config</span><span class="v">tsir.js — loaded</span></span
+            >
+            <span class="stat"
+              ><span class="k">started</span><span class="v">__TSIR_STARTED_SHORT__</span></span
+            >
+          </div>
+
+          <div class="reality">
+            <svg width="17" height="17" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <circle cx="8" cy="8" r="6.9" stroke="#e6c07b" stroke-width="1.3" />
+              <path d="M8 4.6v4.1" stroke="#e6c07b" stroke-width="1.4" stroke-linecap="round" />
+              <circle cx="8" cy="11.2" r="0.85" fill="#e6c07b" />
+            </svg>
+            <p>
+              <strong>What exists today:</strong> the Makefile and dev server, the Phase 1 core —
+              <code>@tsir/container</code>, <code>@tsir/config</code>, <code>@tsir/core</code>,
+              <code>@tsir/validate</code> (on top of Zod), <code>@tsir/testing</code> — the
+              <code>tsir</code> CLI, and a generated <code>dist/</code> that boots, tree-shakes and
+              bundles for Workers and Lambda. There is an HTTP surface as of Phase 2, a D1 driver
+              and Postgres as of Phase 3, encryption as of Phase 4, and a deploy adapter and
+              per-unit emitter as of Phase 6 — but nothing has been deployed to Workers or Lambda,
+              so a bundle on disk is not a deployment guarantee.
+              <strong>No package is published to npm</strong>, and the only numbers on this page are
+              the measured bundle sizes below — not benchmarks. Each card links to the design
+              document that governs it and is tagged with the phase that will build it.
+            </p>
+          </div>
+
+          <div class="phases" aria-label="Roadmap phases">
+            <ol>
+              <li data-done="true"><span class="n">P0</span>Scaffold</li>
+              <li data-active="true"><span class="n">P1</span>Core &amp; DI</li>
+              <li><span class="n">P2</span>HTTP</li>
+              <li><span class="n">P3</span>Database</li>
+              <li><span class="n">P4</span>Vault</li>
+              <li><span class="n">P5</span>Link</li>
+              <li><span class="n">P6</span>Deploy</li>
+              <li><span class="n">P7</span>Capabilities</li>
+              <li><span class="n">P8</span>Release</li>
+            </ol>
+          </div>
+
+          <div class="sizes" aria-label="Measured bundle sizes">
+            <div class="size">
+              <span class="label">token only</span>
+              <span class="value">__TSIR_SIZE_TOKEN__</span>
+              <span class="what">one symbol from @tsir/container</span>
+            </div>
+            <div class="size">
+              <span class="label">core only</span>
+              <span class="value">__TSIR_SIZE_CORE__</span>
+              <span class="what">lifecycle, no validator imported</span>
+            </div>
+            <div class="size">
+              <span class="label">http app</span>
+              <span class="value">__TSIR_SIZE_HTTP__</span>
+              <span class="what">router + pipeline, no validator</span>
+            </div>
+            <div class="size">
+              <span class="label">config only</span>
+              <span class="value">__TSIR_SIZE_CONFIG__</span>
+              <span class="what">validated tsir.js, via zod/mini</span>
+            </div>
+            <div class="size">
+              <span class="label">workers app</span>
+              <span class="value">__TSIR_SIZE_EDGE__</span>
+              <span class="what">core + config + validate/mini</span>
+            </div>
+            <div class="size">
+              <span class="label">workers app + zod</span>
+              <span class="value">__TSIR_SIZE_EDGE_ZOD__</span>
+              <span class="what">same app, full zod for request bodies</span>
+            </div>
+            <div class="size">
+              <span class="label">lambda app</span>
+              <span class="value">__TSIR_SIZE_LAMBDA__</span>
+              <span class="what">core + config, node target</span>
+            </div>
+          </div>
+          <p class="sizes-note">
+            minified, measured by <code>make verify-dist</code> against the built
+            <code>dist/</code> — not estimates.
+          </p>
+        </div>
+      </div>
+
+      <div class="rule" role="presentation"></div>
+
+      <!-- ── Ecosystem ──────────────────────────────────────────────────────── -->
+      <section id="ecosystem" aria-labelledby="ecosystem-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="ecosystem-title">The ecosystem</h2>
+            <p class="note">Every card is a package boundary and an ownership boundary.</p>
+            <div class="legend" aria-label="Status legend">
+              <span class="l-designed"><i aria-hidden="true"></i>designed — spec written</span>
+              <span class="l-planned"><i aria-hidden="true"></i>planned — not designed yet</span>
+            </div>
+          </div>
+
+          <!-- Foundation -->
+          <div class="band">
+            <div class="band-label">Foundation<span class="count">4 packages · P1–P2</span></div>
+            <div class="cards" data-cols="4">
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="1"
+                data-src="src/framework/core"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/core</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  Application lifecycle, module registry, error model, typed manifest. Deliberately
+                  small — and never a service locator.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/core</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="1"
+                data-src="src/framework/container"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/container</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  Explicit DI: branded tokens, singleton/transient/scoped lifetimes, cycle
+                  diagnostics, test overrides, ordered disposal.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/container</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="1"
+                data-src="src/framework/config"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/config</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  Validated environment schema, secret redaction, all-issues-at-once boot reports,
+                  and the tsir.js project loader.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/config</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="partial"
+                data-phase="2"
+                data-src="src/framework/validate"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/validate</span><span class="phase-tag">P1–P2</span>
+                </div>
+                <p class="purpose">
+                  Standard Schema at every trust boundary. Zod 4 by default, with
+                  <code>@tsir/validate/mini</code> for size-critical Workers — Valibot or ArkType
+                  without touching framework code. HTTP-shaped helpers (<code>IntParam</code>,
+                  <code>PageQuery</code>, <code>SortQuery</code>) ship at
+                  <code>@tsir/validate/http</code>; multipart helpers are still to come.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/validate</span
+                  ><span class="state">partial</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- HTTP -->
+          <div class="band">
+            <div class="band-label">HTTP<span class="count">3 packages · P1–P2</span></div>
+            <div class="cards" data-cols="3">
+              <article
+                class="card"
+                data-status="partial"
+                data-phase="2"
+                data-src="src/framework/router"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/router</span><span class="phase-tag">P2</span>
+                </div>
+                <p class="purpose">
+                  Standard ECMAScript decorators write immutable metadata; a compile step turns it
+                  into a sorted route table with a segment-trie matcher. Duplicate and ambiguous
+                  paths fail the build. Route codegen into <code>routes.gen.ts</code> is not written
+                  yet — the table is compiled from the registry at boot.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/router</span
+                  ><span class="state">partial</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="partial"
+                data-phase="2"
+                data-src="src/framework/http"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/http</span><span class="phase-tag">P2</span>
+                </div>
+                <p class="purpose">
+                  Web-standard request pipeline: binders, middleware, guards, policies, timeouts,
+                  RFC 9457 problems, JSON depth and prototype-pollution guards. An OpenAPI 3.1
+                  document is generated from the route table at
+                  <code>@tsir/http/openapi</code> — in its own entry point, so apps that never
+                  publish a spec never bundle Zod for it. Still to come: multipart, streaming
+                  request bodies, response contracts.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/http</span><span class="state">partial</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="1"
+                data-src="src/framework/console"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/console</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  The <code>tsir</code> CLI: dev, doctor, generators, migrate, seed, vault, deploy.
+                  Generators produce strict code only.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/console</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Data -->
+          <div class="band">
+            <div class="band-label">
+              Data &amp; secrets<span class="count">4 packages · P3–P4</span>
+            </div>
+            <div class="cards" data-cols="4">
+              <article
+                class="card"
+                data-status="partial"
+                data-phase="3"
+                data-src="src/framework/database"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/database</span><span class="phase-tag">P3</span>
+                </div>
+                <p class="purpose">
+                  Drizzle as the ORM, untouched. Tsir adds a driver contract with declared
+                  capabilities, atomic <code>batch()</code> writes, health and bounded disposal. D1
+                  and Postgres are both real and tested — real transactions on Postgres, an honest
+                  refusal on D1 — with redacted query logging, optimistic writes, pinned connections
+                  and a per-suite test database. The column-codec seam waits for
+                  <code>@tsir/vault</code> to supply the envelope.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/database</span
+                  ><span class="state">partial</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="3"
+                data-src="src/framework/migrate"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/migrate</span><span class="phase-tag">P3</span>
+                </div>
+                <p class="purpose">
+                  Drizzle's journal stays authoritative. The advisory lock is pinned to the
+                  connection that runs the DDL, drift is refused before the first statement, each
+                  migration declares its own transaction policy, and rollback needs a down file, a
+                  flag and a typed name.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/migrate</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="3"
+                data-src="src/framework/seed"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/seed</span><span class="phase-tag">P3</span>
+                </div>
+                <p class="purpose">
+                  Deterministic seeders with injected clock and RNG. Ordering ties are an error
+                  before the first insert, declared idempotency is enforced by a run-twice harness,
+                  and production runs only reference data that opted in.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/seed</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="partial"
+                data-phase="4"
+                data-src="src/framework/vault"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/vault</span><span class="phase-tag">P4</span>
+                </div>
+                <p class="purpose">
+                  Versioned AES-256-GCM envelopes with key ids, AAD column binding, and a resumable
+                  rotation state machine.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/vault</span
+                  ><span class="state">partial</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Interop -->
+          <div class="band">
+            <div class="band-label">Interop<span class="count">1 package · 4 protocols</span></div>
+            <div class="cards" data-cols="4">
+              <article
+                class="card card--wide"
+                data-status="partial"
+                data-phase="5"
+                data-src="src/framework/link"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/link</span><span class="phase-tag">P5</span>
+                </div>
+                <p class="purpose">
+                  Typed service-to-service invocation. One <code>CallContext</code> — deadlines,
+                  cancellation, retries with idempotency, circuit breaking — across every protocol
+                  and target.
+                </p>
+                <div class="tags">
+                  <span class="tag">rest</span>
+                  <span class="tag">grpc</span>
+                  <span class="tag">soap</span>
+                  <span class="tag">ws</span>
+                </div>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/link</span><span class="state">partial</span>
+                </div>
+              </article>
+
+              <aside class="panel">
+                <h3>Why one package, four entrypoints</h3>
+                <p>
+                  Sixty percent of interop code is the hard, shared part: deadlines, cancellation,
+                  retry budgets, credentials, tracing, error normalization. Four packages would mean
+                  four implementations — or a fifth package that does the work anyway.
+                </p>
+                <ul>
+                  <li>
+                    <code>/soap</code> compiled from WSDL at build time — no runtime schema fetches
+                  </li>
+                  <li>gRPC on Bun and Lambda; Workers documented as unsupported, not faked</li>
+                  <li>WebSocket frames validated against a discriminated union</li>
+                </ul>
+              </aside>
+            </div>
+          </div>
+
+          <!-- Deploy -->
+          <div class="band">
+            <div class="band-label">Deploy<span class="count">config + package · P1–P6</span></div>
+            <div class="cards" data-cols="2">
+              <article
+                class="card card--wide"
+                data-status="partial"
+                data-phase="6"
+                data-src="src/framework/deploy"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/deploy</span><span class="phase-tag">P6</span>
+                </div>
+                <p class="purpose">
+                  One application, many units. The graph is resolved, validated and
+                  <strong>committed</strong>: default topology is separation, and every unit is
+                  checked against the target's capabilities and bindings before anything is built.
+                  One bundle per unit is emitted for Workers and Lambda, with a per-unit
+                  <code>wrangler.*.toml</code>; nothing is deployed from here yet.
+                </p>
+                <div class="tags">
+                  <span class="tag tag--mint">separate units</span>
+                  <span class="tag">unit-graph.json</span>
+                  <span class="tag">deploy:plan · build · validate</span>
+                </div>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/deploy</span
+                  ><span class="state">partial</span>
+                </div>
+              </article>
+
+              <article
+                class="card card--wide"
+                data-status="designed"
+                data-phase="1"
+                data-src="src/apps/examples/minimal/tsir.js"
+              >
+                <div class="card-top">
+                  <span class="pkg">tsir.js</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  One project contract for http, console and deploy. Managed regions let
+                  <code>tsir bootstrap</code> write the deploy block without ever touching your
+                  code; presets and the managed manifest are next. Secrets never live here.
+                </p>
+                <div class="tags">
+                  <span class="tag">preset.standard()</span>
+                  <span class="tag">managed regions</span>
+                  <span class="tag">bootstrap --plan</span>
+                </div>
+                <div class="card-foot">
+                  <span class="src-path">src/apps/examples/minimal/tsir.js</span
+                  ><span class="state">designed</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Operations -->
+          <div class="band">
+            <div class="band-label">Operations<span class="count">2 packages · P1–P7</span></div>
+            <div class="cards" data-cols="2">
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="7"
+                data-src="src/framework/pulse"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/pulse</span><span class="phase-tag">P7</span>
+                </div>
+                <p class="purpose">
+                  Structured logs with three-layer redaction and one summary line for a storm,
+                  OpenTelemetry-compatible metrics with a cardinality guard, sampled spans, and
+                  readiness that can say <em>degraded</em> without pulling a healthy instance.
+                </p>
+                <div class="tags">
+                  <span class="tag">Redacted&lt;T&gt;</span>
+                  <span class="tag">ecs · otlp-json</span>
+                  <span class="tag">traceparent</span>
+                  <span class="tag">degraded</span>
+                </div>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/pulse</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+
+              <article
+                class="card"
+                data-status="implemented"
+                data-phase="1"
+                data-src="src/framework/testing"
+              >
+                <div class="card-top">
+                  <span class="pkg">@tsir/testing</span><span class="phase-tag">P1</span>
+                </div>
+                <p class="purpose">
+                  Boots the real application, not a test-only path: DI overrides, in-process HTTP,
+                  isolated Miniflare D1 or ephemeral Postgres, fixed clock, seeded RNG.
+                </p>
+                <div class="card-foot">
+                  <span class="src-path">src/framework/testing</span
+                  ><span class="state">implemented</span>
+                </div>
+              </article>
+            </div>
+          </div>
+
+          <!-- Capabilities -->
+          <div class="band">
+            <div class="band-label">Capabilities<span class="count">9 modules · P7</span></div>
+            <div class="chips">
+              <span class="chip">@tsir/auth</span>
+              <span class="chip">@tsir/policy</span>
+              <span class="chip">@tsir/cache</span>
+              <span class="chip">@tsir/queue</span>
+              <span class="chip">@tsir/events</span>
+              <span class="chip">@tsir/schedule</span>
+              <span class="chip">@tsir/mail</span>
+              <span class="chip">@tsir/notify</span>
+              <span class="chip">@tsir/storage</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="rule" role="presentation"></div>
+
+      <!-- ── Principles ─────────────────────────────────────────────────────── -->
+      <section id="principles" aria-labelledby="principles-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="principles-title">What Tsir refuses to do</h2>
+            <p class="note">Four rules that survive every refactor.</p>
+          </div>
+
+          <div class="principles">
+            <div class="principle">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <rect
+                  x="1.5"
+                  y="1.5"
+                  width="7"
+                  height="7"
+                  rx="2"
+                  stroke="#7ee2b0"
+                  stroke-width="1.4"
+                />
+                <rect
+                  x="11.5"
+                  y="11.5"
+                  width="7"
+                  height="7"
+                  rx="2"
+                  stroke="#7ee2b0"
+                  stroke-width="1.4"
+                />
+                <path
+                  d="M8.5 5h4.5a2 2 0 0 1 2 2v4.5"
+                  stroke="#7aa2f7"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <h3>No global service locator</h3>
+              <p>
+                Dependencies arrive through constructors from a container built at bootstrap. There
+                is no well-known symbol for a compromised dependency to reach.
+              </p>
+            </div>
+
+            <div class="principle">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M3 6.5h14M3 13.5h9"
+                  stroke="#7ee2b0"
+                  stroke-width="1.5"
+                  stroke-linecap="round"
+                />
+                <circle cx="14.5" cy="13.5" r="2.2" stroke="#7aa2f7" stroke-width="1.4" />
+              </svg>
+              <h3>No reflection on the request path</h3>
+              <p>
+                Routes, providers, listeners and jobs compile into immutable registries. Production
+                boot consumes data; it does not scan classes.
+              </p>
+            </div>
+
+            <div class="principle">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <rect
+                  x="3"
+                  y="8.6"
+                  width="14"
+                  height="8.4"
+                  rx="2.2"
+                  stroke="#7ee2b0"
+                  stroke-width="1.4"
+                />
+                <path
+                  d="M6.6 8.6V6.2a3.4 3.4 0 0 1 6.8 0v2.4"
+                  stroke="#7aa2f7"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+                <circle cx="10" cy="12.8" r="1.1" fill="#7ee2b0" />
+              </svg>
+              <h3>No silent crypto fallbacks</h3>
+              <p>
+                Every encrypted value carries a versioned envelope and a key id. Missing keys,
+                tampered tags, malformed input — all fail closed, loudly.
+              </p>
+            </div>
+
+            <div class="principle">
+              <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path
+                  d="M4 4.5v11M16 4.5v11"
+                  stroke="#7aa2f7"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+                <path d="M7.5 7.5h5v5h-5z" stroke="#7ee2b0" stroke-width="1.4" />
+                <path
+                  d="M4 10h3.5M12.5 10H16"
+                  stroke="#7ee2b0"
+                  stroke-width="1.4"
+                  stroke-linecap="round"
+                />
+              </svg>
+              <h3>No ambient transactions</h3>
+              <p>
+                A transaction is a scoped handle you pass explicitly. No hidden context that
+                silently enrolls queries you did not intend to run.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="rule" role="presentation"></div>
+
+      <!-- ── Next steps ─────────────────────────────────────────────────────── -->
+      <section id="next-steps" aria-labelledby="steps-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="steps-title">Start here</h2>
+            <p class="note">Every command below runs in this repository today.</p>
+          </div>
+
+          <div class="steps">
+            <div class="step">
+              <h3>Boot the environment</h3>
+              <p>
+                Installs workspace dependencies, stops anything this repo previously started, then
+                serves this page.
+              </p>
+              <code>make install</code>
+              <code>make dev</code>
+            </div>
+
+            <div class="step">
+              <h3>Check your machine</h3>
+              <p>
+                Bun version floor, dependencies, workspace config, stale dev records, and whether
+                the port is free.
+              </p>
+              <code>make doctor</code>
+              <code>make check</code>
+            </div>
+
+            <div class="step">
+              <h3>Read the source</h3>
+              <p>
+                Each module is done only when its failure modes are tested, not when the happy path
+                works — and every package README says what it does not do.
+              </p>
+              <code>src/framework/README.md</code>
+              <code>status.json</code>
+            </div>
+
+            <div class="step">
+              <h3>Shape the deploy</h3>
+              <p>
+                Units, topology, and the project contract: how one codebase becomes a worker, a
+                lambda, a server — or all of them.
+              </p>
+              <code>src/framework/deploy</code>
+              <code>src/apps/examples/minimal/tsir.js</code>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="rule" role="presentation"></div>
+
+      <!-- ── Status ─────────────────────────────────────────────────────────── -->
+      <section id="status" aria-labelledby="status-title">
+        <div class="wrap">
+          <div class="section-head">
+            <h2 id="status-title">Runtime status</h2>
+            <p class="note">Injected by the dev server on every request — not hard-coded.</p>
+          </div>
+
+          <div class="status-row">
+            <span class="stat"
+              ><span class="k">tsir</span><span class="v">v__TSIR_VERSION__</span></span
+            >
+            <span class="stat"><span class="k">bun</span><span class="v">__TSIR_BUN__</span></span>
+            <span class="stat"
+              ><span class="k">node</span><span class="v">__TSIR_NODE__</span></span
+            >
+            <span class="stat"><span class="k">os</span><span class="v">__TSIR_OS__</span></span>
+            <span class="stat"><span class="k">env</span><span class="v">__TSIR_ENV__</span></span>
+            <span class="stat"
+              ><span class="k">port</span><span class="v">__TSIR_PORT__</span></span
+            >
+            <span class="stat"
+              ><span class="k">health</span><span class="v ok">/__tsir/health</span></span
+            >
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <div class="wrap">
+        <span class="brand">
+          <svg width="18" height="18" viewBox="0 0 26 26" fill="none" aria-hidden="true">
+            <rect
+              x="1.15"
+              y="1.15"
+              width="23.7"
+              height="23.7"
+              rx="6.4"
+              stroke="#273243"
+              stroke-width="1.5"
+            />
+            <path d="M7.4 8.9h11.2" stroke="#7ee2b0" stroke-width="2.1" stroke-linecap="round" />
+            <path d="M13 8.9v8.4" stroke="#7ee2b0" stroke-width="2.1" stroke-linecap="round" />
+            <circle cx="18.6" cy="17.3" r="1.55" fill="#7aa2f7" />
+          </svg>
+          tsir
+        </span>
+
+        <span class="footer-meta">
+          <span><b>v__TSIR_VERSION__</b></span>
+          <span>bun <b>__TSIR_BUN__</b></span>
+          <span>node <b>__TSIR_NODE__</b></span>
+          <span><b>__TSIR_OS__</b></span>
+          <span>started <b>__TSIR_STARTED__</b></span>
+        </span>
+
+        <span class="footer-note"
+          >MIT licensed · one file · no external requests · no frontend framework</span
+        >
+      </div>
+    </footer>
+
+    <script>
+      // Copy-to-clipboard for command blocks. Progressive enhancement only:
+      // without JS the button is hidden by <noscript> styling and the command
+      // remains selectable text.
+      (() => {
+        const buttons = document.querySelectorAll('button.copy');
+        for (const button of buttons) {
+          button.addEventListener('click', async () => {
+            const value = button.getAttribute('data-copy') ?? '';
+            try {
+              await navigator.clipboard.writeText(value);
+              button.dataset.copied = 'true';
+              button.textContent = 'copied';
+              setTimeout(() => {
+                button.dataset.copied = 'false';
+                button.textContent = 'copy';
+              }, 1400);
+            } catch {
+              // Clipboard is unavailable (sandboxed iframe, insecure context):
+              // fall back to selecting the command so the user can copy manually.
+              const target = button.parentElement?.querySelector('code');
+              if (target !== null && target !== undefined) {
+                const range = document.createRange();
+                range.selectNodeContents(target);
+                const selection = window.getSelection();
+                selection?.removeAllRanges();
+                selection?.addRange(range);
+              }
+              button.textContent = 'select + ⌘C';
+              setTimeout(() => {
+                button.textContent = 'copy';
+              }, 2000);
+            }
+          });
+        }
+      })();
+    </script>
+
+    <noscript>
+      <style>
+        .copy {
+          display: none !important;
+        }
+      </style>
+    </noscript>
+  </body>
+</html>

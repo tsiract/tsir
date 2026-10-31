@@ -1,0 +1,7 @@
+version: v2
+plugins:
+  # The generator is a devDependency of @tsir/link, invoked by path so CI does not need a
+  # global install. Generated code is committed; `make proto-check` proves it is current.
+  - local: ./src/framework/link/node_modules/.bin/protoc-gen-es
+    out: src/framework/link/src/contracts
+    opt: target=ts

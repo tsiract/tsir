@@ -1,0 +1,57 @@
+{
+  "name": "tsir",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Tsir — a strictly typed, backend-only TypeScript framework for Bun. Monorepo root.",
+  "license": "MIT",
+  "type": "module",
+  "workspaces": [
+    "src/framework/*",
+    "src/apps/frontpage",
+    "src/apps/examples/*"
+  ],
+  "engines": {
+    "bun": ">=1.2.0",
+    "node": ">=21"
+  },
+  "scripts": {
+    "dev": "bun src/tools/dev.ts",
+    "kill": "bash src/tools/kill-dev.sh",
+    "typecheck": "bun x tsc --noEmit -p tsconfig.json",
+    "lint": "bun x eslint .",
+    "format": "bun x prettier --write .",
+    "format:check": "bun x prettier --check .",
+    "test": "bun test",
+    "check": "bun run typecheck && bun run lint && bun run boundaries && bun run frontpage && bun run license && bun run deps && bun run links && bun run surface && bun run version && bun run format:check",
+    "prettier:check": "prettier --check .",
+    "tsir": "bun src/framework/console/src/cli.ts",
+    "boundaries": "bun src/tools/check-boundaries.ts",
+    "test:watch": "bun test --watch",
+    "coverage": "bun src/tools/coverage-gate.ts src/framework/cache src/framework/queue src/framework/events src/framework/schedule src/framework/storage src/framework/mail src/framework/notify src/framework/policy src/framework/auth src/framework/pulse src/framework/container src/framework/config src/framework/core src/framework/database src/framework/deploy src/framework/migrate src/framework/seed src/framework/router src/framework/http src/framework/validate src/framework/vault src/framework/link",
+    "frontpage": "bun src/tools/check-frontpage.ts",
+    "license": "bun src/tools/check-license.ts",
+    "dist": "bun src/tools/dist.ts",
+    "deps": "bun src/tools/check-deps.ts",
+    "verify-dist": "bun src/tools/verify-dist.ts",
+    "links": "bun src/tools/check-links.ts",
+    "surface": "bun src/tools/api-surface.ts",
+    "version": "bun src/tools/version.ts check",
+    "changeset": "bun src/tools/version.ts changeset",
+    "bench": "bun src/tools/bench.ts",
+    "new-package": "bun src/tools/new-package.ts",
+    "test:integration": "bun src/tools/test-integration.ts",
+    "prepare": "bun src/tools/install-hooks.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "eslint": "9.39.5",
+    "marked": "18.1.2",
+    "prettier": "3.9.10",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "8.72.1"
+  },
+  "dependencies": {
+    "zod": "4.6.7"
+  },
+  "packageManager": "bun@1.4.4"
+}

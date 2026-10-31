@@ -1,0 +1,40 @@
+## Example
+
+Declare an event, attach a listener, and dispatch the event. The listener is declared `sync`, so it
+runs inline. A listener that names no mode is `queued`, and needs a queue to be bound.
+
+```ts
+import { createEvents, defineEvent, defineListener } from '@tsir/events';
+
+const OrderPlaced = defineEvent<{ orderId: string }>({ name: 'order.placed' });
+
+const AuditOrder = defineListener(OrderPlaced, {
+  name: 'audit-order',
+  mode: 'sync',
+  handle: ({ payload }) => {
+    console.log('audited', payload.orderId);
+  },
+});
+
+const events = createEvents({ listeners: [AuditOrder] });
+await events.dispatch(OrderPlaced, { orderId: 'o-1' });
+```
+
+## Failure modes
+
+- `CAP_UNKNOWN_EVENT`: an event was dispatched that was never declared. An undeclared event is refused,
+  so nothing is delivered silently.
+- `CAP_EVENT_FAILED`: one or more `sync` listeners threw. Every failing listener is named in the
+  error. A failing sync listener stops the dispatch before any queued listener is queued.
+- `CAP_EVENTS_NO_QUEUE`: a listener is `queued`, but no queue is bound to the events instance. The
+  check runs before any sync listener does.
+- `CAP_EVENTS_SYNC_OUTBOXED`: a `sync` listener is attached to an event that is published through the
+  outbox. The outbox publishes after commit, so every listener on that event must be `queued`.
+- `CAP_OUTBOX_WRITE_FAILED`: the outbox row could not be written. The business write must roll back
+  with it, so the event is not lost and the write is not committed without its deliveries.
+
+## Security notes
+
+A queued listener is at-least-once, and it carries an idempotency key, so a listener that runs twice
+for one event does no harm to its data. Delivery is not exactly-once, and no test can make it so.
+Keep the payload to identifiers: it is written to the outbox and, for queued listeners, to the queue.
