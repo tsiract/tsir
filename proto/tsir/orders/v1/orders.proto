@@ -1,0 +1,36 @@
+// The contract the gRPC adapter is developed and conformance-tested against.
+//
+// It lives in this repository rather than in a service because `@tsir/link/grpc` has to
+// prove three things that a hand-written binary fixture cannot: that generation works,
+// that the generated descriptor drives a real client and a real server, and that a
+// renamed field breaks loudly instead of silently.
+syntax = "proto3";
+
+package tsir.orders.v1;
+
+message GetOrderRequest {
+  string id = 1;
+}
+
+message ListOrdersRequest {
+  // Empty means "any status".
+  string status = 1;
+  int32 limit = 2;
+}
+
+message Order {
+  string id = 1;
+  string status = 2;
+  int64 total_cents = 3;
+}
+
+service OrderService {
+  // A plain unary call: the shape almost every service starts with.
+  rpc GetOrder(GetOrderRequest) returns (Order);
+
+  // A server stream: proves the adapter maps `methodKind` instead of assuming unary.
+  rpc ListOrders(ListOrdersRequest) returns (stream Order);
+
+  // An unsafe, mutating call: retry policy must refuse it without an idempotency key.
+  rpc CreateOrder(Order) returns (Order);
+}

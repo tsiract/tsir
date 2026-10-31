@@ -1,0 +1,31 @@
+{
+  "runtime": "bun 1.4.4",
+  "platform": "linux-x64",
+  "benchmarks": [
+    {
+      "name": "router: match a parameterised path (30 routes)",
+      "nsPerOp": 618.975034688372,
+      "opsPerSecond": 1615574.0441186905
+    },
+    {
+      "name": "router: compile 30 routes",
+      "nsPerOp": 107436.47538048343,
+      "opsPerSecond": 9307.825824130274
+    },
+    {
+      "name": "config: load and validate 4 fields",
+      "nsPerOp": 822.9276098778639,
+      "opsPerSecond": 1215173.713941153
+    },
+    {
+      "name": "container: resolve a singleton",
+      "nsPerOp": 52.53839418154816,
+      "opsPerSecond": 19033699.365543354
+    },
+    {
+      "name": "core: hash a module manifest",
+      "nsPerOp": 1199.9810803783923,
+      "opsPerSecond": 833346.4721666012
+    }
+  ]
+}

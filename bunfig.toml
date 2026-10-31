@@ -1,0 +1,21 @@
+# Bun configuration — https://bun.sh/docs/runtime/bunfig
+#
+# Tsir uses Bun for install, test, and bundling. Keep this file minimal and
+# intentional: every key here changes developer or CI behavior.
+
+[install]
+# Exact versions in CI; faster, reproducible installs everywhere.
+exact = true
+# The package cache is redirected by `BUN_INSTALL_CACHE_DIR`, exported from the
+# Makefile. `[install] cacheDirectory` is *not* honoured by Bun 1.4.4 — verified:
+# `bun pm cache` still reports `$HOME/.bun/install/cache` with it set — so it is
+# not configured here rather than configured and silently ignored. When the
+# project is also `$HOME` (sandboxes, container images) the default writes ~100 MB
+# into the tree; `make clean-cache` removes it either way.
+
+[test]
+# Refuses unit-test network calls to hosts other than loopback (TST-008).
+preload = ["./src/tools/test-preload.ts"]
+# Coverage gates are enforced per package by CI (TST-007).
+coverageReporter = ["text", "lcov"]
+coverageSkipTestFiles = true

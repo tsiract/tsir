@@ -1,0 +1,31 @@
+{
+  "name": "@tsir/mail",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/mail \u2014 compose and send mail over one transport port: typed templates with an explicit escaping boundary, no implicit queuing, and a log transport that refuses to boot in production.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/transports/memory.ts",
+      "default": "./src/transports/memory.ts"
+    },
+    "./smtp": {
+      "types": "./src/transports/smtp.ts",
+      "default": "./src/transports/smtp.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/storage": "workspace:*"
+  }
+}

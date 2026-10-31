@@ -1,0 +1,19 @@
+{
+  "name": "@tsir/events",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "@tsir/events \u2014 typed events and the transactional outbox: a listener runs inline or as a job, and a queued delivery is written in the same batch as the write that caused it.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/queue": "workspace:*"
+  }
+}

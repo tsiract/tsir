@@ -1,0 +1,71 @@
+{
+  "schemaVersion": 1,
+  "app": "http-example",
+  "topology": "separate",
+  "targets": [],
+  "merged": [],
+  "units": [
+    {
+      "name": "http",
+      "kind": "http",
+      "private": false,
+      "modules": ["users"],
+      "requires": [],
+      "triggers": [
+        {
+          "kind": "http",
+          "detail": [
+            "DELETE /api/users/:id",
+            "GET /api/users",
+            "GET /api/users/:id",
+            "GET /api/users/:id/profile",
+            "POST /api/users"
+          ]
+        }
+      ],
+      "bindings": [],
+      "reasons": [
+        {
+          "source": "routes",
+          "from": "DELETE /api/users/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users/:id/profile"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/users"
+        }
+      ]
+    },
+    {
+      "name": "media",
+      "kind": "http",
+      "private": false,
+      "modules": ["media"],
+      "requires": [],
+      "triggers": [
+        {
+          "kind": "http",
+          "detail": ["POST /api/uploads"]
+        }
+      ],
+      "bindings": [],
+      "reasons": [
+        {
+          "source": "routes",
+          "from": "POST /api/uploads"
+        }
+      ]
+    }
+  ]
+}

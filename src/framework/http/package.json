@@ -1,0 +1,33 @@
+{
+  "name": "@tsir/http",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Web-standard request pipeline: matching, bindings, validation, guards, policies, serialization, problem responses. No node: or bun: imports outside the adapter subpaths.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./bun": {
+      "types": "./src/bun.ts",
+      "default": "./src/bun.ts"
+    },
+    "./openapi": {
+      "types": "./src/openapi.ts",
+      "default": "./src/openapi.ts"
+    },
+    "./multipart": {
+      "types": "./src/multipart.ts",
+      "default": "./src/multipart.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  }
+}

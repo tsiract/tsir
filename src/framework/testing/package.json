@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/testing",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Test harness for Tsir applications: boots the real app, deterministic clock and randomness, typed assertions.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./database": {
+      "types": "./src/database.ts",
+      "default": "./src/database.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/database": "workspace:*",
+    "@tsir/router": "workspace:*"
+  }
+}

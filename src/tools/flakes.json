@@ -1,0 +1,4 @@
+{
+  "$comment": "Quarantined flaky tests (TST-018). Each entry needs a test name, an owner, the date it was quarantined, and the reason. An entry older than 7 days fails `make flakes`, and so fails `make check`. Remove the entry when the test is fixed.",
+  "quarantined": []
+}

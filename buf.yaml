@@ -1,0 +1,17 @@
+version: v2
+modules:
+  - path: proto
+lint:
+  use:
+    - STANDARD
+  except:
+    # These three rules exist so that generated client method names read like the RPC.
+    # This repository's contract is consumed through our own adapter, and `Order` is the
+    # message on the wire for reads, streams and writes — wrapping it in
+    # `GetOrderResponse { order }` would add a layer nobody dereferences.
+    - RPC_REQUEST_STANDARD_NAME
+    - RPC_RESPONSE_STANDARD_NAME
+    - RPC_REQUEST_RESPONSE_UNIQUE
+breaking:
+  use:
+    - FILE

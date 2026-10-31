@@ -1,0 +1,34 @@
+{
+  "name": "@tsir/database",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "D1-first database layer: a thin driver contract with explicit capabilities, Drizzle-bound queries, atomic batch writes, health and disposal. Postgres is a subpath with an application-supplied client (ADR-0009). No ORM of its own.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./postgres": {
+      "types": "./src/postgres.ts",
+      "default": "./src/postgres.ts"
+    },
+    "./postgres/drizzle": {
+      "types": "./src/postgres/drizzle.ts",
+      "default": "./src/postgres/drizzle.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/validate": "workspace:*",
+    "@tsir/vault": "workspace:*",
+    "drizzle-orm": "0.45.4"
+  },
+  "devDependencies": {
+    "postgres": "3.4.7"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@tsir/config",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Typed, validated, redacted configuration. Field schemas are Zod schemas re-exported through @tsir/validate, so the workspace has exactly one validator.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  }
+}

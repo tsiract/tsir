@@ -1,0 +1,22 @@
+{
+  "name": "@tsir/router",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Decorator-driven route declaration compiled into an immutable route table. Standard ECMAScript decorators only \u2014 no parameter decorators, no design:type, no per-request reflection.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": [
+    "./src/decorators.ts"
+  ],
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  }
+}

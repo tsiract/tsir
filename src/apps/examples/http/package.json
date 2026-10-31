@@ -1,0 +1,24 @@
+{
+  "name": "@tsir/example-http",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "A working HTTP application: decorators, validators, guards, and a fetch handler. The reference for Phase 2.",
+  "scripts": {
+    "route:list": "tsir route:list",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsir/console": "workspace:*",
+    "@tsir/testing": "workspace:*"
+  }
+}

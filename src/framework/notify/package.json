@@ -1,0 +1,28 @@
+{
+  "name": "@tsir/notify",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Notifications over channels: mail, database inbox and webhooks, queued by default, with nothing expensive enabled by default.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./memory": {
+      "types": "./src/channels/memory.ts",
+      "default": "./src/channels/memory.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/mail": "workspace:*",
+    "@tsir/queue": "workspace:*"
+  }
+}

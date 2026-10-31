@@ -1,0 +1,34 @@
+## Example
+
+Define a command with a name and a summary, register it, and run it through the CLI. The command's
+exit code is the value the CLI returns.
+
+```ts
+import { defineCommand, registerCommands, runCli } from '@tsir/console';
+
+const hello = defineCommand({
+  name: 'hello:world',
+  summary: 'Print a greeting',
+  run: async () => {
+    console.log('hello');
+    return 0;
+  },
+});
+
+registerCommands([hello]);
+console.log(await runCli(['hello:world']));
+```
+
+## Failure modes
+
+- `CLI_WSDL_INVALID`: the WSDL file given to the SOAP client generator is invalid. The message gives the
+  reason. The generator refuses rather than writing a client that cannot work.
+- A command name that does not match the naming rule (lowercase words joined by `:` or `-`) is refused
+  when it is defined, and the error is a usage error, so the CLI prints the usage and exits.
+- An unknown command name is a usage error, which exits with code 2.
+
+## Security notes
+
+A command runs with the rights of the user who runs it, so it does not add rights of its own. Commands
+are defined in code and registered explicitly, so a command cannot be added by a file that happens to sit
+in the project. Output is written to the terminal, so a command should not print secrets it was given.

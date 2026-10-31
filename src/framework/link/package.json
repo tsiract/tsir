@@ -1,0 +1,47 @@
+{
+  "name": "@tsir/link",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Service-to-service calls over REST, gRPC, SOAP and WebSocket, sharing one CallContext.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./rest": {
+      "types": "./src/rest.ts",
+      "default": "./src/rest.ts"
+    },
+    "./ws": {
+      "types": "./src/ws.ts",
+      "default": "./src/ws.ts"
+    },
+    "./grpc": {
+      "types": "./src/grpc.ts",
+      "default": "./src/grpc.ts"
+    },
+    "./contracts/*": {
+      "types": "./src/contracts/*.ts",
+      "default": "./src/contracts/*.ts"
+    },
+    "./soap": {
+      "types": "./src/soap.ts",
+      "default": "./src/soap.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@bufbuild/protobuf": "2.16.0",
+    "@grpc/grpc-js": "1.14.6",
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/validate": "workspace:*",
+    "@tsir/vault": "workspace:*"
+  },
+  "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.16.0"
+  }
+}

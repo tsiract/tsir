@@ -1,0 +1,184 @@
+/**
+ * The ports (`CAP-001`).
+ *
+ * A **port** is one contract; a **driver** is one implementation of it; a **store** is a
+ * named instance of the port with one driver and its own capabilities. Three words, three
+ * different lifetimes, and conflating them is how "the cache" becomes a single anonymised
+ * thing nobody can debug.
+ *
+ * The split that matters here is `Cache` (what application code calls, typed, codec-aware)
+ * versus `CacheBackend` (what a driver implements, strings and milliseconds only). Every
+ * driver — memory, database, KV, Redis — sees exactly the same tiny surface, and *all*
+ * serialization happens above it in one place. That is what "explicit serialization, no
+ * implicit `JSON.parse` of unknown payloads" costs when it is a design rule instead of a
+ * review comment.
+ */
+
+/** What a store's driver can actually do. **Per store, not per driver** (`§ 2.2`). */
+export interface CacheCapabilities {
+  /** Survives a process restart. `false` for `memory`. */
+  readonly persistent: boolean;
+  /** Visible to other instances. `false` for `memory`; `readYourWrites: false` for KV. */
+  readonly sharedAcrossInstances: boolean;
+  /** A read after your own write sees it. Cloudflare KV cannot promise this. */
+  readonly readYourWrites: boolean;
+  /** A real tag index exists — invalidation by tag is not emulated with a keyspace scan. */
+  readonly tags: boolean;
+  /** `increment` is atomic, not read-modify-write in the client. */
+  readonly increment: boolean;
+  /** Entries can expire. */
+  readonly ttl: boolean;
+  /**
+   * `clear()` can be honoured. False where emptying the store would mean listing the
+   * keyspace — Cloudflare KV, for one, exactly the scan this package refuses elsewhere.
+   */
+  readonly clearAll: boolean;
+  /**
+   * Smallest TTL the backend accepts, in ms. `undefined` means "any".
+   *
+   * A TTL below the floor is **refused** by the driver rather than rounded up: a rate
+   * limiter told 10 s and given 60 s is a limiter that lets three times the traffic through.
+   */
+  readonly ttlFloorMs?: number | undefined;
+}
+
+export interface CacheEntryOptions {
+  /** Milliseconds. `undefined` means the driver's own default policy applies. */
+  readonly ttlMs?: number | undefined;
+  /** Invalidation keys. Refused with `CAP_UNSUPPORTED_OPERATION` where `tags` is false. */
+  readonly tags?: readonly string[] | undefined;
+}
+
+/**
+ * One named store, as application code sees it.
+ *
+ * `T` is the value type the store's codec declares. `cache.store('sessions')` is a
+ * `Cache<Session>` because the store was declared with a `Session` codec — not because a
+ * cast said so.
+ */
+export interface Cache<T = unknown> {
+  /** The declared store name; also the metric label (`§ 2.2`, `13-observability.md`). */
+  readonly name: string;
+  readonly driver: string;
+  readonly capabilities: CacheCapabilities;
+
+  get(key: string): Promise<T | undefined>;
+  /** `false` when the key was absent. */
+  delete(key: string): Promise<boolean>;
+  has(key: string): Promise<boolean>;
+  set(key: string, value: T, options?: CacheEntryOptions): Promise<void>;
+
+  /**
+   * Read-through: `get`, and on a miss `compute()`, `set`, return.
+   *
+   * The compute function runs **outside** any lock. Two concurrent misses may both compute;
+   * that is stated rather than hidden, because the alternative — a distributed lock in the
+   * cache port — would make every store pay for a feature one store needs.
+   */
+  remember(
+    key: string,
+    ttlMs: number,
+    compute: () => Promise<T>,
+    options?: CacheEntryOptions,
+  ): Promise<T>;
+
+  /** Atomic add-and-return. Refused when the driver cannot do it atomically. */
+  increment(key: string, by?: number): Promise<number>;
+
+  /** Invalidate every entry tagged `tag`; returns how many were removed. */
+  invalidateTag(tag: string): Promise<number>;
+
+  /** Remove every entry this store owns. */
+  clear(): Promise<void>;
+}
+
+/**
+ * What a driver implements. Raw and small on purpose:
+ *
+ *   · values are **strings**, already encoded — a driver never inspects a payload;
+ *   · expiry is an **absolute millisecond timestamp** the wrapper computes, so a driver
+ *     cannot disagree with the port about what `ttlMs` meant;
+ *   · `now()` is supplied by the driver when it has a clock worth trusting, which is what
+ *     makes TTL testable without sleeping.
+ */
+export interface CacheBackend {
+  readonly name: string;
+  readonly capabilities: CacheCapabilities;
+
+  read(key: string): Promise<StoredValue | undefined>;
+  write(
+    key: string,
+    raw: string,
+    expiresAt: number | undefined,
+    tags: readonly string[],
+  ): Promise<void>;
+  remove(key: string): Promise<boolean>;
+  /**
+   * Atomic; implementations that cannot do this advertise `capabilities.increment: false`.
+   *
+   * The driver gets the codec's `counter` rather than a raw string, because an atomic
+   * increment has to read *and* write inside the driver's own critical section (one `UPDATE
+   * … RETURNING`, one `Map` mutation) and still leave a value the store's `get` can decode.
+   */
+  increment(
+    key: string,
+    by: number,
+    expiresAt: number | undefined,
+    counter: CounterCodec,
+  ): Promise<number>;
+  removeTag(tag: string): Promise<number>;
+  clear(): Promise<void>;
+  /** Milliseconds. Defaults to `Date.now`. */
+  now?(): number;
+}
+
+/**
+ * A value as it sits in a backend: the encoded payload plus its bookkeeping.
+ *
+ * A backend whose storage separates a numeric column from an opaque one (the `database`
+ * driver) reports a counter through `counterValue` instead of pretending the row is text:
+ * the wrapper then rebuilds the codec's counter form, so `get` on an incremented key returns
+ * the type the store was declared with.
+ */
+export interface StoredValue {
+  readonly raw: string;
+  /** Absolute ms timestamp, or `undefined` for "no expiry". */
+  readonly expiresAt?: number | undefined;
+  readonly tags?: readonly string[] | undefined;
+  /** Set when the row holds a counter rather than an encoded payload. */
+  readonly counterValue?: number | undefined;
+}
+
+/** A driver: a name, its capabilities, and a factory that opens one backend. */
+export interface CacheDriver<Config = unknown> {
+  readonly name: string;
+  readonly capabilities: CacheCapabilities;
+  /**
+   * Throws when the config cannot produce a working backend (bad table name, missing client).
+   * Optional: a driver that needs no configuration is called with no argument.
+   */
+  open(config?: Config): CacheBackend;
+}
+
+/**
+ * How a *counter* key is represented.
+ *
+ * Split out of `Codec` because a counter is the one value a driver must be able to read,
+ * mutate and rewrite itself. Without this, `increment` writes a bare integer that `get` then
+ * cannot decode — a counter you can increment but not read, which is not a counter.
+ */
+export interface CounterCodec {
+  /** `undefined` when the raw payload is not a counter (a plain cached value, say). */
+  read(raw: string): number | undefined;
+  write(value: number): string;
+}
+
+/** What the port does with a value on the way in and out. See `codec.ts`. */
+export interface Codec<T> {
+  readonly name: string;
+  encode(value: T): string;
+  /** Receives exactly what `encode` produced; never a value from another codec. */
+  decode(raw: string): T;
+  /** Omitted by codecs whose values cannot be counters; `increment` is then refused. */
+  readonly counter?: CounterCodec | undefined;
+}

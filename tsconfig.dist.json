@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src/framework",
+    "outDir": "dist/framework",
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "inlineSources": true,
+    "removeComments": false,
+    "rewriteRelativeImportExtensions": true,
+    "types": ["bun"]
+  },
+  "include": ["src/framework/**/*.ts"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".tsir",
+    "src/framework/**/*.test.ts",
+    "src/framework/**/type-tests/**"
+  ]
+}

@@ -1,0 +1,50 @@
+## Example
+
+Start an application in development mode with one module, and shut it down cleanly.
+
+```ts
+import { bootstrap, defineModule } from '@tsir/core';
+import { defineConfig, env, loadConfig } from '@tsir/config';
+
+const spec = defineConfig({
+  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'development' }),
+});
+
+const app = await bootstrap({
+  appName: 'example',
+  config: loadConfig(spec, { env: {} }),
+  modules: [defineModule({ name: 'greeter' })],
+});
+
+console.log(app.appName, app.capabilities.target);
+await app.shutdown('manual');
+```
+
+## Failure modes
+
+- `APP_MODULES_INVALID`: the module list is empty, or two modules share a name. Every module needs a
+  unique name.
+- `APP_BOOTSTRAP_FAILED`: a step of boot threw. The application is not started, and whatever was
+  already built is disposed.
+- `APP_HOOK_FAILED`: a module's hook threw. The message names the module and the hook. The
+  application does not start in a partly initialised state.
+- `APP_BOOT_ABORTED`: the `signal` passed to `bootstrap()` was aborted before boot finished.
+- `APP_MANIFEST_MISSING`: production boot was started without a manifest. Run the build step first.
+- `APP_MANIFEST_STALE`: the manifest does not match the modules that were imported. Production never
+  reads modules at boot to repair this, so rebuild.
+- `APP_CAPABILITY_MISSING`: the runtime lacks a capability that the application declares it needs.
+  The message lists each missing capability.
+- `APP_ILLEGAL_TRANSITION`: a request-scoped operation was made while the application is not ready.
+- `APP_SHUTDOWN_TIMEOUT`: shutdown did not finish within `shutdownTimeoutMs`. Either raise the
+  limit, or fix the hook that never settles.
+- `APP_SHUTDOWN_INCOMPLETE`: one or more shutdown steps failed. The rest still ran, and the failures
+  are listed.
+- `CTN_DUPLICATE`: two providers were registered for the same token.
+
+## Security notes
+
+The application has no global instance and no service locator. Code that needs a dependency
+receives it through its constructor, and only the composition root resolves from the container, so
+there is no route to reach a secret from an unrelated module. Production refuses to boot on a
+manifest that does not match the code, which keeps an old build from running with new settings.
+Shutdown runs every step even when one fails, so a failing hook cannot leave a connection open.

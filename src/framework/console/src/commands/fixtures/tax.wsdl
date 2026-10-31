@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  A representative document/literal WSDL, used by `soap-gen.test.ts` and committed as the
+  input of a committed generated module. It deliberately contains the four things the
+  compiler has to get right: an enumeration, an optional field, a repeated field and a
+  nested complexType.
+-->
+<definitions
+  xmlns="http://schemas.xmlsoap.org/wsdl/"
+  xmlns:soap="http://schemas.xmlsoap.org/wsdl/soap/"
+  xmlns:xsd="http://www.w3.org/2001/XMLSchema"
+  xmlns:tns="urn:tax"
+  targetNamespace="urn:tax"
+  name="TaxService"
+>
+  <types>
+    <xsd:schema targetNamespace="urn:tax" elementFormDefault="qualified">
+      <xsd:simpleType name="Category">
+        <xsd:restriction base="xsd:string">
+          <xsd:enumeration value="digital" />
+          <xsd:enumeration value="physical" />
+        </xsd:restriction>
+      </xsd:simpleType>
+
+      <xsd:complexType name="GetTaxRate">
+        <xsd:sequence>
+          <xsd:element name="country" type="xsd:string" />
+          <xsd:element name="category" type="tns:Category" minOccurs="0" />
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:complexType name="GetTaxRateResponse">
+        <xsd:sequence>
+          <xsd:element name="rate" type="xsd:decimal" />
+          <xsd:element name="exempt" type="xsd:boolean" minOccurs="0" />
+          <xsd:element name="note" type="xsd:string" maxOccurs="unbounded" minOccurs="0" />
+          <xsd:element name="jurisdiction">
+            <xsd:complexType>
+              <xsd:sequence>
+                <xsd:element name="code" type="xsd:string" />
+                <xsd:element name="level" type="xsd:int" />
+              </xsd:sequence>
+            </xsd:complexType>
+          </xsd:element>
+        </xsd:sequence>
+      </xsd:complexType>
+
+      <xsd:element name="GetTaxRate" type="tns:GetTaxRate" />
+      <xsd:element name="GetTaxRateResponse" type="tns:GetTaxRateResponse" />
+    </xsd:schema>
+  </types>
+
+  <message name="GetTaxRateInput">
+    <part name="parameters" element="tns:GetTaxRate" />
+  </message>
+  <message name="GetTaxRateOutput">
+    <part name="parameters" element="tns:GetTaxRateResponse" />
+  </message>
+
+  <portType name="TaxPortType">
+    <operation name="GetTaxRate">
+      <input message="tns:GetTaxRateInput" />
+      <output message="tns:GetTaxRateOutput" />
+    </operation>
+  </portType>
+
+  <binding name="TaxBinding" type="tns:TaxPortType">
+    <soap:binding style="document" transport="http://schemas.xmlsoap.org/soap/http" />
+    <operation name="GetTaxRate">
+      <soap:operation soapAction="urn:tax/GetTaxRate" />
+    </operation>
+  </binding>
+
+  <service name="TaxService">
+    <port name="TaxPort" binding="tns:TaxBinding">
+      <soap:address location="https://tax.example.com/soap" />
+    </port>
+  </service>
+</definitions>

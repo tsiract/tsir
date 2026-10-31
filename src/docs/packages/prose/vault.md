@@ -1,0 +1,54 @@
+## Example
+
+Encrypt a column value and store the envelope, not the plaintext. A column is named by its table and
+column, and the envelope is bound to them, so a value copied to another column will not decrypt.
+This example generates a key in place. In a deployment the key comes from the `APP_KEY_NOW`
+environment variable.
+
+```ts
+import { createKeyring, createVault, formatKeySpec, generateKey } from '@tsir/vault';
+
+const key = formatKeySpec(generateKey());
+const vault = await createVault({ keyring: createKeyring({ now: key }) });
+
+const column = { table: 'users', column: 'tax_id' };
+const envelope = await vault.encrypt(column, '123-45-6789');
+const plain = await vault.decrypt(column, envelope);
+
+console.log(plain === '123-45-6789');
+```
+
+## Failure modes
+
+- `VLT_NOT_CONFIGURED`: no key is set. Set `APP_KEY_NOW` to a key from `tsir vault:key:generate`.
+- `VLT_INVALID_KEY_MATERIAL`: a key is not `<id>:<alg>:<base64url of exactly 32 bytes>`.
+- `VLT_KEYRING_INVALID`: the keyring does not have exactly one active key, or ids repeat, or a state is
+  unknown.
+- `VLT_KEYRING_MISMATCH`: `APP_KEY_NOW` names a key that is not in the deployed keyring. Deploy the
+  keyring with the new key before switching the variable, or this instance cannot read its own writes.
+- `VLT_UNKNOWN_KEY`: a stored value was written with a key this keyring does not hold. The row is newer
+  than this deployment, so roll forward or add the key as decrypt-only.
+- `VLT_AUTH_FAILED`: the ciphertext did not authenticate. It was changed outside the vault, or it belongs
+  to another column or table.
+- `VLT_MALFORMED_ENVELOPE`: the stored value is not an envelope this vault wrote.
+- `VLT_TOO_LARGE`: the plaintext is above the column limit. Encrypt large payloads with storage-level
+  encryption.
+- `VLT_UNSUPPORTED_TYPE`: an encrypted column received something other than a string. Convert numbers
+  and dates explicitly before writing.
+- `VLT_ROTATION_LOCKED`: a rotation for the column is already running. Only one runner is allowed.
+- `VLT_STALE_KEY`: a key is retired, but rows still reference it. Finish the rotation first, or pass
+  `--force` and accept rows that can no longer be read.
+- `VLT_KEY_STILL_ACTIVE`: the key cannot be retired because it is still the writer. Activate the
+  successor first.
+
+- `VLT_ROTATION_FAILED`: a rotation step failed with an error that carried no code of its own. The failure
+  is counted and sampled under this code, and the run reports the message. It is not thrown, so the run can
+  finish the other rows.
+
+## Security notes
+
+Each value is encrypted with AES-256-GCM under a fresh random nonce, and the table and column are
+bound in as associated data. The key never appears in a row. Retiring a key is a separate, checked
+step, so a key cannot be removed while rows still need it. For a value that must be matched without
+being read, the blind index gives a keyed, non-reversible lookup value. Keep `APP_KEY_NOW` in the
+secret store of the platform, never in the repository.

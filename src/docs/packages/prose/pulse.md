@@ -1,0 +1,37 @@
+## Example
+
+Create a logger with a level and a sink, then write structured events. The field names are the
+event's data, so every line can be searched by the same keys. The memory sink keeps lines in the
+process, which a test can read back.
+
+```ts
+import { createLogger, memorySink } from '@tsir/pulse';
+
+const sink = memorySink();
+const logger = createLogger({ level: 'info', sink });
+
+logger.info('invoice.paid', { invoiceId: 'inv_1', amountCents: 4200 });
+logger.debug('invoice.lookup', { invoiceId: 'inv_1' });
+
+console.log(logger.isEnabled('debug'), logger.isEnabled('info'));
+```
+
+## Failure modes
+
+- `PULSE_CONFIG_INVALID`: the logger, redactor or sinks have a bad setting, such as an unknown level or
+  format. The check runs when the logger is built, so the problem appears at boot.
+- `PULSE_SINK_FAILED`: a log sink threw. By default a sink is fail-open: it is disabled for the rest of
+  the invocation, reported once, and the request continues. A sink marked `required: true` is the only
+  way to make a failure stop the request.
+- `PULSE_REDACTION_FAILED`: redaction threw at a field. The field is replaced with `[redaction-error]`,
+  so a redaction bug is never the reason a secret is written.
+- `PULSE_METRIC_INVALID`: a metric name or label is invalid. Names are `snake_case` with a unit suffix
+  such as `_total`, `_ms` or `_bytes`, and labels must stay low in cardinality.
+
+## Security notes
+
+Fields are redacted by default before they reach a sink, so a password or token passed to a log call is
+not written out. A redaction failure replaces the field instead of writing it through. Keep identifiers
+in fields and never the value of a secret, because logs are copied to every sink, including ones
+operated by someone else. Metric labels are meant to be low in cardinality, so a user identifier should not be used as
+one.

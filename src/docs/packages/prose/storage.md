@@ -1,0 +1,52 @@
+## Example
+
+Create a disk on a driver and store an object on it. Keys are checked before any driver sees them, so
+a key such as `../secret` is refused rather than written somewhere unexpected.
+
+```ts
+import { createDisks, defineDisk, utf8 } from '@tsir/storage';
+import { memoryDriver } from '@tsir/storage/memory';
+
+const disks = createDisks({
+  disks: { assets: defineDisk({ driver: memoryDriver() }) },
+  default: 'assets',
+});
+
+const disk = disks.disk();
+const stored = await disk.put('notes/hello.txt', utf8('hello'));
+console.log(stored.size);
+
+const body = await disk.get('notes/hello.txt');
+console.log(body === undefined ? 'missing' : 'found');
+```
+
+## Failure modes
+
+- `STO_INVALID_KEY`: a key was refused before a driver saw it. A key is a relative path with no
+  leading slash, no `.` or `..` segment, no control characters and no backslashes.
+- `STO_UNKNOWN_DISK`: a disk name was used that was never declared. Nothing falls back to the default.
+- `STO_UNKNOWN_DEFAULT`: the default names a disk that is not declared. A default is a name, not a
+  driver.
+- `STO_NO_DISKS`: no disks are declared.
+- `STO_DRIVER_MISSING`: a disk names a driver this build does not ship.
+- `STO_CONFIG_INVALID`: a disk cannot be built, for example because an environment variable it reads
+  is not set.
+- `STO_UNSUPPORTED_OPERATION`: the disk's driver cannot do what was asked. Check `disk.capabilities`
+  first; every false capability is fixed at build time.
+- `STO_ALREADY_EXISTS`: a write asked not to replace an existing key, and the key exists.
+- `STO_FORBIDDEN_IN_PRODUCTION`: a disk on an ephemeral driver is the default in production. The data
+  would not survive the process.
+- `STO_FILESYSTEM_UNAVAILABLE`: the `local` driver is used on a runtime with no filesystem, such as a
+  Worker or an edge isolate. Use the `s3` driver there.
+- `STO_SIGNING_FAILED`: a request could not be signed. The secret key is the usual cause.
+- `STO_REQUEST_FAILED`: the remote storage service answered with an error status. The message gives
+  the operation, the disk and the status.
+
+## Security notes
+
+Keys are validated in one place before any driver runs, so a driver cannot be the only protection
+against a traversal path. Signed URLs are produced only by drivers that can sign, and they expire.
+Credentials are read through named environment references, so they do not appear in the project
+file. The `local` driver writes to the disk of the machine that runs it, which is why it is for
+development and for a Bun or Node process only. The `memory` driver is refused as a production
+default. Keep objects that users should not see on a disk that is not publicly readable.

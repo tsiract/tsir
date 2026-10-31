@@ -1,0 +1,27 @@
+{
+  "name": "@tsir/validate",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Zod 4-backed validation at every trust boundary. Exposes the Standard Schema interface so Valibot or ArkType also work, normalizes issues, and is the single owner of the zod dependency in the workspace.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./mini": {
+      "types": "./src/mini.ts",
+      "default": "./src/mini.ts"
+    },
+    "./http": {
+      "types": "./src/http.ts",
+      "default": "./src/http.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "zod": "^4.6.7"
+  }
+}
