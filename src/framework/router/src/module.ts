@@ -38,30 +38,32 @@
  */
 
 import { defineModule, type ModuleDefinition } from '@tsir/core';
-import type { CapabilityRequirement } from '@tsir/core';
+import type { CapabilityRequirement, ConfigSpec } from '@tsir/core';
 import type { Provider } from '@tsir/container';
 
 import { compileRoutes } from './compile.ts';
 import { type ControllerEntry, type RouteRegistry, routeRegistry } from './registry.ts';
 import type { RouteTable } from './types.ts';
 
-export interface RouteModuleOptions {
+export interface RouteModuleOptions<TConfig extends ConfigSpec = ConfigSpec> {
   /** Unique module name; also what `tsir route:list` prints and boot errors name. */
   readonly name: string;
   /** The module's own registry. Controllers in this module are declared against it. */
   readonly registry: RouteRegistry;
   /** Deploy unit every route in this module belongs to, unless a route overrides it. */
   readonly unit?: string;
+  /** Optional config spec extending the application config. Use `moduleConfig(appConfig, {...})`. */
+  readonly config?: TConfig;
   readonly providers?: readonly Provider<unknown>[];
   readonly requires?: readonly CapabilityRequirement[];
-  readonly onStart?: ModuleDefinition['onStart'];
-  readonly onReady?: ModuleDefinition['onReady'];
-  readonly onStop?: ModuleDefinition['onStop'];
+  readonly onStart?: ModuleDefinition<TConfig>['onStart'];
+  readonly onReady?: ModuleDefinition<TConfig>['onReady'];
+  readonly onStop?: ModuleDefinition<TConfig>['onStop'];
 }
 
-export interface RouteModule {
+export interface RouteModule<TConfig extends ConfigSpec = ConfigSpec> {
   /** The module to pass to `defineApp({ modules })`. */
-  readonly module: ModuleDefinition;
+  readonly module: ModuleDefinition<TConfig>;
   readonly registry: RouteRegistry;
   /** Deploy unit this module's routes belong to, if it declared one. */
   readonly unit?: string;
@@ -78,12 +80,15 @@ export interface RouteModule {
 /** Every route module declared in this process, in declaration order. */
 const DECLARED: RouteModule[] = [];
 
-export function routeModule(options: RouteModuleOptions): RouteModule {
+export function routeModule<TConfig extends ConfigSpec = ConfigSpec>(
+  options: RouteModuleOptions<TConfig>,
+): RouteModule<TConfig> {
   const { registry } = options;
   let compiled: RouteTable | undefined;
 
-  const module = defineModule({
+  const module = defineModule<TConfig>({
     name: options.name,
+    ...(options.config === undefined ? {} : { config: options.config }),
     ...(options.providers === undefined ? {} : { providers: options.providers }),
     ...(options.requires === undefined ? {} : { requires: options.requires }),
     ...(options.onStart === undefined ? {} : { onStart: options.onStart }),
@@ -91,7 +96,7 @@ export function routeModule(options: RouteModuleOptions): RouteModule {
     ...(options.onStop === undefined ? {} : { onStop: options.onStop }),
   });
 
-  const created: RouteModule = {
+  const created: RouteModule<TConfig> = {
     module,
     registry,
     ...(options.unit === undefined ? {} : { unit: options.unit }),
@@ -101,7 +106,7 @@ export function routeModule(options: RouteModuleOptions): RouteModule {
     },
   };
 
-  DECLARED.push(created);
+  DECLARED.push(created as RouteModule);
   return created;
 }
 

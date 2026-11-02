@@ -30,7 +30,10 @@ export type DeployErrorCode =
   | 'DPL_QUEUE_OUTBOX_MISSING'
   | 'DPL_EVENTS_OUTBOX_MISSING'
   | 'DPL_CRON_INVALID'
-  | 'DPL_CRON_NOT_UTC';
+  | 'DPL_CRON_NOT_UTC'
+  | 'DPL_LISTENER_NOT_FOUND'
+  | 'DPL_PUBLISH_UNKNOWN'
+  | 'DPL_INVOKE_UNKNOWN';
 
 function deployError(
   code: DeployErrorCode,
@@ -322,5 +325,52 @@ export function cronNotUtc(input: {
     'Workers and EventBridge fire cron triggers in UTC — write the UTC hour in the cron, or keep ' +
       'the offset for a worker that ticks itself (`tsir schedule:work`)',
     { name: input.name, expression: input.expression },
+  );
+}
+
+/**
+ * An AWS event arrived for which no `@OnSns` / `@OnEventBridge` / `@OnStepTask` listener was
+ * declared (DPL-026). The platform delivered it but the application has no handler, so the
+ * event is dropped rather than routed to a method that does not exist.
+ */
+export function listenerNotFound(input: {
+  readonly kind: 'sns' | 'eventbridge' | 'steptask';
+  readonly key: string;
+}): TsirError {
+  return deployError(
+    'DPL_LISTENER_NOT_FOUND',
+    `no @On${input.kind === 'sns' ? 'Sns' : input.kind === 'eventbridge' ? 'EventBridge' : 'StepTask'} listener for "${input.key}"`,
+    'Add the matching decorator, or filter the source so this event is not delivered to this unit',
+    { kind: input.kind, key: input.key },
+  );
+}
+
+/**
+ * `publish` was called for a topic no `@OnSns` listener is subscribed to (`DPL-030`).
+ * The message would be sent to a topic nobody reads, which is the quietest way to lose work.
+ */
+export function publishUnknown(input: { readonly topic: string }): TsirError {
+  return deployError(
+    'DPL_PUBLISH_UNKNOWN',
+    `no @OnSns listener for topic "${input.topic}"`,
+    'Add an @OnSns({ topic }) decorator, or publish to a topic that already has one',
+    { topic: input.topic },
+  );
+}
+
+/**
+ * `invokeUnit` was called for a unit/task no `@OnStepTask` listener handles (`DPL-030`).
+ * The invoke would land on a function with no matching task name, which fails after a round trip
+ * instead of at the call site.
+ */
+export function invokeUnknown(input: {
+  readonly unit: string;
+  readonly task: string;
+}): TsirError {
+  return deployError(
+    'DPL_INVOKE_UNKNOWN',
+    `no @OnStepTask listener for task "${input.task}" in unit "${input.unit}"`,
+    'Add an @OnStepTask({ name }) decorator, or invoke a task that already has one',
+    { unit: input.unit, task: input.task },
   );
 }

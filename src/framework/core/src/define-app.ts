@@ -14,6 +14,7 @@
  */
 
 import {
+  defineConfig,
   loadConfig,
   type ConfigSpec,
   type EnvRecord,
@@ -33,9 +34,13 @@ export type AppMode = 'development' | 'production' | 'test';
 export type ModuleFactory<TConfig> =
   readonly ModuleDefinition[] | ((config: LoadedConfig<TConfig>) => readonly ModuleDefinition[]);
 
-export interface DefineAppOptions<S extends ConfigSpec> {
+export interface DefineAppOptions<S extends ConfigSpec = {}> {
   readonly name: string;
-  readonly config: S;
+  /** Application config spec. Optional — defaults to an empty spec (`{}`) when omitted.
+   *
+   * Modules may extend it with `moduleConfig(appConfig, { ... })`.
+   */
+  readonly config?: S;
   readonly modules: ModuleFactory<InferConfig<S>>;
   /** Extra capability declarations applied to every module set. */
   readonly shutdownTimeoutMs?: number;
@@ -49,6 +54,11 @@ export interface CreateAppOptions {
   readonly manifest?: AppManifest;
   readonly signal?: AbortSignal;
   readonly onDiagnostic?: (event: AppDiagnosticEvent) => void;
+  /**
+   * Root-level per-module defaults from the project file (`tsir.js`).
+   * Lowest precedence: env > module default > app default > these.
+   */
+  readonly moduleDefaults?: Readonly<Record<string, Readonly<Record<string, unknown>>>>;
   /**
    * Narrows the resolved module set — a **filter**, never a replacement.
    *
@@ -67,7 +77,7 @@ export interface CreateAppOptions {
  * than `unknown`. Erasing it to `unknown` here would push a cast into every
  * caller — which is the one place a cast is least affordable.
  */
-export interface TsirApp<S extends ConfigSpec> {
+export interface TsirApp<S extends ConfigSpec = {}> {
   readonly name: string;
   readonly configSpec: S;
   /** Loads and validates configuration without booting the application. */
@@ -80,10 +90,11 @@ export interface TsirApp<S extends ConfigSpec> {
   manifest(options?: Pick<CreateAppOptions, 'env'>): AppManifest;
 }
 
-export function defineApp<S extends ConfigSpec>(options: DefineAppOptions<S>): TsirApp<S> {
+export function defineApp<S extends ConfigSpec = {}>(options: DefineAppOptions<S>): TsirApp<S> {
+  const spec = (options.config ?? defineConfig({})) as S;
   const loadFor = (input?: { env?: EnvRecord; mode?: AppMode }): LoadedConfig<InferConfig<S>> => {
     const mode = input?.mode ?? 'development';
-    const loaded = loadConfig(options.config, {
+    const loaded = loadConfig(spec, {
       appName: options.name,
       ...(input?.env === undefined ? {} : { env: input.env }),
       strictEnv: mode === 'production',
@@ -96,7 +107,7 @@ export function defineApp<S extends ConfigSpec>(options: DefineAppOptions<S>): T
 
   return {
     name: options.name,
-    configSpec: options.config,
+    configSpec: spec,
     load: loadFor,
     modulesFor,
     manifest: (input) => {
@@ -115,7 +126,12 @@ export function defineApp<S extends ConfigSpec>(options: DefineAppOptions<S>): T
 
       return bootstrap({
         appName: options.name,
+        appSpec: spec,
         config,
+        ...(createOptions.env === undefined ? {} : { env: createOptions.env }),
+        ...(createOptions.moduleDefaults === undefined
+          ? {}
+          : { moduleDefaults: createOptions.moduleDefaults }),
         modules,
         mode,
         ...(options.shutdownTimeoutMs === undefined

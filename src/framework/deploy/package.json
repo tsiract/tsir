@@ -31,6 +31,8 @@
   "dependencies": {
     "@tsir/core": "workspace:*",
     "@tsir/http": "workspace:*",
-    "@tsir/schedule": "workspace:*"
+    "@tsir/router": "workspace:*",
+    "@tsir/schedule": "workspace:*",
+    "@tsir/validate": "workspace:*"
   }
 }

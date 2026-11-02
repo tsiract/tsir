@@ -69,6 +69,26 @@ export interface EventBridgeEvent {
   readonly detail: unknown;
 }
 
+/**
+ * An SNS notification event. SNS delivers to Lambda as a single-record batch;
+ * the record carries the topic ARN, the message id, and the message body
+ * (which may itself be JSON or a raw string when `RawMessageDelivery` is on).
+ */
+export interface SnsRecord {
+  readonly EventSource: string;
+  readonly Sns: {
+    readonly TopicArn: string;
+    readonly MessageId: string;
+    readonly Message: string;
+    readonly Subject?: string;
+    readonly Timestamp?: string;
+  };
+}
+
+export interface SnsEvent {
+  readonly Records: readonly SnsRecord[];
+}
+
 export interface LambdaResponse {
   readonly statusCode: number;
   readonly headers: Readonly<Record<string, string>>;
@@ -100,13 +120,55 @@ export interface LambdaUnit {
         context: LambdaContextLike,
       ) => Promise<void>)
     | undefined;
+  /**
+   * Custom EventBridge events (`@OnEventBridge`). Dispatched by `detail-type` inside the unit;
+   * the bus-level filtering happens in the emitted rule. Scheduled EventBridge events
+   * (`aws.events` / `aws.scheduler`) still go to `scheduled`, not here.
+   */
+  readonly eventbridge?:
+    | ((
+        event: {
+          readonly source: string;
+          readonly 'detail-type': string;
+          readonly detail: unknown;
+          readonly time: string;
+          readonly signal: AbortSignal;
+        },
+        context: LambdaContextLike,
+      ) => Promise<void>)
+    | undefined;
+  readonly sns?:
+    | ((
+        message: {
+          readonly id: string;
+          readonly topicArn: string;
+          readonly subject?: string;
+          readonly body: unknown;
+          readonly record: SnsRecord;
+        },
+        context: LambdaContextLike,
+      ) => Promise<void>)
+    | undefined;
+  /**
+   * Direct invoke — Step Functions tasks and any other synchronous call that does not
+   * arrive through an AWS event envelope. The `event` is whatever the caller passed.
+   */
+  readonly invoke?:
+    | ((
+        event: unknown,
+        context: LambdaContextLike,
+      ) => Promise<unknown>)
+    | undefined;
 }
 
 export interface LambdaOptions {
   readonly onError?:
     | ((
         error: unknown,
-        info: { readonly unit: string; readonly trigger: 'fetch' | 'queue' | 'scheduled' },
+        info: {
+          readonly unit: string;
+          readonly trigger: 'fetch' | 'queue' | 'scheduled' | 'sns' | 'eventbridge';
+        },
       ) => void)
     | undefined;
   /** Milliseconds of headroom kept before the platform's own timeout. Default 500. */
@@ -178,6 +240,28 @@ function isEventBridge(event: unknown): event is EventBridgeEvent {
     typeof (event as EventBridgeEvent)['detail-type'] === 'string' &&
     typeof (event as EventBridgeEvent).source === 'string'
   );
+}
+
+function isSns(event: unknown): event is SnsEvent {
+  if (typeof event !== 'object' || event === null) return false;
+  const records = (event as { Records?: unknown }).Records;
+  if (!Array.isArray(records) || records.length === 0) return false;
+  return records.some((record) => {
+    const source = (record as { EventSource?: unknown }).EventSource;
+    return typeof source === 'string' && source.toUpperCase() === 'AWS:SNS';
+  });
+}
+
+/**
+ * Scheduled EventBridge sources. A cron rule sends `aws.events`; EventBridge
+ * Scheduler sends `aws.scheduler`. Anything else is a custom-bus event and
+ * must not reach the `scheduled` handler (DPL-025): a custom-bus event routed
+ * to a cron handler runs the wrong code with no way to detect it.
+ */
+const SCHEDULED_SOURCES: ReadonlySet<string> = new Set(['aws.events', 'aws.scheduler']);
+
+function isScheduledEventBridge(event: EventBridgeEvent): boolean {
+  return SCHEDULED_SOURCES.has(event.source);
 }
 
 /** API Gateway v2 (and a Function URL) → the `Request` the pipeline expects. */
@@ -259,7 +343,10 @@ export async function responseToApiGatewayV2(
  * configuration error rather than a silent 200.
  */
 export function toLambdaHandler(unit: LambdaUnit, options: LambdaOptions = {}): LambdaHandler {
-  const report = (error: unknown, trigger: 'fetch' | 'queue' | 'scheduled'): void => {
+  const report = (
+    error: unknown,
+    trigger: 'fetch' | 'queue' | 'scheduled' | 'sns' | 'eventbridge',
+  ): void => {
     options.onError?.(error, { unit: unit.unit, trigger });
   };
 
@@ -306,15 +393,44 @@ export function toLambdaHandler(unit: LambdaUnit, options: LambdaOptions = {}): 
     }
 
     if (isEventBridge(event)) {
-      const run = unit.scheduled;
+      // Scheduled EventBridge events (`aws.events`, `aws.scheduler`) go to `scheduled`.
+      // Everything else is a custom-bus event and goes to `eventbridge`, where the unit
+      // dispatches by `detail-type` (DPL-025 + the `@OnEventBridge` listener path).
+      if (isScheduledEventBridge(event)) {
+        const run = unit.scheduled;
+        if (run === undefined) {
+          throw unitHasNo('scheduled handler', 'a schedule event', unit.unit);
+        }
+        const deadline = deadlineSignal(context, options.graceMs);
+        try {
+          await run(
+            {
+              source: event.source,
+              detail: event.detail,
+              time: event.time,
+              signal: deadline.signal,
+            },
+            context,
+          );
+        } catch (error) {
+          // A cron has no retry to trigger: report it, and the next tick is the retry.
+          report(error, 'scheduled');
+        } finally {
+          deadline.dispose();
+        }
+        return { statusCode: 200, headers: {}, body: '', isBase64Encoded: false };
+      }
+
+      const run = unit.eventbridge;
       if (run === undefined) {
-        throw unitHasNo('scheduled handler', 'a schedule event', unit.unit);
+        throw unitHasNo('eventbridge handler', 'a custom EventBridge event', unit.unit);
       }
       const deadline = deadlineSignal(context, options.graceMs);
       try {
         await run(
           {
             source: event.source,
+            'detail-type': event['detail-type'],
             detail: event.detail,
             time: event.time,
             signal: deadline.signal,
@@ -322,17 +438,62 @@ export function toLambdaHandler(unit: LambdaUnit, options: LambdaOptions = {}): 
           context,
         );
       } catch (error) {
-        // A cron has no retry to trigger: report it, and the next tick is the retry.
-        report(error, 'scheduled');
+        // EventBridge has no retry either: report it and let the rule's retry policy decide.
+        report(error, 'eventbridge');
+        throw error;
       } finally {
         deadline.dispose();
       }
       return { statusCode: 200, headers: {}, body: '', isBase64Encoded: false };
     }
 
+    if (isSns(event)) {
+      const notify = unit.sns;
+      if (notify === undefined) {
+        throw unitHasNo('sns handler', 'an SNS event', unit.unit);
+      }
+      const deadline = deadlineSignal(context, options.graceMs);
+      try {
+        for (const record of event.Records) {
+          const sns = record.Sns;
+          await notify(
+            {
+              id: sns.MessageId,
+              topicArn: sns.TopicArn,
+              ...(sns.Subject !== undefined ? { subject: sns.Subject } : {}),
+              body: parseBody(sns.Message),
+              record,
+            },
+            context,
+          );
+        }
+      } catch (error) {
+        // SNS retries on Lambda failure, so an unhandled error becomes a redelivery.
+        report(error, 'sns');
+        throw error;
+      } finally {
+        deadline.dispose();
+      }
+      return { statusCode: 200, headers: {}, body: '', isBase64Encoded: false };
+    }
+
+    // Direct invoke — Step Functions tasks, console test invokes, and any caller that
+    // passes a raw payload without an AWS event envelope (DPL-029).
+    const invoke = unit.invoke;
+    if (invoke !== undefined) {
+      const result = await invoke(event, context);
+      return {
+        statusCode: 200,
+        headers: { 'content-type': 'application/json' },
+        body: result === undefined ? '' : JSON.stringify(result),
+        isBase64Encoded: false,
+      };
+    }
+
     throw eventUnrecognised(
       `unit "${unit.unit}" received an event it does not recognise: pass an API Gateway v2 ` +
-        'request, an SQS batch, or an EventBridge schedule event',
+        'request, an SQS batch, an SNS notification, an EventBridge schedule event, or a ' +
+        'direct invoke payload',
     );
   };
 }

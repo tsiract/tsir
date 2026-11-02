@@ -2,9 +2,9 @@ import { describe, expect, test } from 'bun:test';
 
 import { compileRoutes, type ControllerEntry } from '@tsir/router';
 
-import app, { handler } from '../src/app.ts';
-import { media } from '../src/modules/media/index.ts';
-import { users } from '../src/modules/users/index.ts';
+import app, { handler } from '../app.ts';
+import { media } from '../media/index.ts';
+import { users } from '../users/index.ts';
 
 /**
  * The entries this application declares — taken from its modules, not from the
@@ -194,7 +194,7 @@ describe('http example · generated route table (RTR-007)', () => {
     // The generated file is committed, so it can go stale. Compiling the
     // registry again and comparing structurally is what turns "someone forgot
     // to regenerate" into a red test rather than a production surprise.
-    const { routes } = await import('../src/routes.gen.ts');
+    const { routes } = await import('../routes.gen.ts');
 
     const fresh = compileRoutes(appEntries()).routes;
     expect(routes.length).toBe(fresh.length);

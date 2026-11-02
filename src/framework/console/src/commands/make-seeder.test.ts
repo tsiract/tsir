@@ -66,7 +66,7 @@ describe('template', () => {
 describe('generated file', () => {
   test('is a real defineSeeder that validates and runs with the contract', async () => {
     expect(await makeSeederCommand(['Users'])).toBe(EXIT.ok);
-    const path = join(dir, 'src', 'seeders', 'users.seeder.ts');
+    const path = join(dir, 'seeders', 'users.seeder.ts');
     expect(existsSync(path)).toBe(true);
 
     const source = readFileSync(path, 'utf8').replace("'@tsir/seed'", `'${SEED_SRC}'`);
@@ -84,7 +84,7 @@ describe('generated file', () => {
 
   test('--order sets the order and rejects a non-integer', async () => {
     expect(await makeSeederCommand(['Users', '--order', '7'])).toBe(EXIT.ok);
-    expect(readFileSync(join(dir, 'src', 'seeders', 'users.seeder.ts'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'seeders', 'users.seeder.ts'), 'utf8')).toContain(
       'order: 7,',
     );
     expect(await rejectionOf(makeSeederCommand(['Posts', '--order', 'first']))).toContain(
@@ -97,7 +97,7 @@ describe('generated file', () => {
     expect(await rejectionOf(makeSeederCommand(['Users']))).toContain('refusing to overwrite');
 
     expect(await makeSeederCommand(['Posts', '--dry-run'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src', 'seeders', 'posts.seeder.ts'))).toBe(false);
+    expect(existsSync(join(dir, 'seeders', 'posts.seeder.ts'))).toBe(false);
   });
 
   test('a missing name is a usage error', async () => {

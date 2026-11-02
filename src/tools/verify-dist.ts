@@ -21,7 +21,7 @@
 
 import { existsSync } from 'node:fs';
 import { cp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const DIST = join(ROOT, 'dist');
@@ -354,7 +354,10 @@ async function prepareSandbox(): Promise<string> {
   // a missing dependency in a distributed manifest fails here as it would for a
   // consumer.
   for (const name of names) {
-    await cp(join(DIST, 'framework', name), join(modules, name), { recursive: true });
+    await cp(join(DIST, 'framework', name), join(modules, name), {
+      recursive: true,
+      filter: (path) => basename(path) !== 'node_modules',
+    });
   }
   // Third-party runtime dependencies must be resolvable from the sandbox exactly
   // as a consumer would resolve them. Bun hoists per-workspace-package copies, so
@@ -377,6 +380,42 @@ async function prepareSandbox(): Promise<string> {
     `${JSON.stringify({ name: 'tsir-verify', type: 'module' }, null, 2)}\n`,
   );
   return WORK;
+}
+
+/** The consumer-facing tree must be usable, not only the library packages. */
+function verifyLayout(): void {
+  const required = [
+    'tsir',
+    'bin/tsir',
+    'README.md',
+    'src/docs/index.html',
+    'src/frontpage/index.html',
+    'apps/minimal/app.ts',
+    'apps/http/app.ts',
+    'apps/http/users/index.ts',
+    'apps/http/media/index.ts',
+    'framework/console/cli.js',
+  ];
+  const missing = required.filter((path) => !existsSync(join(DIST, path)));
+  if (missing.length > 0) {
+    failures.push(`distribution layout missing: ${missing.join(', ')}`);
+    return;
+  }
+  const cli = join(DIST, 'tsir');
+  const example = join(DIST, 'apps', 'http');
+  for (const [cwd, args, marker] of [
+    [DIST, ['--help'], 'usage: tsir'],
+    [example, ['route:list'], 'UsersController'],
+    [example, ['test'], ' pass'],
+  ] as const) {
+    const run = Bun.spawnSync([cli, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    const out = `${run.stdout.toString()}${run.stderr.toString()}`;
+    if (run.exitCode !== 0 || !out.includes(marker)) {
+      failures.push(`distribution ${args.join(' ')} failed\n${out}`);
+      return;
+    }
+  }
+  rows.push('  ✓ layout           root CLI and modular example work from dist/');
 }
 
 async function smokeTest(sandbox: string): Promise<void> {
@@ -538,6 +577,7 @@ async function checkBudget(sandbox: string, budget: Budget): Promise<void> {
 }
 
 async function main(): Promise<void> {
+  verifyLayout();
   const sandbox = await prepareSandbox();
   await smokeTest(sandbox);
   await nodeVaultProof(sandbox);

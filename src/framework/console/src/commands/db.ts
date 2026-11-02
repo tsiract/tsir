@@ -21,8 +21,9 @@
  * production uses.
  */
 
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import type { Connections, Database } from '@tsir/database';
@@ -31,13 +32,16 @@ import {
   migrationFolder,
   migrationStatus,
   preflightGuidance,
+  readMigrationFolder,
   rollback,
+  type TableNames,
 } from '@tsir/migrate';
 import { assertEnvironmentAllowed, runSeeders, type Seeder } from '@tsir/seed';
 import { systemClock, systemRandom } from '@tsir/core';
 
 import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
 import { loadProject, type LoadedProject } from '../project.ts';
+import { requireModule } from './naming.ts';
 import { CliError, EXIT, fail, info, ok, style, warn, jsonDocument } from '../output.ts';
 
 const DEFAULT_MIGRATIONS = 'drizzle';
@@ -69,6 +73,8 @@ interface DbContext {
   readonly folder: string;
   readonly database: Database;
   readonly env: string;
+  readonly tables: TableNames;
+  readonly moduleName?: string;
 }
 
 /** Duck-types the exported database; a wrong export gets a message, not a crash. */
@@ -166,27 +172,80 @@ export async function bindDatabase(
   return { database, connection: database.name, registry };
 }
 
-async function context(cwd: string, connectionName?: string): Promise<DbContext> {
+/** Module journals use separate database tables; all journals share the connection lock. */
+function moduleTables(moduleName: string, connection: string): TableNames {
+  const key = createHash('sha256')
+    .update(`${moduleName}\0${connection}`)
+    .digest('hex')
+    .slice(0, 24);
+  return { journal: `__tsir_module_${key}_journal`, audit: `__tsir_module_${key}_audit` };
+}
+
+function moduleJournalFolder(
+  moduleDir: string,
+  connection: string,
+  defaultConnection: string,
+): string {
+  if (!/^[A-Za-z][A-Za-z0-9_-]*$/.test(connection))
+    throw new CliError(
+      `invalid connection name "${connection}" for module migrations`,
+      EXIT.usage,
+      'use letters, digits, underscores or hyphens',
+    );
+  return migrationFolder(moduleDir, connection, { base: 'migrations', defaultConnection });
+}
+
+/** A positional module selects a separate journal; never ignore extra arguments. */
+function selectedModule(args: ParsedArgs, command: string): string | undefined {
+  if (args.positionals.length > 1)
+    throw new CliError(`too many arguments for ${command}`, EXIT.usage, `use ${command} [module]`);
+  return args.positionals[0];
+}
+
+async function context(
+  cwd: string,
+  connectionName?: string,
+  moduleInput?: string,
+): Promise<DbContext> {
   const project = await loadProject(cwd);
-  const base = project.config.paths?.migrations ?? DEFAULT_MIGRATIONS;
   const { database, connection, registry } = await bindDatabase(project, connectionName);
-
-  const folder = migrationFolder(project.root, connection, {
-    base,
-    defaultConnection: registry?.default ?? connection,
-  });
-
+  const selected = moduleInput === undefined ? undefined : requireModule(moduleInput, project.root);
+  const folder =
+    selected === undefined
+      ? migrationFolder(project.root, connection, {
+          base: project.config.paths?.migrations ?? DEFAULT_MIGRATIONS,
+          defaultConnection: registry?.default ?? connection,
+        })
+      : moduleJournalFolder(selected.dir, connection, registry?.default ?? connection);
   if (!existsSync(folder)) {
     throw new CliError(
       `no migration folder at ${folder}`,
       EXIT.environment,
-      registry === undefined || connection === registry.default
-        ? 'run `tsir make:migration <name>` first, or set `paths.migrations` in tsir.js'
-        : `create ${folder} for connection "${connection}" — each connection keeps its own journal (MIG-015)`,
+      selected !== undefined
+        ? `generate it with tsir make:migration <name> ${selected.name}${connectionName === undefined ? '' : ` --connection ${connectionName}`}`
+        : registry === undefined || connection === registry.default
+          ? 'run `tsir make:migration <name>` first, or set `paths.migrations` in tsir.js'
+          : `create ${folder} for connection "${connection}" — each connection keeps its own journal (MIG-015)`,
     );
   }
-
-  return { project, folder, database, env: process.env['APP_ENV'] ?? 'development' };
+  if (selected !== undefined && existsSync(join(folder, 'meta', '_journal.json'))) {
+    const { journal } = await readMigrationFolder(folder);
+    const expected = database.capabilities.engine === 'd1' ? 'sqlite' : 'postgresql';
+    if (journal.dialect !== expected)
+      throw new CliError(
+        `module ${selected.name} journal dialect ${journal.dialect} does not match database engine ${database.capabilities.engine}`,
+        EXIT.failure,
+        'select the correct connection and module journal',
+      );
+  }
+  return {
+    project,
+    folder,
+    database,
+    env: process.env['APP_ENV'] ?? 'development',
+    tables: selected === undefined ? {} : moduleTables(selected.name, connection),
+    ...(selected === undefined ? {} : { moduleName: selected.name }),
+  };
 }
 
 /**
@@ -252,12 +311,33 @@ export function lintMigration(sql: string, tag: string): readonly string[] {
   return problems;
 }
 
-export async function makeMigrationCommand(argv: readonly string[]): Promise<number> {
+export async function makeMigrationCommand(
+  argv: readonly string[],
+  run: (command: readonly string[], cwd: string) => Promise<GenerateResult> = runDrizzleKit,
+): Promise<number> {
+  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
+    info(
+      'usage: tsir make:migration <name> [module] [--dialect sqlite|postgres] [--schema <path>] [--connection <name>] [--json]\n\nModule generation uses drizzle-kit and writes a separate module journal. Install drizzle-kit and drizzle-orm in your app.',
+    );
+    return EXIT.ok;
+  }
   const args = parseArgs(argv, {
     '--json': { type: 'boolean', description: 'machine-readable output' },
+    '--dialect': {
+      type: 'string',
+      description: 'module schema dialect: sqlite (default) or postgres',
+    },
+    '--schema': { type: 'string', description: 'module-local schema path or glob' },
+    '--connection': { type: 'string', description: 'named database connection for module journal' },
   });
   const json = boolFlag(args, '--json');
-  const name = args.positionals[0];
+  const [name, moduleInput] = args.positionals;
+  if (args.positionals.length > 2)
+    throw new CliError(
+      'too many arguments for make:migration',
+      EXIT.usage,
+      'use tsir make:migration <name> [module]',
+    );
 
   if (name === undefined || !MIGRATION_NAME.test(name)) {
     throw new CliError(
@@ -271,11 +351,109 @@ export async function makeMigrationCommand(argv: readonly string[]): Promise<num
 
   try {
     const project = await loadProject(process.cwd());
-    const folder = join(project.root, project.config.paths?.migrations ?? DEFAULT_MIGRATIONS);
+    const selected =
+      moduleInput === undefined ? undefined : requireModule(moduleInput, project.root);
+    const connectionName = stringFlag(args, '--connection');
+    const dialect = stringFlag(args, '--dialect');
+    const schemaInput = stringFlag(args, '--schema');
+    if (
+      selected === undefined &&
+      (connectionName !== undefined || dialect !== undefined || schemaInput !== undefined)
+    ) {
+      throw new CliError(
+        '--connection, --dialect and --schema require a module',
+        EXIT.usage,
+        'project-wide generation uses drizzle.config.ts',
+      );
+    }
+    if (dialect !== undefined && dialect !== 'sqlite' && dialect !== 'postgres') {
+      throw new CliError(
+        `unknown migration dialect "${dialect}"`,
+        EXIT.usage,
+        'use sqlite or postgres',
+      );
+    }
+    let folder = join(project.root, project.config.paths?.migrations ?? DEFAULT_MIGRATIONS);
+    let command = ['generate', '--name', name];
+    if (selected !== undefined) {
+      const registry = connectionName === undefined ? undefined : await resolveConnections(project);
+      if (connectionName !== undefined && registry === undefined)
+        throw new CliError(
+          `--connection=${connectionName} needs a registry`,
+          EXIT.usage,
+          'export databases = createConnections(...) from the app entry',
+        );
+      if (
+        connectionName !== undefined &&
+        registry !== undefined &&
+        !registry.names.includes(connectionName)
+      )
+        throw new CliError(
+          `unknown connection "${connectionName}"`,
+          EXIT.usage,
+          `available: ${registry.names.join(', ')}`,
+        );
+      const connection = connectionName ?? 'default';
+      const defaultConnection = registry?.default ?? connection;
+      folder = moduleJournalFolder(selected.dir, connection, defaultConnection);
+      const schema = resolve(project.root, schemaInput ?? join(selected.dir, '*.model.ts'));
+      const relativeSchema = relative(selected.dir, schema);
+      if (
+        relativeSchema === '' ||
+        relativeSchema === '..' ||
+        relativeSchema.startsWith(`..${sep}`) ||
+        isAbsolute(relativeSchema)
+      ) {
+        throw new CliError(
+          'schema must be inside the selected module',
+          EXIT.usage,
+          'use --schema shop/models/order.model.ts',
+        );
+      }
+      const matches = new Bun.Glob(relativeSchema).scan({ cwd: selected.dir, onlyFiles: true });
+      let found = false;
+      for await (const match of matches) {
+        void match;
+        found = true;
+        break;
+      }
+      if (!found)
+        throw new CliError(
+          `no schema files found for ${relativeSchema}`,
+          EXIT.failure,
+          'create a module model or pass --schema with a module-local schema path or glob',
+        );
+      command = [
+        'generate',
+        '--name',
+        name,
+        '--dialect',
+        dialect === 'postgres' ? 'postgresql' : 'sqlite',
+        '--schema',
+        schema,
+        '--out',
+        folder,
+      ];
+    }
+    const before = existsSync(join(folder, 'meta', '_journal.json'))
+      ? await readMigrationFolder(folder)
+      : undefined;
+    if (selected !== undefined && before !== undefined) {
+      const expected = dialect === 'postgres' ? 'postgresql' : 'sqlite';
+      if (before.journal.dialect !== expected)
+        throw new CliError(
+          `existing module journal uses ${before.journal.dialect}, not ${expected}`,
+          EXIT.usage,
+          'select the original dialect or use a separate connection journal',
+        );
+    }
     // `--name` is the suffix drizzle-kit uses for the file; the index prefix and
     // the journal entry are its business, which is the point of delegating.
-    const result = await runDrizzleKit(['generate', '--name', name], project.root);
-    if (result.exitCode !== 0) {
+    const result = await run(command, project.root);
+    if (
+      result.exitCode !== 0 ||
+      /(?:^|\n)\s*Error\s{2,}/.test(`${result.stdout}\n${result.stderr}`)
+    ) {
       throw new CliError(
         `drizzle-kit generate failed: ${result.stderr.trim() || result.stdout.trim()}`,
         EXIT.failure,
@@ -283,9 +461,16 @@ export async function makeMigrationCommand(argv: readonly string[]): Promise<num
       );
     }
 
-    const { readMigrationFolder } = await import('@tsir/migrate');
     const { migrations } = await readMigrationFolder(folder);
-    const created = migrations[migrations.length - 1];
+    const previous = new Set(before?.migrations.map((migration) => migration.tag) ?? []);
+    const newlyCreated = migrations.filter((migration) => !previous.has(migration.tag));
+    if (newlyCreated.length > 1)
+      throw new CliError(
+        'drizzle-kit created multiple migration entries',
+        EXIT.failure,
+        'review the journal and generated SQL manually',
+      );
+    const created = newlyCreated[0];
     const problems = created === undefined ? [] : lintMigration(created.sql, created.tag);
 
     if (problems.length > 0) {
@@ -315,13 +500,15 @@ export async function migrateCommand(argv: readonly string[]): Promise<number> {
     '--json': { type: 'boolean', description: 'machine-readable output' },
   });
   const json = boolFlag(args, '--json');
+  const moduleInput = selectedModule(args, 'tsir migrate');
   const dryRun = boolFlag(args, '--dry-run');
   const waitMs = numberFlag(args, '--wait');
 
   try {
-    const db = await context(process.cwd(), stringFlag(args, 'connection'));
+    const db = await context(process.cwd(), stringFlag(args, 'connection'), moduleInput);
 
     if (!json) {
+      if (db.moduleName !== undefined) info(style.dim(`  module ${db.moduleName} · ${db.folder}`));
       const guidance = preflightGuidance({
         engine: db.database.capabilities.engine,
         environment: db.env,
@@ -333,6 +520,7 @@ export async function migrateCommand(argv: readonly string[]): Promise<number> {
     const result = await migrate({
       database: db.database,
       folder: db.folder,
+      tables: db.tables,
       name: db.project.config.app.name,
       ...(waitMs === undefined ? {} : { waitMs }),
       dryRun,
@@ -342,7 +530,13 @@ export async function migrateCommand(argv: readonly string[]): Promise<number> {
     });
 
     if (json) {
-      info(jsonDocument({ ok: true, ...result }));
+      info(
+        jsonDocument({
+          ok: true,
+          ...(db.moduleName === undefined ? {} : { module: db.moduleName }),
+          ...result,
+        }),
+      );
     } else if (result.locked) {
       ok('another migration is in progress — nothing to do');
     } else if (result.pending.length > 0) {
@@ -381,21 +575,24 @@ export async function migrateStatusCommand(argv: readonly string[]): Promise<num
     '--json': { type: 'boolean', description: 'machine-readable' },
   });
   const json = boolFlag(args, '--json');
+  const moduleInput = selectedModule(args, 'tsir migrate:status');
 
   try {
-    const db = await context(process.cwd(), stringFlag(args, 'connection'));
-    const status = await migrationStatus(db.database, { folder: db.folder });
+    const db = await context(process.cwd(), stringFlag(args, 'connection'), moduleInput);
+    const status = await migrationStatus(db.database, { folder: db.folder, tables: db.tables });
 
     if (json) {
       info(
         jsonDocument({
-          ok: status.tags.drifted.length === 0,
+          ok: status.tags.drifted.length === 0 && status.tags.orphaned.length === 0,
           connection: status.connection,
           folder: db.folder,
+          ...(db.moduleName === undefined ? {} : { module: db.moduleName }),
           fresh: status.fresh,
           applied: status.tags.applied,
           pending: status.tags.pending,
           drifted: status.tags.drifted,
+          orphaned: status.tags.orphaned,
         }),
       );
     } else {
@@ -403,12 +600,14 @@ export async function migrateStatusCommand(argv: readonly string[]): Promise<num
       for (const tag of status.tags.applied) info(`  ${style.green('applied')}  ${tag}`);
       for (const tag of status.tags.pending) info(`  ${style.yellow('pending')}  ${tag}`);
       for (const tag of status.tags.drifted) info(`  ${style.red('drifted')}  ${tag}`);
+      for (const when of status.tags.orphaned) info(`  ${style.red('orphaned')}  ${when}`);
       info('');
     }
 
-    // Drift is the one state that must fail a pipeline: the database and the
-    // repository disagree, and no command in this file can fix that.
-    return status.tags.drifted.length > 0 ? EXIT.failure : EXIT.ok;
+    // Drift and missing journal entries mean the database and repository disagree.
+    return status.tags.drifted.length > 0 || status.tags.orphaned.length > 0
+      ? EXIT.failure
+      : EXIT.ok;
   } catch (error: unknown) {
     return report(error, json);
   }
@@ -425,6 +624,7 @@ export async function migrateRollbackCommand(argv: readonly string[]): Promise<n
     '--json': { type: 'boolean', description: 'machine-readable output' },
   });
   const json = boolFlag(args, '--json');
+  const moduleInput = selectedModule(args, 'tsir migrate:rollback');
   const to = stringFlag(args, '--to');
 
   if (to === undefined) {
@@ -436,11 +636,12 @@ export async function migrateRollbackCommand(argv: readonly string[]): Promise<n
   }
 
   try {
-    const db = await context(process.cwd(), stringFlag(args, 'connection'));
+    const db = await context(process.cwd(), stringFlag(args, 'connection'), moduleInput);
     const confirm = stringFlag(args, '--confirm');
     const result = await rollback({
       database: db.database,
       folder: db.folder,
+      tables: db.tables,
       name: db.project.config.app.name,
       to,
       allowDestructive: boolFlag(args, '--allow-destructive'),
@@ -450,7 +651,14 @@ export async function migrateRollbackCommand(argv: readonly string[]): Promise<n
       },
     });
 
-    if (json) info(jsonDocument({ ok: true, ...result }));
+    if (json)
+      info(
+        jsonDocument({
+          ok: true,
+          ...(db.moduleName === undefined ? {} : { module: db.moduleName }),
+          ...result,
+        }),
+      );
     else if (result.undone.length === 0) ok('nothing to roll back');
     else ok(`rolled back ${result.undone.join(', ')}`);
 
@@ -468,10 +676,11 @@ export async function migrateVerifyCommand(argv: readonly string[]): Promise<num
     '--json': { type: 'boolean', description: 'machine-readable' },
   });
   const json = boolFlag(args, '--json');
+  const moduleInput = selectedModule(args, 'tsir migrate:verify');
 
   try {
-    const db = await context(process.cwd(), stringFlag(args, 'connection'));
-    const status = await migrationStatus(db.database, { folder: db.folder });
+    const db = await context(process.cwd(), stringFlag(args, 'connection'), moduleInput);
+    const status = await migrationStatus(db.database, { folder: db.folder, tables: db.tables });
 
     // `verify` answers one question: does the journal apply cleanly from nothing?
     // It is a CI command pointed at a throwaway database, so a database that is
@@ -487,10 +696,18 @@ export async function migrateVerifyCommand(argv: readonly string[]): Promise<num
     const result = await migrate({
       database: db.database,
       folder: db.folder,
+      tables: db.tables,
       name: db.project.config.app.name,
     });
 
-    if (json) info(jsonDocument({ ok: true, applied: result.applied.map((r) => r.tag) }));
+    if (json)
+      info(
+        jsonDocument({
+          ok: true,
+          ...(db.moduleName === undefined ? {} : { module: db.moduleName }),
+          applied: result.applied.map((r) => r.tag),
+        }),
+      );
     else ok(`verified ${String(result.applied.length)} migration(s) from an empty database`);
 
     return EXIT.ok;

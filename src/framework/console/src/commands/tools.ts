@@ -1,18 +1,16 @@
 /**
  * `tsir test`, `tsir lint`, `tsir typecheck` (CLI-008).
  *
- * Each runs the same command as the matching `make` target, with the same Bun binary, in the
- * working directory. The exit code is passed through unchanged, so a CI script can use either
- * entry point. Extra arguments are appended: `tsir test --watch` runs `bun test --watch`.
+ * Runs application-local tools in the working directory. The exit code passes through unchanged. Extra arguments are appended: `tsir test --watch` runs `bun test --watch`.
  */
 
 import { EXIT, info } from '../output.ts';
 
-/** The argv after the Bun binary. The Makefile recipes are the source of truth; a test pins them. */
+/** The argv after the Bun binary. Applications define their own lint and typecheck scripts. */
 export const TOOL_RECIPES = {
   test: ['test'],
-  lint: ['src/tools/lint.ts'],
-  typecheck: ['x', 'tsc', '--noEmit', '-p', 'tsconfig.json'],
+  lint: ['run', 'lint'],
+  typecheck: ['run', 'typecheck'],
 } as const satisfies Record<string, readonly string[]>;
 
 export type ToolName = keyof typeof TOOL_RECIPES;

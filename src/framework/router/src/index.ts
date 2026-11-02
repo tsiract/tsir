@@ -24,6 +24,9 @@ export {
   Guards,
   Head,
   joinPath,
+  OnEventBridge,
+  OnSns,
+  OnStepTask,
   Options,
   Patch,
   Policies,
@@ -32,10 +35,18 @@ export {
   Route,
   UseMiddleware,
 } from './decorators.ts';
-export type { ControllerDecorator, RouteMethodDecorator, RouteOptions } from './decorators.ts';
+export type {
+  ControllerDecorator,
+  OnEventBridgeOptions,
+  OnSnsOptions,
+  OnStepTaskOptions,
+  RouteMethodDecorator,
+  RouteOptions,
+} from './decorators.ts';
 
 export { RouteRegistry, routeRegistry } from './registry.ts';
 export type { ControllerEntry, DeclaredRoute } from './registry.ts';
+export type { DeclaredListener } from './types.ts';
 
 export { compileRoutes, defineRoute, describeTable, METHOD_ORDER, pathShape } from './compile.ts';
 
@@ -62,6 +73,8 @@ export type { RouterErrorCode } from './errors.ts';
 
 export { BODYLESS_STATUSES } from './types.ts';
 export type {
+  AwsListenerKind,
+  AwsListenerMeta,
   ContentType,
   ControllerClass,
   HttpMethod,

@@ -52,12 +52,12 @@ export function queueTableDdl(
   const bigint = options.engine === 'postgres' ? 'BIGINT' : 'INTEGER';
 
   return [
-    `CREATE TABLE IF NOT EXISTS ${table} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  attempts INTEGER NOT NULL DEFAULT 0,\n  max_attempts INTEGER NOT NULL DEFAULT 5,\n  available_at ${bigint} NOT NULL,\n  leased_until ${bigint} NOT NULL DEFAULT 0,\n  created_at ${bigint} NOT NULL,\n  last_error TEXT,\n  idempotency_key TEXT\n)`,
+    `CREATE TABLE IF NOT EXISTS ${table} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  attempts INTEGER NOT NULL DEFAULT 0,\n  max_attempts INTEGER NOT NULL DEFAULT 5,\n  available_at ${bigint} NOT NULL,\n  leased_until ${bigint} NOT NULL DEFAULT 0,\n  created_at ${bigint} NOT NULL,\n  last_error TEXT,\n  idempotency_key TEXT,\n  request_id TEXT\n)`,
     // The claim query's only real requirement: an index on (available_at, leased_until).
     `CREATE INDEX IF NOT EXISTS ${table}_due ON ${table} (available_at, leased_until)`,
     `CREATE UNIQUE INDEX IF NOT EXISTS ${table}_idempotency ON ${table} (idempotency_key) WHERE idempotency_key IS NOT NULL`,
-    `CREATE TABLE IF NOT EXISTS ${dead} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  attempts INTEGER NOT NULL,\n  max_attempts INTEGER NOT NULL,\n  available_at ${bigint} NOT NULL,\n  created_at ${bigint} NOT NULL,\n  last_error TEXT,\n  idempotency_key TEXT\n)`,
-    `CREATE TABLE IF NOT EXISTS ${outbox} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  created_at ${bigint} NOT NULL,\n  max_attempts INTEGER NOT NULL DEFAULT 5,\n  idempotency_key TEXT,\n  published_at ${bigint}\n)`,
+    `CREATE TABLE IF NOT EXISTS ${dead} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  attempts INTEGER NOT NULL,\n  max_attempts INTEGER NOT NULL,\n  available_at ${bigint} NOT NULL,\n  created_at ${bigint} NOT NULL,\n  last_error TEXT,\n  idempotency_key TEXT,\n  request_id TEXT\n)`,
+    `CREATE TABLE IF NOT EXISTS ${outbox} (\n  id TEXT PRIMARY KEY,\n  name TEXT NOT NULL,\n  payload TEXT NOT NULL,\n  connection TEXT NOT NULL,\n  created_at ${bigint} NOT NULL,\n  max_attempts INTEGER NOT NULL DEFAULT 5,\n  idempotency_key TEXT,\n  request_id TEXT,\n  published_at ${bigint}\n)`,
     `CREATE INDEX IF NOT EXISTS ${outbox}_unpublished ON ${outbox} (published_at)`,
   ];
 }
@@ -73,6 +73,7 @@ interface Row extends Record<string, unknown> {
   readonly created_at?: number | string;
   readonly last_error?: string | null;
   readonly idempotency_key?: string | null;
+  readonly request_id?: string | null;
   readonly removed?: number | string;
 }
 
@@ -106,6 +107,9 @@ function toMessage(row: Row): JobMessage {
     ...(row.idempotency_key === null || row.idempotency_key === undefined
       ? {}
       : { idempotencyKey: row.idempotency_key }),
+    ...(row.request_id === null || row.request_id === undefined
+      ? {}
+      : { requestId: row.request_id }),
   };
 }
 
@@ -147,11 +151,12 @@ export function databaseQueueDriver(options: DatabaseQueueOptions): QueueDriver<
             message.createdAt,
             message.lastError ?? null,
             message.idempotencyKey ?? null,
+            message.requestId ?? null,
           ];
 
           if (message.idempotencyKey === undefined) {
             await run(
-              `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key) VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p).join(', ')})`,
+              `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key, request_id) VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(p).join(', ')})`,
               params,
             );
             return;
@@ -159,7 +164,7 @@ export function databaseQueueDriver(options: DatabaseQueueOptions): QueueDriver<
 
           // A duplicate idempotency key is the backend saying "already queued", not an error.
           await run(
-            `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key) VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p).join(', ')}) ON CONFLICT (idempotency_key) DO NOTHING`,
+            `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key, request_id) VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(p).join(', ')}) ON CONFLICT (idempotency_key) DO NOTHING`,
             params,
           );
         },
@@ -188,8 +193,8 @@ export function databaseQueueDriver(options: DatabaseQueueOptions): QueueDriver<
           if (retryAt === undefined) {
             // Exhausted: move the row, do not delete it — the dead-letter store is the record.
             await run(
-              `INSERT INTO ${deadTable} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key) ` +
-                `SELECT id, name, payload, connection, attempts, max_attempts, available_at, created_at, ${p(2)}, idempotency_key FROM ${table} WHERE id = ${p(1)}`,
+              `INSERT INTO ${deadTable} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key, request_id) ` +
+                `SELECT id, name, payload, connection, attempts, max_attempts, available_at, created_at, ${p(2)}, idempotency_key, request_id FROM ${table} WHERE id = ${p(1)}`,
               [message.id, error],
             );
             await run(`DELETE FROM ${table} WHERE id = ${p(1)}`, [message.id]);
@@ -217,8 +222,8 @@ export function databaseQueueDriver(options: DatabaseQueueOptions): QueueDriver<
 
           const message = toMessage(row);
           await run(
-            `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key) ` +
-              `VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map(p).join(', ')})`,
+            `INSERT INTO ${table} (id, name, payload, connection, attempts, max_attempts, available_at, created_at, last_error, idempotency_key, request_id) ` +
+              `VALUES (${[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].map(p).join(', ')})`,
             [
               message.id,
               message.name,
@@ -230,6 +235,7 @@ export function databaseQueueDriver(options: DatabaseQueueOptions): QueueDriver<
               message.createdAt,
               null,
               message.idempotencyKey ?? null,
+              message.requestId ?? null,
             ],
           );
           await run(`DELETE FROM ${deadTable} WHERE id = ${p(1)}`, [id]);

@@ -14,7 +14,7 @@ import { boolFlag, parseArgs } from '../args.ts';
 import { loadProject } from '../project.ts';
 import { loadProjectCommands, unknownConsoleCommands } from './project-command.ts';
 import { repairDeployRegion } from './bootstrap.ts';
-import { info, jsonDocument, style } from '../output.ts';
+import { info, jsonDocument, style, CliError } from '../output.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
 
@@ -255,7 +255,10 @@ export async function doctorCommand(
       name: 'project',
       status: 'fail',
       detail: error instanceof Error ? error.message : String(error),
-      hint: 'run `tsir bootstrap` inside an existing application, or scaffold one with `tsir new`',
+      hint:
+        error instanceof CliError && error.hint !== undefined
+          ? error.hint
+          : 'run `tsir bootstrap` inside an existing application, or scaffold one with `tsir new`',
     });
   }
 

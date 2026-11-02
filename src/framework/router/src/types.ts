@@ -129,6 +129,45 @@ export interface RouteMeta {
   readonly operationId?: string;
   readonly summary?: string;
   readonly tags?: readonly string[];
+  /**
+   * Stream the request body to the handler instead of parsing it. The handler
+   * receives a `ReadableStream<Uint8Array>` capped at `http.maxBodyBytes`; the
+   * body is not buffered, not parsed as JSON, and no body schema is applied.
+   * Implies `body` is unset.
+   */
+  readonly stream?: true;
+}
+
+/**
+ * AWS event-source listeners (DPL-026).
+ *
+ * Like `RouteMeta`, these are declaration-time metadata: the decorator freezes
+ * them on the method, the compiler reads them once, and the runtime never
+ * touches the original object again. `unit` defaults to `sns`/`schedule`/`admin`
+ * so a class of listeners lands in the right deploy unit without repeating it.
+ */
+export type AwsListenerKind = 'sns' | 'eventbridge' | 'steptask';
+
+export interface AwsListenerMeta {
+  readonly kind: AwsListenerKind;
+  /** SNS topic name (for `sns`). */
+  readonly topic?: string;
+  /** EventBridge event bus name (for `eventbridge`). Defaults to the default bus. */
+  readonly eventBus?: string;
+  /** EventBridge detail-type pattern (for `eventbridge`). */
+  readonly detailType?: string;
+  /** Step Functions task name (for `steptask`). */
+  readonly name?: string;
+  /** Optional body schema — the message payload is validated with it (VLD boundary). */
+  readonly body?: AnyStandardSchema;
+  /** Deploy unit. Defaults by kind: `sns`, `schedule`, `admin`. */
+  readonly unit?: string;
+}
+
+/** One listener as declared on a method, before class-level metadata is merged. */
+export interface DeclaredListener {
+  readonly handler: string;
+  readonly meta: AwsListenerMeta;
 }
 
 /** One route after class-level metadata has been merged in. */

@@ -28,7 +28,8 @@
     "boundaries": "bun src/tools/check-boundaries.ts",
     "test:watch": "bun test --watch",
     "coverage": "bun src/tools/coverage-gate.ts src/framework/cache src/framework/queue src/framework/events src/framework/schedule src/framework/storage src/framework/mail src/framework/notify src/framework/policy src/framework/auth src/framework/pulse src/framework/container src/framework/config src/framework/core src/framework/database src/framework/deploy src/framework/migrate src/framework/seed src/framework/router src/framework/http src/framework/validate src/framework/vault src/framework/link",
-    "frontpage": "bun src/tools/check-frontpage.ts",
+    "frontpage": "bun src/apps/frontpage/build.ts --check && bun src/tools/check-frontpage.ts",
+    "frontpage:build": "bun src/apps/frontpage/build.ts",
     "license": "bun src/tools/check-license.ts",
     "dist": "bun src/tools/dist.ts",
     "deps": "bun src/tools/check-deps.ts",
@@ -43,10 +44,15 @@
     "prepare": "bun src/tools/install-hooks.ts"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "4.3.3",
     "@types/bun": "latest",
+    "daisyui": "5.7.50",
+    "esbuild": "0.28.2",
     "eslint": "9.39.5",
     "marked": "18.1.2",
     "prettier": "3.9.10",
+    "svelte": "5.57.3",
+    "tailwindcss": "4.3.3",
     "typescript": "^5.9.0",
     "typescript-eslint": "8.72.1"
   },

@@ -25,6 +25,8 @@ import {
   capabilityMissing,
   duplicateRoute,
   invalidDeployConfig,
+  invokeUnknown,
+  publishUnknown,
   unsupportedTarget,
 } from './errors.ts';
 import { checkQueueConnections, type QueueConnectionInput } from './queue-triggers.ts';
@@ -64,6 +66,16 @@ export interface GraphOptions {
    * Mirrored from `DeploymentInput` so `deploy:plan` checks the same thing `deploy:build` does.
    */
   readonly events?: boolean | undefined;
+  /**
+   * SNS topics this app publishes to (`DPL-030`). Each must have a matching `@OnSns({ topic })`
+   * listener; a publish to a topic nobody subscribes to is a build failure.
+   */
+  readonly publishes?: readonly string[] | undefined;
+  /**
+   * Step Functions tasks this app invokes internally (`DPL-030`). Each must have a matching
+   * `@OnStepTask({ name })` listener in the named unit.
+   */
+  readonly invokes?: readonly { readonly unit: string; readonly task: string }[] | undefined;
 }
 
 export interface UnitGraph {
@@ -272,6 +284,45 @@ export function checkGraph(
     }
   }
 
+  // Internal publish/invoke (`DPL-030`): a `publish(topic, …)` must reach a unit that has an
+  // `@OnSns({ topic })` trigger, and an `invokeUnit(unit, task, …)` must reach a unit with an
+  // `@OnStepTask({ name: task })` trigger. A typo here is a message that never arrives, which is
+  // the worst kind of failure — silent. So it fails the build, not the runtime.
+  const snsTopics = new Set<string>();
+  const stepTasksByUnit = new Map<string, Set<string>>();
+  for (const unit of graph.units) {
+    for (const trigger of unit.triggers) {
+      if (trigger.kind === 'sns') {
+        for (const topic of trigger.detail) snsTopics.add(topic);
+      }
+      if (trigger.kind === 'manual') {
+        const set = stepTasksByUnit.get(unit.name) ?? new Set<string>();
+        for (const task of trigger.detail) set.add(task);
+        stepTasksByUnit.set(unit.name, set);
+      }
+    }
+  }
+  for (const topic of options.publishes ?? []) {
+    if (snsTopics.has(topic)) continue;
+    const error = publishUnknown({ topic });
+    problems.push({
+      unit: '',
+      code: error.code,
+      message: error.message,
+      hint: error.hint ?? '',
+    });
+  }
+  for (const { unit, task } of options.invokes ?? []) {
+    if (stepTasksByUnit.get(unit)?.has(task) === true) continue;
+    const error = invokeUnknown({ unit, task });
+    problems.push({
+      unit,
+      code: error.code,
+      message: error.message,
+      hint: error.hint ?? '',
+    });
+  }
+
   return problems;
 }
 
@@ -316,7 +367,15 @@ export function buildGraph(input: DeploymentInput, options: GraphOptions = {}): 
       })),
       ...checkGraph(
         graph,
-        { ...options, topology, ...(events === undefined ? {} : { events }) },
+        {
+          ...options,
+          topology,
+          ...(events === undefined ? {} : { events }),
+          ...(input.deploy?.publishes === undefined
+            ? {}
+            : { publishes: input.deploy.publishes }),
+          ...(input.deploy?.invokes === undefined ? {} : { invokes: input.deploy.invokes }),
+        },
         input.queue ?? options.queue ?? [],
       ),
     ],

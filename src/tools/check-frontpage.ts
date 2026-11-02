@@ -13,7 +13,7 @@
  * Exits non-zero with a file-and-line reference for each violation.
  */
 
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 const PAGE = 'src/apps/frontpage/public/index.html';
@@ -37,6 +37,8 @@ function cards(): Card[] {
 
   for (const match of html.matchAll(article)) {
     const body = match[0];
+    // Ordinary editorial cards are not ecosystem claims.
+    if (!/\bdata-status=/.test(body)) continue;
     const offset = match.index ?? 0;
     const attr = (name: string): string => new RegExp(`${name}="([^"]*)"`).exec(body)?.[1] ?? '';
     const pkg = /<span class="pkg">([^<]+)<\/span>/.exec(body)?.[1] ?? '(unnamed)';
@@ -62,6 +64,33 @@ const problems: string[] = [];
 const all = cards();
 
 if (all.length === 0) problems.push(`${PAGE}: no ecosystem cards found`);
+const names = all.map((card) => card.pkg);
+if (new Set(names).size !== names.length)
+  problems.push(`${PAGE}: duplicate ecosystem package cards`);
+for (const entry of readdirSync('src/framework', { withFileTypes: true })) {
+  if (
+    entry.isDirectory() &&
+    existsSync(join('src/framework', entry.name, 'package.json')) &&
+    !names.includes(`@tsir/${entry.name}`)
+  ) {
+    problems.push(`${PAGE}: @tsir/${entry.name} has no ecosystem card`);
+  }
+}
+for (const match of html.matchAll(/href="docs\/([^"]+)"/g)) {
+  const target = match[1];
+  if (target === undefined) continue;
+  // Check authored sources, not a build directory: this gate also runs on a fresh checkout.
+  const source =
+    target === '' || target === 'index.html' ? 'index.html' : target.replace(/\.html$/u, '.md');
+  if (source !== 'index.html' && !existsSync(join('src/docs', source)))
+    problems.push(`${PAGE}: documentation link docs/${target} has no source page`);
+}
+if (/__PACKAGE_(?:COUNT|FILTERS)__|__PACKAGES__|__SITE_(?:CSS|JS)__/.test(html))
+  problems.push(`${PAGE}: unresolved build placeholder`);
+if (new TextEncoder().encode(html).byteLength > 128 * 1024)
+  problems.push(`${PAGE}: exceeds the 128 KiB single-file budget`);
+if (/<(?:script|img|link)[^>]+(?:src|href)="https?:/i.test(html))
+  problems.push(`${PAGE}: external runtime asset`);
 
 for (const card of all) {
   const dir = directoryFor(card.pkg);

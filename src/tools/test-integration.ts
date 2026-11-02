@@ -46,7 +46,7 @@ if (files.length === 0) {
   process.exit(0);
 }
 
-const run = Bun.spawnSync(['bun', 'test', '--timeout', '20000', ...files], {
+const run = Bun.spawnSync([process.execPath, 'test', '--timeout', '20000', ...files], {
   stdio: ['inherit', 'inherit', 'inherit'],
   env: process.env,
 });

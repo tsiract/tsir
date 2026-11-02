@@ -10,9 +10,9 @@
 
 | ID        | Title                                                      | Status | Depends | Acceptance criteria (summary)                                                                                                          |
 | --------- | ---------------------------------------------------------- | ------ | ------- | -------------------------------------------------------------------------------------------------------------------------------------- |
-| `SEC-001` | Threat model document (assets, actors, boundaries)         | `[ ]`  | —       | Reviewed; `14-security.md § 2` linked to tests                                                                                         |
-| `SEC-002` | Trust-boundary inventory (every untrusted input → owner)   | `[ ]`  | SEC-001 | No boundary without a validating package                                                                                               |
-| `SEC-003` | Secure-defaults audit (CORS, cookies, TLS verify, headers) | `[ ]`  | HTP-019 | Table in `14-security.md § 4` matches code                                                                                             |
+| `SEC-001` | Threat model document (assets, actors, boundaries)         | `[x]`  | —       | Reviewed; `14-security.md § 2` linked to tests                                                                                         |
+| `SEC-002` | Trust-boundary inventory (every untrusted input → owner)   | `[x]`  | SEC-001 | No boundary without a validating package                                                                                               |
+| `SEC-003` | Secure-defaults audit (CORS, cookies, TLS verify, headers) | `[x]`  | HTP-019 | Table in `14-security.md § 4` matches code                                                                                             |
 | `SEC-004` | Vault design review (envelope, AAD, state machine)         | `[x]`  | VLT-011 | [Review notes](../reviews/2026-10-28-vault-design-review.md)                                                                           |
 | `SEC-005` | Cryptography inventory + prohibited-practices lint         | `[x]`  | VLT-002 | `Math.random`, custom crypto imports banned                                                                                            |
 | `SEC-006` | Dependency budget review + `bun audit` in CI               | `[ ]`  | FND-017 | New dep without ADR fails review                                                                                                       |
@@ -25,12 +25,12 @@
 
 | ID        | Title                                                  | Status | Depends          | Acceptance criteria (summary)                                                              |
 | --------- | ------------------------------------------------------ | ------ | ---------------- | ------------------------------------------------------------------------------------------ |
-| `SEC-011` | Input DoS limits (body, depth, XML, WS frames)         | `[ ]`  | HTP-017, LNK-018 | Every limit has a negative test                                                            |
+| `SEC-011` | Input DoS limits (body, depth, XML, WS frames)         | `[x]`  | HTP-017, LNK-018 | Every limit has a negative test                                                            |
 | `SEC-012` | Prototype-pollution audit of all parsers               | `[x]`  | VLD-001          | `__proto__`/`constructor` rejected                                                         |
 | `SEC-013` | Log/telemetry exfiltration tests                       | `[x]`  | OBS-007          | Zero secrets in captured logs — the leak test in `pulse/src/logger.test.ts` scans the line |
-| `SEC-014` | Deploy artifact secret scan                            | `[ ]`  | DPL-020          | CI gate                                                                                    |
+| `SEC-014` | Deploy artifact secret scan                            | `[x]`  | DPL-020          | CI gate — closed by `DPL-020`: `deploy:validate` scans every emitted file for secret shapes and the project's own secret names (`DPL_SECRET_LEAK`); `make check` runs it                                         |
 | `SEC-015` | Rate limiting primitives (HTTP + link)                 | `[ ]`  | HTP-009          | Per-principal and per-target policies                                                      |
-| `SEC-016` | Error-message leakage audit (no stacks/causes in prod) | `[ ]`  | ERR-005          | Snapshot tests per boundary                                                                |
+| `SEC-016` | Error-message leakage audit (no stacks/causes in prod) | `[x]`  | ERR-005          | Snapshot tests per boundary                                                                |
 | `SEC-017` | Supply-chain: lockfile, provenance, signed tags        | `[ ]`  | FND-021          | Verification procedure documented                                                          |
 | `SEC-018` | External review + findings triage + `SECURITY.md`      | `[ ]`  | SEC-001…017      | Critical/high fixed before `v1.0.0`                                                        |
 
@@ -42,6 +42,17 @@ change, `__Host-` cookie attributes asserted verbatim, uniform auth errors, and 
 a job or an RPC handler calls without an HTTP request existing. Two deviations from
 [`14-security.md § 4`](../operations/14-security.md) — PBKDF2 as the default hasher, and no automatic 24-hour
 rotation — are recorded there rather than quietly.
+
+**SEC-001/002/003 audit (2026-10-30).** The threat model (`14-security.md § 2`) is reviewed and each
+row is linked to a test family. All six trust boundaries in § 1 have a validating package: HTTP
+bodies (`@tsir/http`), env vars and `tsir.js` (`@tsir/config`), queue payloads (job handler +
+`@tsir/validate`), DB ciphertext (`@tsir/vault`), upstream responses (`@tsir/link`). The
+secure-defaults table in § 4 matches code: CORS off by default with wildcard+credentials as a boot
+error (`HTP_CORS_WILDCARD_CREDENTIALS`), `__Host-`/`HttpOnly`/`Secure`/`SameSite=Lax` cookies
+(`@tsir/auth`), TLS verify on by default (fetch API; gRPC requires TLS off-loopback), JSON depth 32
+and body 1 MiB (`@tsir/http`), response validation `dev`-only by default. Helmet-equivalent headers
+(`nosniff`, `frame-ancestors 'none'`, `referrer-policy`) on HTML responses were missing from code
+and were added to `@tsir/http`'s `finalize()` with tests.
 
 ## Review gates
 

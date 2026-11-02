@@ -141,8 +141,8 @@ describe('atomic commit', () => {
 describe('commands use the engine', () => {
   test('make:module refuses an existing module, names it, and exits 1', async () => {
     await runCli(['make:module', 'Users']);
-    const moduleDir = join(dir, 'src', 'modules', 'users');
-    for (const file of ['index.ts', 'routes.ts', 'users.controller.ts', 'users.test.ts']) {
+    const moduleDir = join(dir, 'users');
+    for (const file of ['index.ts', 'routes.ts', 'http/users.controller.ts', 'users.test.ts']) {
       expect(existsSync(join(moduleDir, file))).toBe(true);
     }
     expect(await runCli(['make:module', 'Users'])).toBe(EXIT.failure);
@@ -152,7 +152,7 @@ describe('commands use the engine', () => {
 
   test('make:module --force overwrites, and --dry-run writes nothing', async () => {
     expect(await runCli(['make:module', 'Orders', '--dry-run'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src'))).toBe(false);
+    expect(existsSync(join(dir, 'orders'))).toBe(false);
     expect(outputs).toContain('would create');
 
     await runCli(['make:module', 'Orders']);
@@ -161,16 +161,16 @@ describe('commands use the engine', () => {
 
   test('make:module writes the house layout: routes, controller, index, and a test', async () => {
     expect(await runCli(['make:module', 'Billing'])).toBe(EXIT.ok);
-    const moduleDir = join(dir, 'src', 'modules', 'billing');
+    const moduleDir = join(dir, 'billing');
     const routes = readFileSync(join(moduleDir, 'routes.ts'), 'utf8');
     expect(routes).toContain('routeModule({');
     expect(routes).toContain("name: 'billing'");
-    const controller = readFileSync(join(moduleDir, 'billing.controller.ts'), 'utf8');
+    const controller = readFileSync(join(moduleDir, 'http/billing.controller.ts'), 'utf8');
     expect(controller).toContain("@Controller(registry, '/billing')");
     const index = readFileSync(join(moduleDir, 'index.ts'), 'utf8');
     expect(index).toContain('export { billing, registry }');
     const test = readFileSync(join(moduleDir, 'billing.test.ts'), 'utf8');
-    expect(test).toContain('modules: [billing.module]');
+    expect(test).toContain('modules: [_module.module]');
   });
 
   test('new --dry-run lists every scaffold file and writes none', async () => {

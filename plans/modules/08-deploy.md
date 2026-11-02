@@ -14,7 +14,9 @@ A **unit** is the atom of deployment. It is derived from the application's decla
 | `ws`       | WebSocket handlers                  | Upgrade requests    | Workers + Durable Objects / API GW WS |
 | `queue`    | Job handlers                        | Queue/stream events | Workers Queues / Lambda + SQS         |
 | `schedule` | Scheduled tasks                     | Cron                | Workers Cron Triggers / EventBridge   |
-| `admin`    | Health, metrics, OpenAPI (optional) | HTTP                | Separate worker/lambda recommended    |
+| `sns`      | `@OnSns` topic subscribers          | SNS messages        | Lambda + SNS (raw SQS fan-out)        |
+| `eventbridge` | `@OnEventBridge` rules           | EventBridge events  | Lambda + EventBridge rule             |
+| `admin`    | `@OnStepTask` tasks, health, metrics | Direct invoke / HTTP | Separate worker/lambda recommended    |
 | `console`  | CLI-entered commands                | Manual              | Not deployed                          |
 
 ### 1.1 Topology
@@ -43,6 +45,118 @@ export default defineConfig({
 
 The topology is resolved by the **unit graph** (§ 2), printed by `tsir deploy:plan --explain`, and never inferred silently.
 
+### 1.2 AWS event listeners (`DPL-026` … `DPL-029`)
+
+Controllers declare event handlers with decorators the same way they declare routes:
+
+```ts
+import { Controller, OnSns, OnEventBridge, OnStepTask } from '@tsir/router';
+import type { ListenerContext } from '@tsir/deploy';
+
+@Controller()
+class OrdersController {
+  // SNS topic subscriber — default unit 'sns'
+  @OnSns({ topic: 'orders.created' })
+  onOrderCreated(message: unknown, ctx: ListenerContext): void { /* fan-out consumer */ }
+
+  // EventBridge rule — matches by detail-type; default unit 'schedule'
+  @OnEventBridge({ detailType: 'OrderShipped' })
+  onOrderShipped(detail: unknown, ctx: ListenerContext): void { /* rule target */ }
+
+  // Step Functions task — invoked synchronously; default unit 'admin'
+  @OnStepTask({ name: 'process-refund' })
+  processRefund(input: unknown, ctx: ListenerContext): Promise<unknown> { /* task handler */ }
+}
+```
+
+Each decorator resolves a default unit (`sns`, `schedule`, `admin`), overridable with
+`{ unit: 'my-unit' }`. The body schema (`{ body: schema }`) is validated at runtime via
+`@tsir/validate`; an event with no matching listener throws `DPL_LISTENER_NOT_FOUND` with the
+expected key. SNS messages arrive as `SnsRecord.Sns.Message` already parsed. EventBridge
+events are keyed by `detail-type` (the bus-level filter lives in the emitted `AWS::Events::Rule`;
+scheduled EventBridge events from `aws.events`/`aws.scheduler` go to the `scheduled` handler, not
+`eventbridge`). Step task events arrive as `{ task, ...input }`; if a single `@OnStepTask` is
+declared, the `task` field is optional so any payload routes to it. The method's return value is
+the Step Functions task output (the adapter does not replace it).
+
+Every handler receives `ListenerContext` as its second argument: the same shape of per-invocation
+metadata HTTP controllers get through `ctx` (`04-http.md § 8.4`): `signal` (Lambda deadline
+abort), `functionName`, `awsRequestId`, plus the source envelope (`sns` or `eventbridge`).
+The SQS/SNS/scheduled branches create a deadline signal from
+`context.getRemainingTimeInMillis()` so a handler can cooperate with the Lambda's remaining time.
+
+### 1.3 Internal invoke and publish (`DPL-030`)
+
+A service method can reach another unit without importing its controller:
+
+```ts
+import { invokeUnit, publish } from '@tsir/deploy';
+
+// Publishes to an SNS topic — must have a matching @OnSns listener in the graph.
+await publish('orders.created', { orderId: 'ord-1' });
+
+// Invokes another unit's @OnStepTask synchronously and returns its result.
+const result = await invokeUnit('admin', 'process-refund', { amount: 42 });
+```
+
+Both are **checked against the graph at build time**: list the topics and tasks in `tsir.js`:
+
+```js
+export default defineConfig({
+  deploy: {
+    publishes: ['orders.created'],
+    invokes: [{ unit: 'admin', task: 'process-refund' }],
+  },
+});
+```
+
+A topic or task not declared anywhere fails the build with `DPL_PUBLISH_UNKNOWN` or
+`DPL_INVOKE_UNKNOWN` — a message that would vanish into a topic nobody reads, or an invoke
+that would land on a function with no matching task name, is caught before deploy. The
+transport is pluggable (`setInternalTransport`) so tests inject an in-process mock; in
+production the default lazily imports `@aws-sdk/client-sns` and `@aws-sdk/client-lambda`.
+
+**How `invokeUnit` reaches the target Lambda** (DPL-030 platform wiring):
+
+1. The caller runs `invokeUnit('admin', 'process-refund', { amount: 42 })` from inside any
+   unit's handler.
+2. The AWS transport builds `FunctionName: ${TSIR_STACK_NAME}-admin` — the env var
+   `TSIR_STACK_NAME` is injected into every Lambda by the SAM template, and the deployed
+   function is named `${AWS::StackName}-${unit}`. Without it, the SDK would look for a
+   function literally named `admin` and fail with `ResourceNotFoundException`.
+3. It calls `lambda:InvokeFunction` with `InvocationType: RequestResponse` and a payload of
+   `{ "task": "process-refund", "amount": 42 }`.
+4. The source Lambda's role carries an inline policy allowing
+   `lambda:InvokeFunction` on `arn:aws:lambda:*:*:function:${AWS::StackName}-*` — every
+   function in the stack. No cross-account or cross-stack invokes are permitted.
+5. The target Lambda's adapter routes the payload to its `invoke` handler, which looks up
+   the `@OnStepTask({ name: 'process-refund' })` method, validates the body against its
+   declared schema, and returns the method's result as the Lambda response body.
+6. The transport parses the response payload and returns it to the caller.
+
+`invokeUnit` is **synchronous** (`RequestResponse`): the caller waits for the target to
+finish. For fire-and-forget work, use `publish` to an SNS topic instead.
+
+### 1.4 Per-unit memory and timeout (`DPL-031`)
+
+`deploy.memoryMb` and `deploy.timeoutSeconds` set the shared default for every unit. Override
+a single unit in `deploy.units`:
+
+```js
+export default defineConfig({
+  deploy: {
+    memoryMb: 512,        // shared default via Globals.Function
+    timeoutSeconds: 30,
+    units: [
+      { name: 'admin', memoryMb: 2048, timeoutSeconds: 120 },   // heavy unit
+    ],
+  },
+});
+```
+
+A unit without overrides inherits the shared default (no `MemorySize`/`Timeout` on its
+function resource). A unit with overrides emits its own values on the function resource.
+
 ---
 
 ## 2. Unit graph resolution
@@ -56,7 +170,9 @@ Inputs:
 1. Modules registered in `tsir.js` (`modules: [...]`).
 2. Routes discovered by the route compiler (which controller belongs to which unit — default by `@Controller({ unit: 'http' })`, overridable).
 3. Queue handler registrations, scheduled task registrations, WS handler registrations.
-4. Explicit `deploy.units` overrides in `tsir.js`.
+4. AWS event listeners discovered by the route compiler: `@OnSns`, `@OnEventBridge`, `@OnStepTask` (§ 1.2) — each contributes its unit and trigger kind.
+5. Internal `publish`/`invokeUnit` declarations in `deploy.publishes` / `deploy.invokes` (§ 1.3) — checked against the graph, not used to create units.
+6. Explicit `deploy.units` overrides in `tsir.js`.
 
 Rules:
 
@@ -375,6 +491,9 @@ tsir deploy:invoke --unit http --event fixture.json   # local invocation against
 | `DPL_CLASS_MISSING`      | A Durable Object binding names a class the bundle does not export | Build fails before bundling             |
 | `DPL_ENV_LIMIT`          | Lambda environment over 4 KB                                      | Build fails with the overage            |
 | `DPL_UNSUPPORTED_TARGET` | Target not configured                                             | Lists valid targets                     |
+| `DPL_LISTENER_NOT_FOUND` | Event routed to a unit with no matching `@OnSns`/`@OnEventBridge`/`@OnStepTask` | Runtime throw (SNS retries on next poll) |
+| `DPL_PUBLISH_UNKNOWN`    | `publish(topic, …)` for a topic no `@OnSns` listener subscribes to | Build fails, names the topic           |
+| `DPL_INVOKE_UNKNOWN`     | `invokeUnit(unit, task, …)` for a task no `@OnStepTask` handles   | Build fails, names the unit and task    |
 
 ---
 
@@ -401,4 +520,4 @@ tsir deploy:invoke --unit http --event fixture.json   # local invocation against
 
 ## 10. Task index
 
-[`tasks/07-deploy.md`](../tasks/07-deploy.md) — `DPL-001` … `DPL-024`.
+[`tasks/07-deploy.md`](../tasks/07-deploy.md) — `DPL-001` … `DPL-031`.

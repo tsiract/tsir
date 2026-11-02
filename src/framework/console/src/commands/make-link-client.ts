@@ -14,7 +14,7 @@ import { boolFlag, parseArgs, stringFlag } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { pendingTestFile } from './pending-test.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
-import { isIdentifier, toKebab } from './naming.ts';
+import { requireModule, scopedName, splitAppModule, isIdentifier, toKebab } from './naming.ts';
 
 /** A URL path: one or more non-empty segments after a slash. No quotes, spaces, `//` or trailing slash. */
 const PREFIX = /^\/[A-Za-z0-9_:.-]+(\/[A-Za-z0-9_:.-]+)*$/;
@@ -72,12 +72,14 @@ export async function makeLinkClientCommand(argv: readonly string[]): Promise<nu
     '--dry-run': { type: 'boolean', description: 'print what would be written' },
   });
   const input = args.positionals[0];
-  if (input === undefined) {
+  if (input === undefined || args.positionals.length > 2) {
     throw new UsageError('make:link-client needs a name', 'e.g. `tsir make:link-client Billing`');
   }
 
-  const base = baseName(input);
-  const stem = toKebab(base);
+  const moduleInput = args.positionals[1];
+  const raw = input.endsWith('Client') ? input.slice(0, -6) : input;
+  const base = baseName(moduleInput === undefined ? input : scopedName(raw, 'client').pascal);
+  const stem = moduleInput === undefined ? toKebab(base) : scopedName(raw, 'client').stem;
   const prefix = stringFlag(args, '--path') ?? `/${stem}`;
   if (!PREFIX.test(prefix)) {
     throw new UsageError(
@@ -86,7 +88,16 @@ export async function makeLinkClientCommand(argv: readonly string[]): Promise<nu
     );
   }
 
-  const path = join(process.cwd(), 'src', 'clients', `${stem}.client.ts`);
+  let moduleDir: string | undefined;
+  if (moduleInput !== undefined) {
+    const { app, module: moduleArg } = splitAppModule(moduleInput);
+    if (app !== undefined) process.chdir(app);
+    moduleDir = requireModule(moduleArg).dir;
+  }
+  const path = join(
+    moduleDir === undefined ? join(process.cwd(), 'clients') : join(moduleDir, 'clients'),
+    `${stem}.client.ts`,
+  );
   const generated: GeneratedFile[] = [{ path, contents: linkClientTemplate(base, prefix) }];
   // CLI-015: every generated part ships with a test that is red until it is implemented.
   const primary = generated[0];

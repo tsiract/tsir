@@ -183,7 +183,7 @@ What exists today:
 | Package scaffolder (`src/tools/new-package.ts`)                                               | ✅ manifest, barrel, test, task stub                                    |
 | Runtime floor enforcement (`@tsir/console` boot guard, `engines`)                             | ✅ bun ≥ 1.2, node ≥ 21                                                 |
 | Postgres integration job (CI service container)                                               | ✅ 3 suites / 17 tests green (PG 17.6)                                  |
-| Streaming request bodies, `tsir openapi:generate` (the CLI + dev-serving half)                | ⛔ the only Phase 2 items left (`tasks/03-http.md`)                     |
+| OpenAPI served at `/__tsir/openapi.json` in dev                                       | ⛔ the only Phase 2 item left (`tasks/03-http.md`)                                                               |
 | Migrate unit in the deploy graph (MIG-012)                                                    | ✅ Phase 6 — `migrate:<connection>` script                              |
 | Managed regions + `tsir bootstrap --plan/--yes` (`CFG-104`, `CFG-107`, `CFG-115`)             | ✅ deploy block, fenced and idempotent                                  |
 | Vault-backed column encryption (DB-010)                                                       | ✅ closed by `VLT-008` (2026-10-28)                                     |

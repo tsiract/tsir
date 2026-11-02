@@ -27,14 +27,59 @@ import {
 } from 'node:fs';
 import { dirname, join, posix, relative } from 'node:path';
 import { marked } from 'marked';
+import { slugify } from './check-links.ts';
 
 const ROOT = process.cwd();
-const SOURCE = join(ROOT, 'src/docs');
-const OUT = join(ROOT, 'build/docs-site');
 
 /** Non-Markdown files that the pages link to, copied into the site unchanged. */
 const COPIED_FILES = ['api-surface.json', 'error-codes.json'];
 const COPIED_DIRS = ['assets'];
+
+/**
+ * Compiles and bundles the Svelte 5 docs router into a single inline script.
+ *
+ * The router is a build-time artifact: it is compiled once, minified, and
+ * inlined into every generated page so the docs stay dependency-free at
+ * runtime. It powers client-side navigation with the View Transition API and
+ * persists the sidebar scroll position between pages.
+ */
+async function buildRouterScript(root: string): Promise<string> {
+  const entry = join(root, 'src/tools/docs-router/main.ts');
+  if (!existsSync(entry)) return '';
+  // Lazy imports keep the docs build fast when the router is unchanged.
+  const { compile } = await import('svelte/compiler');
+  const esbuild = await import('esbuild');
+  const result = await esbuild.build({
+    entryPoints: [entry],
+    bundle: true,
+    write: false,
+    minify: true,
+    format: 'iife',
+    logLevel: 'silent',
+    platform: 'browser',
+    define: { 'import.meta.env.SSR': 'false' },
+    plugins: [
+      {
+        name: 'svelte',
+        setup(build) {
+          build.onLoad({ filter: /\.svelte$/ }, (args) => {
+            const source = readFileSync(args.path, 'utf8');
+            const compiled = compile(source, {
+              filename: args.path,
+              generate: 'client',
+            });
+            return {
+              contents: compiled.js.code,
+              loader: 'js',
+            };
+          });
+        },
+      },
+    ],
+  });
+  const output = result.outputFiles[0]?.text ?? '';
+  return output;
+}
 
 export interface Page {
   /** Path relative to `src/docs`, with `/` separators, e.g. `packages/queue.md`. */
@@ -47,8 +92,9 @@ export interface Page {
 const HREF = /href="([^"#][^"]*)"/gu;
 
 /**
- * Rewrite `x.md` links to `x.html` and report every relative link that resolves to nothing.
- * `pagePath` is the page's own path inside `src/docs`, so a link is resolved from its folder.
+ * Rewrite `x.md` links to clean directory URLs (`x/`, not `x.html`) and report
+ * every relative link that resolves to nothing. `pagePath` is the page's own
+ * path inside `src/docs`, so a link is resolved from its folder.
  */
 export function rewriteLinks(
   html: string,
@@ -56,6 +102,10 @@ export function rewriteLinks(
   exists: (target: string) => boolean,
 ): { html: string; broken: string[] } {
   const broken: string[] = [];
+  // The page's output lives at `<path-without-.md>/index.html`, so links are
+  // resolved from that directory to keep clean URLs at any folder depth.
+  // `index.md` is the docs root (`.`), not `index/`.
+  const pageDir = pagePath === 'index.md' ? '.' : pagePath.replace(/\.md$/u, '');
   const out = html.replace(HREF, (whole, rawHref: string) => {
     if (/^[a-z][a-z0-9+.-]*:/iu.test(rawHref) || rawHref.startsWith('/')) return whole;
     const [pathPart = '', fragment = ''] = rawHref.split('#', 2);
@@ -69,29 +119,30 @@ export function rewriteLinks(
       broken.push(`${pagePath} → ${rawHref}`);
       return whole;
     }
-    const target = resolved.endsWith('.md') ? `${resolved.slice(0, -3)}.html` : resolved;
+    let target: string;
+    if (resolved.endsWith('.md')) {
+      // A link to another page becomes its clean directory URL.
+      target = `${resolved.slice(0, -3)}/`;
+    } else {
+      target = resolved;
+    }
     const suffix = fragment === '' ? '' : `#${fragment}`;
-    // Keep the path relative to this page, so the site works from any folder depth.
-    const relHref = posix.relative(posix.dirname(pagePath), target) || posix.basename(target);
+    const rel = posix.relative(pageDir, target) || '.';
+    // Preserve the trailing slash for directory-style page URLs.
+    const relHref = target.endsWith('/') ? `${rel}/` : rel;
     return `href="${relHref}${suffix}"`;
   });
   return { html: out, broken };
 }
 
-const STYLE = `
-body{margin:0;font:16px/1.55 system-ui,sans-serif;color:#1d1d1f;background:#fff;display:flex;min-height:100vh}
-nav{width:15rem;flex:none;padding:1.25rem;border-right:1px solid #e5e5e5;font-size:14px}
-nav h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#6e6e73;margin:1.25rem 0 .4rem}
-nav ul{list-style:none;margin:0;padding:0}nav li{margin:.2rem 0}
-nav a{color:#0b5cad;text-decoration:none}nav a[aria-current=page]{font-weight:600;color:#1d1d1f}
-main{padding:2rem 2.5rem;max-width:52rem;min-width:0}
-code{font:13px ui-monospace,monospace;background:#f5f5f7;padding:.1em .3em;border-radius:4px}
-pre{background:#f5f5f7;padding:1rem;overflow:auto;border-radius:6px}pre code{background:none;padding:0}
-table{border-collapse:collapse;margin:1rem 0;font-size:14px}th,td{border:1px solid #d2d2d7;padding:.35rem .6rem;text-align:left}
-a{color:#0b5cad}
-@media (max-width:720px){body{flex-direction:column}nav{width:auto;border-right:0;border-bottom:1px solid #e5e5e5}}
-`;
-
+// Reuse the compiled, self-contained DaisyUI Nord/Abyss stylesheet and progressive
+// enhancement from the frontpage. No CDN, font request or client framework.
+const FRONT_PAGE = readFileSync(join(ROOT, 'src/apps/frontpage/public/index.html'), 'utf8');
+const SITE_STYLE = /<style data-site>([\s\S]*?)<\/style>/u.exec(FRONT_PAGE)?.[1] ?? '';
+const SITE_SCRIPT = /<script data-site>([\s\S]*?)<\/script>/u.exec(FRONT_PAGE)?.[1] ?? '';
+const THEME_SCRIPT = `try{const t=localStorage.getItem('tsir-theme');document.documentElement.dataset.theme=t==='abyss'||t==='nord'?t:matchMedia('(prefers-color-scheme: dark)').matches?'abyss':'nord'}catch{document.documentElement.dataset.theme='nord'}`;
+if (SITE_STYLE === '' || SITE_SCRIPT === '')
+  throw new Error('Build the frontpage before the docs site.');
 function escapeHtml(text: string): string {
   return text.replace(
     /[&<>"]/gu,
@@ -99,28 +150,56 @@ function escapeHtml(text: string): string {
   );
 }
 
-/** Pages grouped for the navigation: the reference pages first, then one group per package. */
-function groupOf(path: string): 'Reference' | 'Packages' {
+/** Pages grouped for navigation: hands-on guides, reference pages, and package references. */
+function groupOf(path: string): 'Getting started' | 'Guides' | 'Reference' | 'Packages' {
+  if (path === 'installation.md') return 'Getting started';
+  if (path.startsWith('guides/')) return 'Guides';
   return path.startsWith('packages/') ? 'Packages' : 'Reference';
 }
 
-export function renderPage(page: Page, all: readonly Page[]): string {
+export function renderPage(page: Page, all: readonly Page[], routerScript = ''): string {
   const current = page.path;
-  const groups = new Map<'Reference' | 'Packages', Page[]>([
+  // The page's output directory. `index.md` is the docs root (`./`); every
+  // other page lives at `<path-without-.md>/index.html` for clean URLs.
+  const currentDir = current === 'index.md' ? '.' : current.replace(/\.md$/u, '');
+  const groups = new Map<'Getting started' | 'Guides' | 'Reference' | 'Packages', Page[]>([
+    ['Getting started', []],
+    ['Guides', []],
     ['Reference', []],
     ['Packages', []],
   ]);
   for (const p of all) groups.get(groupOf(p.path))?.push(p);
+  // Tutorial order: understand the project (configuration) before generating
+  // code (controllers), then layer in persistence, async work, caching,
+  // deployment portability, and finally contributor tooling.
+  const order = [
+    'configuration',
+    'controllers',
+    'database',
+    'queues',
+    'caching',
+    'providers',
+    'make',
+  ];
+  groups.get('Guides')?.sort((a, b) => {
+    const rank = (path: string): number => {
+      const i = order.indexOf(posix.basename(path, '.md'));
+      return i < 0 ? order.length : i;
+    };
+    return rank(a.path) - rank(b.path) || a.title.localeCompare(b.title);
+  });
 
   const nav = [...groups.entries()]
     .map(([heading, pages]) => {
       const items = pages
         .map((p) => {
-          const href = posix.relative(
-            posix.dirname(current),
-            `${p.path.replace(/\.md$/u, '')}.html`,
-          );
-          const aria = p.path === current ? ' aria-current="page"' : '';
+          const targetDir = p.path.replace(/\.md$/u, '');
+          const rel = posix.relative(currentDir, targetDir) || '.';
+          const href = `${rel}/`;
+          const aria =
+            p.path === current || (current === 'index.md' && p.path === 'installation.md')
+              ? ' aria-current="page"'
+              : '';
           return `<li><a href="${escapeHtml(href)}"${aria}>${escapeHtml(p.title)}</a></li>`;
         })
         .join('');
@@ -128,17 +207,42 @@ export function renderPage(page: Page, all: readonly Page[]): string {
     })
     .join('');
 
+  const depth = current.split('/').length - 1;
+  // Pages live at <dir>/index.html, so the site root is one level deeper than
+  // the old flat layout.
+  const home = '../'.repeat(depth + 2);
+  const docsHomeRel = posix.relative(currentDir, '.') || '.';
+  const docsHome = `${docsHomeRel}/`;
+  const logo =
+    '<svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><path d="M7 9h18M16 9v15" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round"/><circle cx="25" cy="24" r="2.5" fill="currentColor"/></svg>';
+  const themeButton =
+    '<button class="btn btn-ghost btn-square theme-toggle" type="button" aria-label="Switch theme" hidden><svg class="theme-sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l2 2m10 10 2 2M5 19l2-2m10-10 2-2"/></svg><svg class="theme-moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M20.5 14A8.5 8.5 0 0 1 10 3.5 8.5 8.5 0 1 0 20.5 14Z"/></svg></button>';
+  const content = page.html
+    .replace(
+      /<table>/gu,
+      '<div class="table-scroll" tabindex="0" role="region" aria-label="Reference table"><table>',
+    )
+    .replace(/<\/table>/gu, '</table></div>')
+    .replace(/<pre>/gu, '<pre tabindex="0" role="region" aria-label="Code example">');
+  const routerTag = routerScript === '' ? '' : `<script type="module">${routerScript}</script>`;
   return `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="nord">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#eceff4">
 <title>${escapeHtml(page.title)} · Tsir docs</title>
-<style>${STYLE}</style>
+<script>${THEME_SCRIPT}</script>
+<style data-site>${SITE_STYLE}</style>
 </head>
 <body>
-<nav aria-label="Documentation">${nav}</nav>
-<main>${page.html}</main>
+<a class="skip-link" href="#doc-content">Skip to content</a>
+<header class="site-header"><div class="wrap header-inner"><a class="docs-header-home" href="${home}" aria-label="Tsir home"><span class="brand">${logo}<span>tsir</span></span><span class="docs-header-label">Documentation</span></a><nav class="desktop-nav" aria-label="Main navigation"><a href="${home}#framework">Framework</a><a href="${home}#ecosystem">Ecosystem</a><a href="${escapeHtml(docsHome)}"${current === 'index.md' ? ' aria-current="page"' : ''}>Documentation</a><a href="${home}#examples">Examples</a></nav><div class="header-actions">${themeButton}<a class="btn btn-neutral btn-sm header-cta" href="${home}#get-started">Get started →</a></div></div></header>
+<div class="wrap docs-layout"><details class="docs-mobile-index"><summary>Browse documentation</summary><div class="docs-sidebar"><nav aria-label="Documentation index">${nav}</nav></div></details><aside class="docs-sidebar"><nav aria-label="Documentation">${nav}</nav></aside><main id="doc-content" class="docs-article"><div class="docs-breadcrumb"><a href="${escapeHtml(docsHome)}">Documentation</a><span aria-hidden="true">/</span><span>${escapeHtml(page.title)}</span></div>${content}<div class="docs-bottom"><a href="${home}#ecosystem">← Explore the ecosystem</a><a href="${escapeHtml(docsHome)}">All documentation →</a></div></main></div>
+<footer class="site-footer"><div class="wrap footer-bottom"><span>© 2026 Tsir contributors · MIT licensed · Pre-alpha</span><span>Nord light / Abyss dark · Powered by DaisyUI</span><a href="${home}">Back to Tsir ↑</a></div></footer>
+<script data-site>${SITE_SCRIPT}</script>
+${routerTag}
 </body>
 </html>
 `;
@@ -165,22 +269,30 @@ function titleOf(markdown: string, fallback: string): string {
   return heading?.[1]?.replace(/[`*_]/gu, '').trim() ?? fallback;
 }
 
-function build(): number {
-  const paths = listMarkdown(SOURCE);
+export async function buildDocs(root = ROOT): Promise<number> {
+  const source = join(root, 'src/docs');
+  const out = join(root, 'build/docs-site');
+  const paths = listMarkdown(source);
   const exists = (target: string): boolean => {
     if (paths.includes(target)) return true;
     if (COPIED_FILES.includes(target)) return true;
     return (
       COPIED_DIRS.some((dir) => target === dir || target.startsWith(`${dir}/`)) &&
-      existsSync(join(SOURCE, target))
+      existsSync(join(source, target))
     );
   };
 
   const pages: Page[] = [];
   const broken: string[] = [];
   for (const path of paths) {
-    const markdown = readFileSync(join(SOURCE, path), 'utf8');
-    const rendered = marked.parse(markdown, { async: false });
+    const markdown = readFileSync(join(source, path), 'utf8');
+    const rendered = marked
+      .parse(markdown, { async: false })
+      .replace(
+        /<h([1-6])>([\s\S]*?)<\/h\1>/gu,
+        (_all, level: string, text: string) =>
+          `<h${level} id="${escapeHtml(slugify(text.replace(/<[^>]*>/gu, '')))}">${text}</h${level}>`,
+      );
     const fixed = rewriteLinks(rendered, path, exists);
     broken.push(...fixed.broken);
     pages.push({ path, title: titleOf(markdown, path), html: fixed.html });
@@ -192,35 +304,40 @@ function build(): number {
     return 1;
   }
 
-  rmSync(OUT, { recursive: true, force: true });
+  const routerScript = await buildRouterScript(root);
+
+  rmSync(out, { recursive: true, force: true });
   for (const page of pages) {
-    const target = join(OUT, page.path.replace(/\.md$/u, '.html'));
+    // Directory-style output: `installation.md` → `installation/index.html`
+    // so the URL is `/docs/installation/` with no `.html` extension.
+    const target = join(out, page.path.replace(/\.md$/u, ''), 'index.html');
     mkdirSync(dirname(target), { recursive: true });
-    writeFileSync(target, renderPage(page, pages));
+    writeFileSync(target, renderPage(page, pages, routerScript));
   }
-  // The site root: a short page that points at the reference and at every package.
-  const index: Page = {
-    path: 'index.md',
-    title: 'Tsir documentation',
-    html: `<h1>Tsir documentation</h1>
-<p>Tsir is pre-alpha. Start with the reference pages, then the page for each package. The
-<a href="compatibility.html">compatibility policy</a> says what a version number promises.</p>`,
-  };
-  writeFileSync(join(OUT, 'index.html'), renderPage(index, pages));
+  // The documentation landing page is the installation guide, not a repository setup page.
+  const installation = pages.find((page) => page.path === 'installation.md');
+  if (installation === undefined) throw new Error('Missing installation guide');
+  writeFileSync(
+    join(out, 'index.html'),
+    renderPage({ ...installation, path: 'index.md' }, pages, routerScript),
+  );
   for (const file of COPIED_FILES) {
-    copyFileSync(join(SOURCE, file), join(OUT, file));
+    copyFileSync(join(source, file), join(out, file));
   }
   for (const dir of COPIED_DIRS) {
-    const from = join(SOURCE, dir);
+    const from = join(source, dir);
     if (existsSync(from) && statSync(from).isDirectory()) {
-      mkdirSync(join(OUT, dir), { recursive: true });
-      for (const file of readdirSync(from)) copyFileSync(join(from, file), join(OUT, dir, file));
+      mkdirSync(join(out, dir), { recursive: true });
+      for (const file of readdirSync(from)) copyFileSync(join(from, file), join(out, dir, file));
     }
   }
   process.stdout.write(
-    `✓ docs site: ${String(pages.length)} pages written to ${relative(ROOT, OUT)}/\n`,
+    `✓ docs site: ${String(pages.length)} pages written to ${relative(root, out)}/\n`,
   );
   return 0;
 }
 
-if (import.meta.main) process.exit(build());
+if (import.meta.main) {
+  const code = await buildDocs();
+  process.exit(code);
+}

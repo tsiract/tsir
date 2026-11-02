@@ -34,7 +34,7 @@ PORT  ?= 3000
 HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
-.PHONY: flakes docs-packages docs-packages-write docs-site help install dev kill kill-owned kill-ports kill-ports-dry doctor tsir example check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package dist verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor tsir example check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package dist verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules test test-watch test-integration build start clean clean-cache \
         db-up db-down migrate migrate-status seed \
         deploy-plan deploy-diff deploy-build deploy-validate route-list route-compile codegen-check openapi
@@ -77,7 +77,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake deps-doc\033[0m        regenerate src/docs/dependencies.md\n'
 	@printf '  \033[36mmake build\033[0m           alias of `make dist`\n'
 	@printf '  \033[36mmake clean\033[0m           remove dist/ and runtime state\n'
-	@printf '\n  database & deploy targets arrive in Phase 3 / Phase 6 (see src/framework/).\n\n'
+	@printf '\n  Database and deploy targets: see make db-up, migrate, deploy-plan and deploy-build.\n\n'
 
 install: ## Install workspace dependencies
 	@printf '  \033[2m→ bun install\033[0m\n'
@@ -147,8 +147,12 @@ modules: ## Enforce application-module boundaries (MOD-003)
 	@printf '  \033[2m→ bun src/tools/check-modules.ts\033[0m\n'
 	@$(BUN) src/tools/check-modules.ts
 
-frontpage: ## Fail if the marketing page overstates what exists (DOC-004, DOC-005)
+frontpage: ## Check the built artifact and honest package claims (DOC-004, DOC-005)
+	@$(BUN) src/apps/frontpage/build.ts --check
 	@$(BUN) src/tools/check-frontpage.ts
+
+frontpage-build: ## Compile DaisyUI Nord/Abyss and inline all frontpage assets
+	@$(BUN) src/apps/frontpage/build.ts
 
 license: ## Every manifest declares MIT, and no file claims a different license
 	@$(BUN) src/tools/check-license.ts
@@ -261,7 +265,7 @@ deps: ## Enforce the third-party dependency policy (ADR-0012)
 	@$(BUN) src/tools/check-deps.ts
 
 start: ## Boot the built application (APP=path; run `tsir build` in the app first)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts start $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" start $(ARGS)
 
 clean-cache: ## Delete caches and generated dirs that would bloat the workspace
 	@rm -rf "$(CURDIR)/.cache" "$(CURDIR)/.bun" "$(CURDIR)/.tsir" "$(CURDIR)/dist" \
@@ -282,7 +286,11 @@ COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker 
 
 db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
 	@test -n "$(COMPOSE)" || { echo '  ✗ no Compose found: install the docker compose plugin or docker-compose'; exit 1; }
-	$(COMPOSE) -f compose.yaml up -d --wait postgres
+	$(COMPOSE) -f compose.yaml up -d postgres
+	@for attempt in {1..60}; do \
+	  if $(COMPOSE) -f compose.yaml exec -T postgres pg_isready -U tsir -d tsir >/dev/null 2>&1; then exit 0; fi; \
+	  sleep 1; \
+	done; echo "  ✗ postgres did not become ready within 60 seconds"; exit 1
 	@echo '  ✓ postgres on localhost:5432 — DATABASE_URL=postgres://tsir:<POSTGRES_PASSWORD>@localhost:5432/tsir'
 
 db-down: ## Stop local Postgres (keeps its data volume; DXS-009)
@@ -298,30 +306,30 @@ APP ?=
 
 migrate: ## Apply pending migrations (APP=path)
 	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd $(APP) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts migrate $(ARGS)
+	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate $(ARGS)
 
 migrate-status: ## Show applied, pending and drifted migrations (APP=path)
 	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd $(APP) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts migrate:status $(ARGS)
+	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate:status $(ARGS)
 
 seed: ## Run the application's seeders for APP_ENV (APP=path, ARGS=--class X)
 	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd $(APP) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts db:seed $(ARGS)
+	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" db:seed $(ARGS)
 
 deploy-plan: ## Resolve and print the deploy unit graph (ARGS=--explain|--json|--write)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts deploy:plan $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:plan $(ARGS)
 
 deploy-diff: ## Compare the unit graph to the committed snapshot (ARGS=--json)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts deploy:diff $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:diff $(ARGS)
 
 deploy-build: ## Emit Workers/Lambda artifacts (ARGS=--target cloudflare,lambda --minify)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts deploy:build $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:build $(ARGS)
 
 deploy-validate: ## Gate a release: budgets, secret scan, capabilities (ARGS=--json)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts deploy:validate $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:validate $(ARGS)
 
 route-list: ## List compiled routes (APP=path, ARGS=--json for machine output)
-	@cd $(or $(APP),$(HTTP_EXAMPLE)) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts route:list $(ARGS)
+	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" route:list $(ARGS)
 
 route-compile: ## Generate routes.gen.ts (ARGS=--check to fail on drift)
 	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts route:compile $(ARGS)
@@ -329,11 +337,11 @@ route-compile: ## Generate routes.gen.ts (ARGS=--check to fail on drift)
 codegen-check: ## Fail if a committed generated artefact is stale (part of `make check`)
 	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts route:compile --check
 	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:plan --check
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out $(CURDIR)/.verify/deploy
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:validate --out $(CURDIR)/.verify/deploy
-	@rm -rf $(CURDIR)/.verify/deploy; rmdir $(CURDIR)/.verify 2>/dev/null || true
+	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
+	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
+	@rm -rf "$(CURDIR)/.verify/deploy"; rmdir "$(CURDIR)/.verify" 2>/dev/null || true
 	@$(TSIR) link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
 openapi: ## Generate the OpenAPI 3.1 document of an app (APP=path, ARGS="--out openapi.json")
 	@test -n "$(APP)" || { echo "  · set APP=<application path>"; exit 1; }
-	@cd $(APP) && $(BUN) $(CURDIR)/src/framework/console/src/cli.ts openapi:generate $(ARGS)
+	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" openapi:generate $(ARGS)

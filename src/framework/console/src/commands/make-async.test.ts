@@ -57,14 +57,15 @@ async function rejectionOf(work: Promise<unknown>): Promise<string> {
   }
 }
 
-/** Rewrites the two package specifiers in every generated file under `src/`. */
+/** Rewrites the two package specifiers in every generated file under the app root. */
 function linkToSource(): void {
   const walk = (folder: string): string[] =>
     readdirSync(folder).flatMap((entry) => {
       const path = join(folder, entry);
       return statSync(path).isDirectory() ? walk(path) : [path];
     });
-  for (const file of walk(join(dir, 'src'))) {
+  for (const file of walk(dir)) {
+    if (!file.endsWith('.ts')) continue;
     let text = readFileSync(file, 'utf8');
     for (const [specifier, target] of Object.entries(SPECIFIERS)) {
       text = text.replaceAll(`'${specifier}'`, `'${target}'`);
@@ -76,7 +77,7 @@ function linkToSource(): void {
 describe('make:job', () => {
   test('writes a defineJob file whose name is the kebab stem and which the registry accepts', async () => {
     expect(await make.job(['SendReceipt'])).toBe(EXIT.ok);
-    const path = join(dir, 'src', 'jobs', 'send-receipt.job.ts');
+    const path = join(dir, 'queues', 'send-receipt.job.ts');
     expect(existsSync(path)).toBe(true);
     linkToSource();
 
@@ -91,12 +92,12 @@ describe('make:job', () => {
 describe('make:event', () => {
   test('derives a dotted name from the class and accepts an explicit --name', async () => {
     expect(await make.event(['OrderPlaced'])).toBe(EXIT.ok);
-    expect(readFileSync(join(dir, 'src', 'events', 'order-placed.event.ts'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'events', 'order-placed.event.ts'), 'utf8')).toContain(
       "name: 'order.placed'",
     );
 
     expect(await make.event(['Invoice', '--name', 'billing.invoice.sent'])).toBe(EXIT.ok);
-    expect(readFileSync(join(dir, 'src', 'events', 'invoice.event.ts'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'events', 'invoice.event.ts'), 'utf8')).toContain(
       "name: 'billing.invoice.sent'",
     );
   });
@@ -110,7 +111,7 @@ describe('make:event', () => {
   test('the generated event is accepted by defineEvent and keeps its typed payload', async () => {
     await make.event(['OrderPlaced']);
     linkToSource();
-    const mod = (await import(join(dir, 'src', 'events', 'order-placed.event.ts'))) as {
+    const mod = (await import(join(dir, 'events', 'order-placed.event.ts'))) as {
       OrderPlacedEvent: { name: string; mode: string };
     };
     expect(mod.OrderPlacedEvent.name).toBe('order.placed');
@@ -124,7 +125,7 @@ describe('make:listener', () => {
     expect(await rejectionOf(make.listener(['SendReceipt', '--event', 'OrderPlaced']))).toContain(
       'is not defined',
     );
-    expect(existsSync(join(dir, 'src', 'listeners'))).toBe(false);
+    expect(existsSync(join(dir, 'listeners'))).toBe(false);
   });
 
   test('is accepted by createEvents for the event it names, and its payload comes from that event', async () => {
@@ -132,7 +133,7 @@ describe('make:listener', () => {
     expect(await make.listener(['SendReceipt', '--event', 'OrderPlaced'])).toBe(EXIT.ok);
     linkToSource();
 
-    const listenerPath = join(dir, 'src', 'listeners', 'send-receipt.listener.ts');
+    const listenerPath = join(dir, 'listeners', 'send-receipt.listener.ts');
     const listenerMod = (await import(listenerPath)) as {
       SendReceiptListener: ListenerDefinition<{ id: string }>;
     };
@@ -145,14 +146,14 @@ describe('make:listener', () => {
   test('--event accepts the class with or without the Event suffix', async () => {
     await make.event(['OrderPlaced']);
     expect(await make.listener(['Notify', '--event', 'OrderPlacedEvent'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src', 'listeners', 'notify.listener.ts'))).toBe(true);
+    expect(existsSync(join(dir, 'listeners', 'notify.listener.ts'))).toBe(true);
   });
 });
 
 describe('shared behaviour', () => {
   test('--dry-run writes nothing', async () => {
     expect(await make.job(['SendReceipt', '--dry-run'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src'))).toBe(false);
+    expect(existsSync(join(dir, 'queues'))).toBe(false);
   });
 
   test('refuses to overwrite without --force', async () => {

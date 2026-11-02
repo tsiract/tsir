@@ -1,10 +1,7 @@
 /**
  * Lifecycle commands: dev, start, build.
  *
- * Phase 1 has no HTTP surface yet, so `dev` boots the application, reports the
- * lifecycle it went through, and waits for a signal. That is deliberately
- * honest: it exercises the same bootstrap production will use rather than
- * pretending a server exists.
+ * Both boot through the application lifecycle and serve its optional fetch handler.
  */
 
 import { mkdir } from 'node:fs/promises';
@@ -12,18 +9,23 @@ import { join } from 'node:path';
 
 import { configSchemaDocument } from '@tsir/config';
 import type { AppDiagnosticEvent } from '@tsir/core';
+import { serve, type BunServer } from '@tsir/http/bun';
+import type { FetchHandler } from '@tsir/http';
 
-import { boolFlag, parseArgs, stringFlag } from '../args.ts';
+import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
 import { bootstrapWarnings, readBootstrapRecord, readPresetRecords } from '../bootstrap-record.ts';
 import { DRIVERS_MODULE, planDrivers, renderDriversModule } from '../drivers.ts';
-import { bootProject, loadProject, type BootedProject } from '../project.ts';
-import { EXIT, fail, info, jsonDocument, ok, style } from '../output.ts';
+import { bootProject, loadProject, type BootedProject, type LoadedProject } from '../project.ts';
+import { EXIT, fail, info, jsonDocument, ok, style, UsageError } from '../output.ts';
 
 export async function devCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--json': { type: 'boolean', description: 'machine-readable output' },
+    '--host': { type: 'string', description: 'HTTP bind address', default: '127.0.0.1' },
+    '--port': { type: 'string', description: 'HTTP port', default: '3000' },
   });
   const json = boolFlag(args, '--json');
+  const address = serverAddress(args);
 
   const project = await loadProject(process.cwd());
   const diagnostics: AppDiagnosticEvent[] = [];
@@ -33,10 +35,21 @@ export async function devCommand(argv: readonly string[]): Promise<number> {
     onDiagnostic: (event) => diagnostics.push(event),
   });
 
+  let server: BunServer | undefined;
+  try {
+    server = listen(project, address);
+  } catch (error) {
+    await app.shutdown('signal');
+    throw error;
+  }
+
+  // Register signal handlers before reporting readiness.
+  const stopped = waitForShutdown(app, server);
   if (json) {
     info(
       jsonDocument({
         ok: true,
+        ...(server === undefined ? {} : { url: server.url }),
         app: app.appName,
         state: app.state.kind,
         target: app.capabilities.target,
@@ -47,7 +60,7 @@ export async function devCommand(argv: readonly string[]): Promise<number> {
     );
   } else {
     info('');
-    info(`  ${style.bold('tsir dev')} ${style.dim('· phase 1 — no HTTP surface yet')}`);
+    info(`  ${style.bold('tsir dev')} ${style.dim('· development')}`);
     info('');
     info(`  ${style.green('➜')}  app        ${app.appName}`);
     info(`  ${style.green('➜')}  state      ${app.state.kind}`);
@@ -59,12 +72,12 @@ export async function devCommand(argv: readonly string[]): Promise<number> {
       info(`     ${style.dim('·')} ${entry.token} ${style.dim(`${entry.lifetime} ${entry.kind}`)}`);
     }
     info('');
-    info(`  ${style.dim('routes, middleware and validation arrive in Phase 2')}`);
+    info(server === undefined ? '  no HTTP handler exported' : `  listening at ${server.url}`);
     info(`  ${style.dim('press ctrl-c to shut down gracefully')}`);
     info('');
   }
 
-  await waitForShutdown(app);
+  await stopped;
   return EXIT.ok;
 }
 
@@ -77,8 +90,11 @@ export async function devCommand(argv: readonly string[]): Promise<number> {
 export async function startCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--json': { type: 'boolean', description: 'machine-readable output' },
+    '--host': { type: 'string', description: 'HTTP bind address', default: '127.0.0.1' },
+    '--port': { type: 'string', description: 'HTTP port', default: '3000' },
   });
   const json = boolFlag(args, '--json');
+  const address = serverAddress(args);
 
   const project = await loadProject(process.cwd());
   // CFG-105: read the bootstrap record on start. Drift is reported, never fatal.
@@ -102,10 +118,21 @@ export async function startCommand(argv: readonly string[]): Promise<number> {
   }
   const { app } = booted;
 
+  let server: BunServer | undefined;
+  try {
+    server = listen(project, address);
+  } catch (error) {
+    await app.shutdown('signal');
+    throw error;
+  }
+
+  // Register signal handlers before reporting readiness.
+  const stopped = waitForShutdown(app, server);
   if (json) {
     info(
       jsonDocument({
         ok: true,
+        ...(server === undefined ? {} : { url: server.url }),
         mode: 'production',
         app: app.appName,
         state: app.state.kind,
@@ -123,30 +150,58 @@ export async function startCommand(argv: readonly string[]): Promise<number> {
     info(`  ${style.green('➜')}  target     ${app.capabilities.target}`);
     info(`  ${style.green('➜')}  providers  ${String(app.container.describe().length)}`);
     info('');
+    info(server === undefined ? '  no HTTP handler exported' : `  listening at ${server.url}`);
     info(`  ${style.dim('press ctrl-c to shut down gracefully')}`);
     info('');
   }
 
-  await waitForShutdown(app);
+  await stopped;
   return EXIT.ok;
 }
 
-async function waitForShutdown(app: BootedProject['app']): Promise<void> {
+function serverAddress(args: ParsedArgs): { hostname: string; port: number } {
+  const hostname = stringFlag(args, '--host') ?? '127.0.0.1';
+  const rawPort = stringFlag(args, '--port') ?? '3000';
+  if (!/^\d+$/.test(rawPort)) throw new UsageError('--port must be an integer between 0 and 65535');
+  // coercion-ok: digits-only CLI input is deliberately converted to a port, then range checked.
+  const port = Number(rawPort);
+  if (port > 65535) throw new UsageError('--port must be an integer between 0 and 65535');
+  return { hostname, port };
+}
+
+function listen(
+  project: LoadedProject,
+  address: { hostname: string; port: number },
+): BunServer | undefined {
+  const handler = project.exports['handler'];
+  if (handler === undefined) return undefined;
+  if (typeof handler !== 'function')
+    throw new UsageError('the entry export `handler` must be a fetch function');
+  return serve(handler as FetchHandler, address);
+}
+
+async function waitForShutdown(app: BootedProject['app'], server?: BunServer): Promise<void> {
   await new Promise<void>((resolve) => {
     const stop = (signal: NodeJS.Signals): void => {
+      process.off('SIGINT', stop);
+      process.off('SIGTERM', stop);
       info(`\n  ${style.dim('·')} ${signal} received — shutting down`);
-      void app.shutdown('signal').then(
-        () => {
+      void (async () => {
+        try {
+          try {
+            await server?.stop();
+          } finally {
+            await app.shutdown('signal');
+          }
           ok('application stopped');
-          resolve();
-        },
-        (error: unknown) => {
+        } catch (error: unknown) {
           info(
             `  ${style.red('✗')} shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
           );
+        } finally {
           resolve();
-        },
-      );
+        }
+      })();
     };
     process.once('SIGINT', stop);
     process.once('SIGTERM', stop);

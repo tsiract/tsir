@@ -523,6 +523,24 @@ describe('edge cases that used to be untested', () => {
     expect(units[0]?.bindings.map((binding) => binding.name)).toEqual(['JOBS']);
   });
 
+  test('deploy.units memoryMb and timeoutSeconds flow to the unit (DPL-031)', () => {
+    const units = resolveUnits({
+      appName: 'acme',
+      modules: [{ name: 'jobs', requires: ['background-tasks'] }],
+      deploy: {
+        units: [
+          { name: 'jobs', kind: 'queue', modules: ['jobs'], memoryMb: 2048, timeoutSeconds: 120 },
+        ],
+      },
+    });
+
+    expect(units.at(0)).toMatchObject({
+      name: 'jobs',
+      memoryMb: 2048,
+      timeoutSeconds: 120,
+    });
+  });
+
   test('includeModules names the module itself as the unit, and ignores unknown names', () => {
     const units = resolveUnits({
       appName: 'acme',
@@ -608,5 +626,39 @@ describe('edge cases that used to be untested', () => {
       'DPL_ENV_LIMIT',
     );
     expect(invalidDeployConfig('bad topology').hint).toContain('tsir.js');
+  });
+});
+
+describe('internal publish and invoke validation (DPL-030)', () => {
+  const input: DeploymentInput = {
+    appName: 'acme',
+    listeners: [
+      { kind: 'sns', name: 'orders', unit: 'sns' },
+      { kind: 'steptask', name: 'process-refund', unit: 'admin' },
+    ],
+    modules: [{ name: 'orders', requires: [] }],
+    deploy: {
+      publishes: ['orders', 'ghost-topic'],
+      invokes: [
+        { unit: 'admin', task: 'process-refund' },
+        { unit: 'admin', task: 'nonexistent' },
+      ],
+    },
+  };
+
+  test('a publish to a declared topic passes; an undeclared topic fails', () => {
+    const { problems } = buildGraph(input);
+    const publishProblems = problems.filter((p) => p.code === 'DPL_PUBLISH_UNKNOWN');
+    expect(publishProblems.map((p) => p.message)).toContain('no @OnSns listener for topic "ghost-topic"');
+    // 'orders' is declared, so it must not appear.
+    expect(publishProblems.map((p) => p.message)).not.toContain('"orders"');
+  });
+
+  test('an invoke to a declared task passes; an undeclared task fails', () => {
+    const { problems } = buildGraph(input);
+    const invokeProblems = problems.filter((p) => p.code === 'DPL_INVOKE_UNKNOWN');
+    expect(invokeProblems.map((p) => p.message)).toContain(
+      'no @OnStepTask listener for task "nonexistent" in unit "admin"',
+    );
   });
 });

@@ -564,6 +564,32 @@ describe('rollback edge paths', () => {
     expect(applied(state)).toEqual([USERS.when, POSTS.when]);
   });
 
+  test('rechecks applied rows after acquiring the lock', async () => {
+    const folder = await migrationFolder([USERS, POSTS]);
+    const state = emptyState();
+    state.journal.push(
+      { id: 1, hash: checksum(USERS.sql), created_at: USERS.when },
+      { id: 2, hash: checksum(POSTS.sql), created_at: POSTS.when },
+    );
+    state.rows = (sql) => {
+      if (/pg_try_advisory_lock/i.test(sql)) {
+        state.journal.splice(1, 1); // another runner rolled back the newer migration while we waited
+        return [{ locked: true }];
+      }
+      return undefined;
+    };
+    const result = await rollback({
+      database: fakePgDatabaseWithReserve(state),
+      folder,
+      name: 'test-app',
+      to: '0000_users',
+      allowDestructive: true,
+      confirm: '0001_posts',
+    });
+    expect(result.undone).toEqual([]);
+    expect(logs(state).some((sql) => sql.includes('drop table "posts"'))).toBe(false);
+  });
+
   test('Postgres runs the down file inside an interactive transaction', async () => {
     const folder = await migrationFolder([USERS, POSTS]);
     const state = emptyState();

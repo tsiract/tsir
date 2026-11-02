@@ -12,7 +12,7 @@ const codes = { QUEUE_JOB_UNKNOWN: 'queue', QUEUE_DEAD: 'queue', CACHE_MISS: 'ca
 
 describe('renderPage (DOC-010)', () => {
   test('the install line uses the package name', () => {
-    expect(renderPage(pkg, surface, codes)).toContain('bun add @tsir/queue');
+    expect(renderPage(pkg, surface, codes)).toContain("bun add '@tsir/queue@workspace:*'");
   });
 
   test('the barrel is listed first, then subpaths by name', () => {

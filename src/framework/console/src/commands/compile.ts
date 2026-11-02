@@ -40,7 +40,7 @@ import { type LoadedProject, loadProject } from '../project.ts';
 import { CliError, EXIT, fail, info, style, jsonDocument } from '../output.ts';
 
 /** Default location, matching the default `paths.routes`. */
-const DEFAULT_OUT = 'src/routes.gen.ts';
+const DEFAULT_OUT = 'routes.gen.ts';
 const DEFAULT_GLOBS = ['**/*.controller.ts'] as const;
 const IGNORED = new Set(['node_modules', 'dist', 'build', 'out', '.git', '.verify', '.tsir']);
 
@@ -301,7 +301,7 @@ export async function routeCompileCommand(argv: readonly string[]): Promise<numb
     },
     '--out': {
       type: 'string',
-      description: 'output path (default: paths.routes or src/routes.gen.ts)',
+      description: 'output path (default: paths.routes or routes.gen.ts)',
     },
   });
   const json = boolFlag(args, '--json');

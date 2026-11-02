@@ -18,7 +18,7 @@ import { boolFlag, parseArgs } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { pendingTestFile } from './pending-test.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
-import { toKebab } from './naming.ts';
+import { requireModule, splitAppModule, toKebab } from './naming.ts';
 
 /** The same grammar as the policy package's permission pattern, restated because the console does not depend on it. */
 const PART = /^[a-z][a-z0-9-]*$/;
@@ -76,8 +76,8 @@ export async function makePolicyCommand(argv: readonly string[]): Promise<number
     '--force': { type: 'boolean', description: 'overwrite an existing file' },
     '--dry-run': { type: 'boolean', description: 'print what would be written' },
   });
-  const [resourceInput, actionInput] = args.positionals;
-  if (resourceInput === undefined || actionInput === undefined) {
+  const [resourceInput, actionInput, moduleInput] = args.positionals;
+  if (resourceInput === undefined || actionInput === undefined || args.positionals.length > 3) {
     throw new UsageError(
       'make:policy needs a resource and an action',
       'e.g. `tsir make:policy Post update` (permission post.update)',
@@ -93,7 +93,16 @@ export async function makePolicyCommand(argv: readonly string[]): Promise<number
     );
   }
 
-  const path = join(process.cwd(), 'src', 'policies', `${resource}-${action}.policy.ts`);
+  let moduleDir: string | undefined;
+  if (moduleInput !== undefined) {
+    const { app, module: moduleArg } = splitAppModule(moduleInput);
+    if (app !== undefined) process.chdir(app);
+    moduleDir = requireModule(moduleArg).dir;
+  }
+  const path = join(
+    moduleDir === undefined ? join(process.cwd(), 'policies') : join(moduleDir, 'policies'),
+    `${resource}-${action}.policy.ts`,
+  );
   const generated: GeneratedFile[] = [{ path, contents: policyTemplate(resource, action) }];
   // CLI-015: every generated part ships with a test that is red until it is implemented.
   const primary = generated[0];

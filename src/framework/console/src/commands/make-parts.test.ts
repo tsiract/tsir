@@ -139,26 +139,26 @@ describe('the generated code behaves', () => {
 });
 
 describe('commands', () => {
-  test('make:service writes src/services/<stem>.service.ts', async () => {
+  test('make:service writes services/<stem>.service.ts', async () => {
     expect(await runCli(['make:service', 'Audit'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src', 'services', 'audit.service.ts'))).toBe(true);
+    expect(existsSync(join(dir, 'services', 'audit.service.ts'))).toBe(true);
   });
 
   test('make:guard refuses an existing guard, names it, and exits 1', async () => {
     await runCli(['make:guard', 'Token']);
     expect(await runCli(['make:guard', 'Token'])).toBe(EXIT.failure);
     expect(captured).toContain('refusing to overwrite');
-    expect(readFileSync(join(dir, 'src', 'guards', 'token.guard.ts'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'guards', 'token.guard.ts'), 'utf8')).toContain(
       'createTokenGuard',
     );
   });
 
   test('--dry-run writes nothing', async () => {
     expect(await runCli(['make:middleware', 'Audit', '--dry-run'])).toBe(EXIT.ok);
-    expect(existsSync(join(dir, 'src'))).toBe(false);
+    expect(existsSync(join(dir, 'middleware'))).toBe(false);
   });
 
-  test('a --dir that escapes src is a usage error', async () => {
+  test('a --dir that escapes the app root is a usage error', async () => {
     expect(await runCli(['make:service', 'Audit', '--dir', '../elsewhere'])).toBe(EXIT.usage);
   });
 

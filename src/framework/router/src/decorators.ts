@@ -18,10 +18,20 @@
 
 import { badPath } from './errors.ts';
 import { type DeclaredRoute, routeRegistry, type RouteRegistry } from './registry.ts';
-import type { ControllerClass, HttpMethod, PolicyRef, RouteMeta, TokenRef } from './types.ts';
+import type {
+  AwsListenerMeta,
+  ControllerClass,
+  DeclaredListener,
+  HttpMethod,
+  PolicyRef,
+  RouteMeta,
+  TokenRef,
+} from './types.ts';
 
 /** Key under which `@Route` stores its metadata on the handler function. */
 const ROUTE_META = Symbol.for('tsir.route');
+/** Key under which `@OnSns`/`@OnEventBridge`/`@OnStepTask` store listener metadata. */
+const LISTENER_META = Symbol.for('tsir.listener');
 /** Class-level decorators store their tokens here. */
 const CLASS_TOKENS = Symbol.for('tsir.class.tokens');
 
@@ -83,6 +93,13 @@ function readRouteMeta(value: unknown): RouteMeta | undefined {
   return meta as RouteMeta;
 }
 
+function readListenerMeta(value: unknown): AwsListenerMeta | undefined {
+  if (typeof value !== 'function') return undefined;
+  const meta: unknown = Reflect.get(value, LISTENER_META);
+  if (typeof meta !== 'object' || meta === null) return undefined;
+  return meta as AwsListenerMeta;
+}
+
 function mergeClassTokens(target: ControllerClass, next: Partial<ClassTokens>): void {
   const current: ClassTokens =
     (Reflect.get(target, CLASS_TOKENS) as ClassTokens | undefined) ?? EMPTY_TOKENS;
@@ -133,6 +150,32 @@ function collectRoutes(controller: ControllerClass): DeclaredRoute[] {
   return routes;
 }
 
+/**
+ * Collects annotated AWS listener methods along the prototype chain.
+ *
+ * Same most-derived-first rule as `collectRoutes`: a subclass override of a
+ * listener method wins by name.
+ */
+function collectListeners(controller: ControllerClass): DeclaredListener[] {
+  const seen = new Set<string>();
+  const listeners: DeclaredListener[] = [];
+
+  let prototype: object | null = controller.prototype as object | null;
+  while (prototype !== null && prototype !== Object.prototype) {
+    for (const name of Object.getOwnPropertyNames(prototype)) {
+      if (name === 'constructor' || seen.has(name)) continue;
+      const descriptor = Object.getOwnPropertyDescriptor(prototype, name);
+      const meta = readListenerMeta(descriptor?.value);
+      if (meta === undefined) continue;
+      seen.add(name);
+      listeners.push({ handler: name, meta });
+    }
+    prototype = Object.getPrototypeOf(prototype) as object | null;
+  }
+
+  return listeners;
+}
+
 function registerController(
   controller: ControllerClass,
   path: string,
@@ -142,12 +185,14 @@ function registerController(
   assertValidPath(path === '' ? '/' : path);
   const tokens = readClassTokens(controller);
   const routes = collectRoutes(controller);
+  const listeners = collectListeners(controller);
 
   registry.register({
     controller,
     name: controller.name === '' ? '<anonymous>' : controller.name,
     path: path === '/' ? '' : path,
     routes,
+    listeners,
     middleware: tokens.middleware,
     guards: tokens.guards,
     policies: tokens.policies,
@@ -257,4 +302,86 @@ export function Policies(...policies: readonly PolicyRef[]): ControllerDecorator
   return (value) => {
     mergeClassTokens(value, { policies });
   };
+}
+
+/* ── AWS event-source listeners (DPL-026) ──────────────────────────────────── */
+
+/**
+ * Options shared by every AWS listener decorator.
+ *
+ * `body` is the VLD boundary: the message payload is validated against it
+ * before the method runs, exactly as `@Route({ body })` validates a request
+ * body. `unit` defaults by kind so a class of listeners lands in the right
+ * deploy unit without repeating it.
+ */
+interface AwsListenerOptions {
+  readonly body?: AwsListenerMeta['body'];
+  readonly unit?: string;
+}
+
+export interface OnSnsOptions extends AwsListenerOptions {
+  readonly topic: string;
+}
+
+export interface OnEventBridgeOptions extends AwsListenerOptions {
+  readonly eventBus?: string;
+  readonly detailType?: string;
+}
+
+export interface OnStepTaskOptions extends AwsListenerOptions {
+  readonly name: string;
+}
+
+function listenerDecorator(meta: AwsListenerMeta): RouteMethodDecorator {
+  const frozen = Object.freeze({ ...meta });
+  return (value) => {
+    Object.defineProperty(value, LISTENER_META, { value: frozen, enumerable: false });
+  };
+}
+
+/**
+ * Subscribes a method to an SNS topic.
+ *
+ * The deploy planner turns this into a unit with an `sns` trigger; the Lambda
+ * adapter parses the SNS envelope and calls the method with the message body.
+ */
+export function OnSns(options: OnSnsOptions): RouteMethodDecorator {
+  return listenerDecorator({
+    kind: 'sns',
+    topic: options.topic,
+    ...(options.body === undefined ? {} : { body: options.body }),
+    unit: options.unit ?? 'sns',
+  });
+}
+
+/**
+ * Subscribes a method to an EventBridge event bus.
+ *
+ * `detailType` filters the events the rule forwards; absent means "everything
+ * on this bus". The deploy planner creates an EventBridge rule and a Lambda
+ * permission for it.
+ */
+export function OnEventBridge(options: OnEventBridgeOptions): RouteMethodDecorator {
+  return listenerDecorator({
+    kind: 'eventbridge',
+    ...(options.eventBus === undefined ? {} : { eventBus: options.eventBus }),
+    ...(options.detailType === undefined ? {} : { detailType: options.detailType }),
+    ...(options.body === undefined ? {} : { body: options.body }),
+    unit: options.unit ?? 'schedule',
+  });
+}
+
+/**
+ * Handles a Step Functions task by name.
+ *
+ * The deploy planner turns this into a unit with a `manual` trigger; a direct
+ * invoke with the task input routes to the named method.
+ */
+export function OnStepTask(options: OnStepTaskOptions): RouteMethodDecorator {
+  return listenerDecorator({
+    kind: 'steptask',
+    name: options.name,
+    ...(options.body === undefined ? {} : { body: options.body }),
+    unit: options.unit ?? 'admin',
+  });
 }

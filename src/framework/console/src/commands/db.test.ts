@@ -1,7 +1,8 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, test } from 'bun:test';
+import { Database as SQLite } from 'bun:sqlite';
 
 import type { D1ResultLike, D1StatementLike } from '@tsir/database';
 
@@ -10,9 +11,11 @@ import {
   lintMigration,
   makeMigrationCommand,
   migrateCommand,
+  migrateRollbackCommand,
   migrateStatusCommand,
   migrateVerifyCommand,
 } from './db.ts';
+import { makeSeederCommand } from './make-seeder.ts';
 
 const temporary: string[] = [];
 const originalCwd = process.cwd();
@@ -90,6 +93,73 @@ function projectBinding() {
   return binding;
 }
 
+/** A real in-memory SQLite database behind the D1 subset used by the CLI. */
+function sqliteBinding(sqlite: SQLite) {
+  return {
+    prepare(sql: string) {
+      let params: readonly unknown[] = [];
+      const statement = {
+        bind: (...values: readonly unknown[]) => {
+          params = values;
+          return statement;
+        },
+        all: async <T = Record<string, unknown>>(): Promise<D1ResultLike<T>> => ({
+          // coercion-ok: tests bind only SQLite-compatible values from the framework.
+          results: sqlite
+            .query(sql)
+            .all(...(params as (string | number | bigint | Uint8Array | null)[])) as T[],
+          success: true,
+        }),
+        run: async (): Promise<D1ResultLike<never>> => {
+          // coercion-ok: tests bind only SQLite-compatible values from the framework.
+          const result = sqlite
+            .query(sql)
+            .run(...(params as (string | number | bigint | Uint8Array | null)[]));
+          return { success: true, meta: { changes: result.changes } };
+        },
+      };
+      return statement;
+    },
+    async batch<T = Record<string, unknown>>(
+      statements: readonly D1StatementLike[],
+    ): Promise<readonly D1ResultLike<T>[]> {
+      sqlite.run('begin');
+      try {
+        const results: D1ResultLike<T>[] = [];
+        for (const entry of statements) results.push(await entry.run());
+        sqlite.run('commit');
+        return results;
+      } catch (error) {
+        sqlite.run('rollback');
+        throw error;
+      }
+    },
+    exec: async (sql: string) => {
+      sqlite.run(sql);
+      return { count: 0, duration: 0 };
+    },
+  };
+}
+
+async function moduleJournal(dir: string, moduleName: string, sql: string): Promise<void> {
+  const moduleDir = join(dir, moduleName);
+  const folder = join(moduleDir, 'migrations');
+  await mkdir(join(folder, 'meta'), { recursive: true });
+  await writeFile(join(moduleDir, 'index.ts'), '// module\n');
+  await writeFile(join(moduleDir, 'routes.ts'), '// routes\n');
+  await writeFile(
+    join(folder, 'meta', '_journal.json'),
+    JSON.stringify({
+      version: '7',
+      dialect: 'sqlite',
+      entries: [
+        { idx: 0, version: '6', when: 1_700_000_000_000, tag: '0000_init', breakpoints: true },
+      ],
+    }),
+  );
+  await writeFile(join(folder, '0000_init.sql'), sql);
+}
+
 interface Fixture {
   readonly dir: string;
   readonly binding: ReturnType<typeof projectBinding>;
@@ -105,17 +175,16 @@ async function project(): Promise<Fixture> {
   temporary.push(dir);
   const binding = projectBinding();
 
-  await mkdir(join(dir, 'src'), { recursive: true });
   await mkdir(join(dir, 'drizzle', 'meta'), { recursive: true });
 
   await writeFile(
     join(dir, 'tsir.js'),
-    'export default { app: { name: "acme", entry: "./src/app.ts" } };\n',
+    'export default { app: { name: "acme", entry: "./app.ts" } };\n',
   );
 
   // The entry is TypeScript, like a real project: the CLI imports it directly.
   await writeFile(
-    join(dir, 'src', 'app.ts'),
+    join(dir, 'app.ts'),
     `import { defineApp } from '@tsir/core';
 import { createDatabase, createD1Driver } from '@tsir/database';
 import { defineSeeder } from '@tsir/seed';
@@ -170,6 +239,15 @@ async function quiet(run: () => Promise<number>): Promise<number> {
   const code = await run();
   output.text();
   return code;
+}
+
+async function rejection(work: Promise<unknown>): Promise<string> {
+  try {
+    await work;
+    return '';
+  } catch (error: unknown) {
+    return error instanceof Error ? error.message : String(error);
+  }
 }
 
 function capture(): { readonly text: () => string } {
@@ -279,6 +357,254 @@ describe('tsir migrate:verify', () => {
   });
 });
 
+describe('module-local migration journals', () => {
+  test('two modules and the project journal remain isolated, including rollback and drift', async () => {
+    const { dir } = await project();
+    const sqlite = new SQLite(':memory:');
+    (globalThis as { __binding?: unknown }).__binding = sqliteBinding(sqlite);
+    try {
+      await moduleJournal(dir, 'shop', 'create table "shop_orders" ("id" integer);\n');
+      await moduleJournal(dir, 'sales', 'create table "sales_orders" ("id" integer);\n');
+      await writeFile(
+        join(dir, 'shop/migrations/0000_init.down.sql'),
+        'drop table "shop_orders";\n',
+      );
+      expect(await quiet(() => migrateCommand(['shop']))).toBe(0);
+      expect(await quiet(() => migrateCommand(['sales']))).toBe(0);
+      expect(await quiet(() => migrateCommand([]))).toBe(0);
+      expect(await quiet(() => migrateCommand(['shop']))).toBe(0);
+      const output = capture();
+      expect(await migrateStatusCommand(['sales', '--json'])).toBe(0);
+      const status = JSON.parse(output.text()) as {
+        module: string;
+        applied: string[];
+        pending: string[];
+      };
+      expect(status.module).toBe('sales');
+      expect(status.applied).toEqual(['0000_init']);
+      expect(status.pending).toEqual([]);
+      // Drizzle timestamps are intentionally identical; distinct bookkeeping prevents collision.
+      const count = sqlite
+        .query(
+          "select name from sqlite_master where type='table' and name like '__tsir_module_%_journal'",
+        )
+        .all();
+      expect(count).toHaveLength(2);
+      expect(
+        await quiet(() =>
+          migrateRollbackCommand([
+            'shop',
+            '--to',
+            'empty',
+            '--allow-destructive',
+            '--confirm',
+            '0000_init',
+          ]),
+        ),
+      ).toBe(0);
+      const names = sqlite.query("select name from sqlite_master where type='table'").all() as {
+        name: string;
+      }[];
+      expect(names.some((row) => row.name === 'shop_orders')).toBe(false);
+      expect(names.some((row) => row.name === 'sales_orders')).toBe(true);
+      expect(names.some((row) => row.name === 'users')).toBe(true);
+      await writeFile(
+        join(dir, 'sales/migrations/0000_init.sql'),
+        'create table "sales_orders" ("id" text);\n',
+      );
+      expect(await quiet(() => migrateStatusCommand(['sales']))).toBe(1);
+      expect(await quiet(() => migrateVerifyCommand(['sales']))).toBe(3);
+    } finally {
+      sqlite.close();
+    }
+  });
+  test('status reports an orphaned applied row and fails', async () => {
+    const { dir } = await project();
+    const sqlite = new SQLite(':memory:');
+    (globalThis as { __binding?: unknown }).__binding = sqliteBinding(sqlite);
+    try {
+      await moduleJournal(dir, 'shop', 'create table "shop_orders" ("id" integer);\n');
+      expect(await quiet(() => migrateCommand(['shop']))).toBe(0);
+      await writeFile(
+        join(dir, 'shop/migrations/meta/_journal.json'),
+        JSON.stringify({
+          version: '7',
+          dialect: 'sqlite',
+          entries: [
+            { idx: 0, version: '6', when: 1700000000001, tag: '0000_other', breakpoints: true },
+          ],
+        }),
+      );
+      await writeFile(
+        join(dir, 'shop/migrations/0000_other.sql'),
+        'create table other (id integer);\n',
+      );
+      const output = capture();
+      expect(await migrateStatusCommand(['shop', '--json'])).toBe(1);
+      const status = JSON.parse(output.text()) as { ok: boolean; orphaned: string[] };
+      expect(status.ok).toBe(false);
+      expect(status.orphaned).toEqual(['1700000000000']);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  test('generates with a module-local schema and separate journal, rejecting unsafe schema paths', async () => {
+    const { dir } = await project();
+    await moduleJournal(dir, 'shop', 'create table "shop_orders" ("id" integer);\n');
+    await writeFile(join(dir, 'shop/order.model.ts'), '// schema fixture\n');
+    const journal = join(dir, 'shop/migrations/meta/_journal.json');
+    await writeFile(journal, (await readFile(journal, 'utf8')).replace('sqlite', 'postgresql'));
+    let calls = 0;
+    const runner = async (command: readonly string[], cwd: string) => {
+      calls += 1;
+      expect(cwd).toBe(dir);
+      expect(command).toEqual([
+        'generate',
+        '--name',
+        'add-orders',
+        '--dialect',
+        'postgresql',
+        '--schema',
+        join(dir, 'shop/order.model.ts'),
+        '--out',
+        join(dir, 'shop/migrations'),
+      ]);
+      return { exitCode: 0, stdout: 'No schema changes, nothing to migrate', stderr: '' };
+    };
+    const output = capture();
+    expect(
+      await makeMigrationCommand(
+        [
+          'add-orders',
+          'shop',
+          '--dialect',
+          'postgres',
+          '--schema',
+          'shop/order.model.ts',
+          '--json',
+        ],
+        runner,
+      ),
+    ).toBe(0);
+    const result = JSON.parse(output.text()) as { tag: string | null; folder: string };
+    expect(result.tag).toBeNull();
+    expect(result.folder).toBe(join(dir, 'shop/migrations'));
+    expect(calls).toBe(1);
+    expect(await quiet(() => makeMigrationCommand(['add-orders', 'shop'], runner))).toBe(2);
+    expect(
+      await quiet(() =>
+        makeMigrationCommand(['add-orders', 'shop', '--schema', '../elsewhere.model.ts'], runner),
+      ),
+    ).toBe(2);
+    expect(
+      await quiet(() =>
+        makeMigrationCommand(
+          ['add-orders', 'shop', '--schema', 'shop/does-not-exist.ts'],
+          runner,
+        ),
+      ),
+    ).toBe(1);
+    expect(await quiet(() => makeMigrationCommand(['add-orders', 'missing'], runner))).toBe(1);
+    expect(calls).toBe(1);
+  });
+
+  test('named connections select distinct module folders and database bookkeeping', async () => {
+    const { dir } = await project();
+    const sqlite = new SQLite(':memory:');
+    (globalThis as { __binding?: unknown }).__binding = sqliteBinding(sqlite);
+    try {
+      await moduleJournal(dir, 'shop', 'create table "default_orders" ("id" integer);\n');
+      const folder = join(dir, 'shop/migrations');
+      const reporting = join(folder, 'reporting');
+      await mkdir(join(reporting, 'meta'), { recursive: true });
+      await writeFile(
+        join(reporting, 'meta/_journal.json'),
+        await readFile(join(folder, 'meta/_journal.json'), 'utf8'),
+      );
+      await writeFile(
+        join(reporting, '0000_init.sql'),
+        'create table "reporting_orders" ("id" integer);\n',
+      );
+      await writeFile(join(dir, 'shop/order.model.ts'), '// schema fixture\n');
+      const app = join(dir, 'app.ts');
+      await writeFile(
+        app,
+        (await readFile(app, 'utf8')) +
+          `\nexport const databases = { default: 'app', names: ['app', 'reporting'], connection: () => database };\n`,
+      );
+      let generatedOut = '';
+      const run = async (command: readonly string[]) => {
+        generatedOut = command[command.indexOf('--out') + 1] ?? '';
+        return { exitCode: 0, stdout: 'no changes', stderr: '' };
+      };
+      expect(
+        await quiet(() => makeMigrationCommand(['check', 'shop', '--connection', 'app'], run)),
+      ).toBe(0);
+      expect(generatedOut).toBe(folder);
+      expect(
+        await quiet(() =>
+          makeMigrationCommand(['check', 'shop', '--connection', 'reporting'], run),
+        ),
+      ).toBe(0);
+      expect(generatedOut).toBe(reporting);
+      expect(
+        await quiet(() => makeMigrationCommand(['check', 'shop', '--connection', 'unknown'], run)),
+      ).toBe(2);
+      expect(await quiet(() => migrateCommand(['shop']))).toBe(0);
+      expect(await quiet(() => migrateCommand(['shop', '--connection', 'app']))).toBe(0);
+      expect(await quiet(() => migrateCommand(['shop', '--connection', 'reporting']))).toBe(0);
+      const tables = sqlite
+        .query(
+          "select name from sqlite_master where type='table' and name like '__tsir_module_%_journal'",
+        )
+        .all();
+      expect(tables).toHaveLength(2);
+      const out = capture();
+      expect(await migrateStatusCommand(['shop', '--connection', 'reporting', '--json'])).toBe(0);
+      const status = JSON.parse(out.text()) as { folder: string; applied: string[] };
+      expect(status.folder).toBe(reporting);
+      expect(status.applied).toEqual(['0000_init']);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  test('module seeders are explicitly registered and selected by class', async () => {
+    const { dir } = await project();
+    await moduleJournal(dir, 'shop', 'create table "shop_orders" ("id" integer);\n');
+    expect(await quiet(() => makeSeederCommand(['order', 'shop']))).toBe(0);
+    const path = join(dir, 'shop/seeders/order.seeder.ts');
+    expect(await readFile(path, 'utf8')).toContain('export const OrderSeeder');
+    const app = join(dir, 'app.ts');
+    await writeFile(
+      app,
+      (await readFile(app, 'utf8')).replace(
+        'export const seeders = [',
+        "import { OrderSeeder } from './shop/seeders/order.seeder.ts';\nexport const seeders = [OrderSeeder,",
+      ),
+    );
+    expect(await quiet(() => dbSeedCommand(['--class', 'OrderSeeder']))).toBe(0);
+  });
+
+  test('refuses extra positionals rather than silently selecting a different journal', async () => {
+    await project();
+    expect(await rejection(migrateCommand(['shop', 'sales']))).toContain('too many arguments');
+    expect(await rejection(migrateStatusCommand(['shop', 'sales']))).toContain(
+      'too many arguments',
+    );
+    expect(await rejection(migrateVerifyCommand(['shop', 'sales']))).toContain(
+      'too many arguments',
+    );
+    expect(await rejection(migrateRollbackCommand(['shop', 'sales']))).toContain(
+      'too many arguments',
+    );
+    expect(await rejection(makeMigrationCommand(['create', 'shop', 'sales']))).toContain(
+      'too many arguments',
+    );
+  });
+});
+
 describe('tsir db:seed', () => {
   test('runs the exported seeders for the environment', async () => {
     await project();
@@ -320,8 +646,10 @@ describe('tsir make:migration', () => {
   test('requires a usable name', async () => {
     await project();
 
-    expect(makeMigrationCommand([])).rejects.toThrow('needs a name');
-    expect(makeMigrationCommand(['Add Users!'])).rejects.toThrow('not a usable migration name');
+    expect(await rejection(makeMigrationCommand([]))).toContain('needs a name');
+    expect(await rejection(makeMigrationCommand(['Add Users!']))).toContain(
+      'not a usable migration name',
+    );
   });
 
   test('lints an empty file and a missing trailing newline', () => {
@@ -368,7 +696,7 @@ describe('db:seed --connection (SED-011)', () => {
     const { dir } = await project();
     // Same fixture, one declaration added: the seeder belongs to `reporting`.
     await writeFile(
-      join(dir, 'src', 'app.ts'),
+      join(dir, 'app.ts'),
       `import { defineApp } from '@tsir/core';
 import { createDatabase, createD1Driver } from '@tsir/database';
 import { defineSeeder } from '@tsir/seed';

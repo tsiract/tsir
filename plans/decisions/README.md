@@ -32,6 +32,7 @@ One file per decision. Format: **Status / Context / Decision / Consequences / Al
 | [`0026`](./0026-deploy-graph-is-an-artefact.md)     | The deploy shape is a committed artefact: resolved, validated, diffed               | Accepted |
 | [`0027`](./0027-capability-drivers.md)              | Capability drivers: app-supplied clients, subpaths, per-store registries (Q36–Q38)  | Accepted |
 | [`0028`](./0028-docs-site-renderer.md)              | The docs site is rendered from Markdown with `marked`, a build-time dependency      | Accepted |
+| [`0029`](./0029-frontpage-daisyui.md)               | Compiled DaisyUI Nord/Abyss for the static public site                              | Accepted |
 
 ## Lifecycle
 

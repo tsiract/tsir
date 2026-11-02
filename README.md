@@ -15,7 +15,7 @@
 <p align="center">
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-1f6feb.svg)](./LICENSE) [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/tsconfig#strict) [![Runtime: Bun](https://img.shields.io/badge/runtime-Bun%20%E2%89%A51.2-fbf0df.svg?logo=bun&logoColor=black)](https://bun.sh)<br/>
-[![Tests](https://img.shields.io/badge/tests-2716%20passing-3fb950.svg)](./Makefile) [![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-2%20%28%2B2%20adapters%29-8b949e.svg)](./src/docs/dependencies.md) [![Deploy targets](https://img.shields.io/badge/deploy-Workers%20%2B%20Lambda-f0883e.svg?logo=cloudflareworkers&logoColor=white)](./src/framework/deploy)<br/>
+[![Tests](https://img.shields.io/badge/tests-2738%20passing-3fb950.svg)](./Makefile) [![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-2%20%28%2B2%20adapters%29-8b949e.svg)](./src/docs/dependencies.md) [![Deploy targets](https://img.shields.io/badge/deploy-Workers%20%2B%20Lambda-f0883e.svg?logo=cloudflareworkers&logoColor=white)](./src/framework/deploy)<br/>
 [![Tree-shaking: verified](https://img.shields.io/badge/tree%20shaking-verified-3fb950.svg?logo=esbuild&logoColor=white)](./src/docs/dependencies.md) [![Startup focus: zero cost](https://img.shields.io/badge/startup%20focus-zero%20cost-a371f7.svg)](#why-tsir) [![Status: pre-alpha](https://img.shields.io/badge/status-P8%20%C2%B7%20pre--alpha-d29922.svg)](./status.json)<br/>
 
 </p>
@@ -49,17 +49,27 @@ Tsir is built for the overlap.
 
 ## Quick start
 
+Install Bun and the pre-alpha distribution as described in the
+[installation guide](./src/docs/installation.md). Then, from a directory outside the distribution:
+
 ```bash
-git clone <this repo> && cd tsir
-make install     # bun install
-make dev         # serves the framework frontpage on :3000
-make check       # typecheck · lint · boundaries · deps · links · format
-make test        # bun test
-make verify-dist # prove dist/ boots, tree-shakes, and fits Workers/Lambda
+tsir new hello
+cd hello
+bun install --ignore-scripts
+tsir dev
 ```
 
-`make` is the entry point: every target is documented in the [`Makefile`](./Makefile), and
-`make help` prints the list.
+Open `http://127.0.0.1:3000`. The `tsir` command is the application entry point. Packages are
+not published to npm; the installation guide explains the local distribution workspace and its
+limitations. Continue with [controllers](./src/docs/guides/controllers.md),
+[models and Drizzle](./src/docs/guides/database.md), [queues](./src/docs/guides/queues.md),
+[cache](./src/docs/guides/caching.md), [configuration](./src/docs/guides/configuration.md), and
+[cloud providers](./src/docs/guides/providers.md).
+
+### Framework contributors
+
+The repository Makefile is for building and testing Tsir itself, not for running application
+projects. See [contributor commands](./src/docs/guides/make.md); `make help` lists all targets.
 
 ## What is real today
 
@@ -67,12 +77,12 @@ The framework is **pre-alpha**. Phase 7 (capabilities) is closed with caveats, a
 readiness) is in progress. The database, the capability modules and the CLI are built, tested and gated
 in CI, but no capability has yet run on a real Worker or Lambda, and nothing is published to npm yet. That said, the parts that exist are tested and gated in CI:
 
-| Working now                                                                                     | Planned                                       |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------- |
-| DI container, typed config, lifecycle, validation, router, HTTP pipeline, OpenAPI               | Streaming requests, response validation       |
-| D1 **and** Postgres **and** MySQL, Drizzle on all three, migrations, seeders, column encryption | Deploy to a real Worker or Lambda (emit only) |
-| Capabilities: cache, queue, events, schedule, storage, mail, notify, policy, auth, pulse        | Docs site, admin surface                      |
-| `@tsir/link` — REST, gRPC, SOAP, WS + rooms; `tsir` CLI; `dist/` verified for both targets      | Publishing to npm                             |
+| Working now                                                                                | Planned                                     |
+| ------------------------------------------------------------------------------------------ | ------------------------------------------- |
+| DI container, typed config, lifecycle, validation, router, HTTP pipeline, OpenAPI          | Streaming requests, response validation     |
+| D1 and Postgres, Drizzle, migrations, seeders, column encryption                           | MySQL driver; real Worker/Lambda deployment |
+| Capabilities: cache, queue, events, schedule, storage, mail, notify, policy, auth, pulse   | Admin surface and live cloud verification   |
+| `@tsir/link` — REST, gRPC, SOAP, WS + rooms; `tsir` CLI; `dist/` verified for both targets | Publishing to npm                           |
 
 The full, honest inventory — including what is explicitly _not_ built — is the set of package
 READMEs under [`src/framework/`](./src/framework); the phase and status the badges claim are the

@@ -17,6 +17,8 @@
  * place to teach an attacker the parser's limits.
  */
 
+import { TsirError } from '@tsir/core';
+
 export interface BodyLimits {
   readonly maxBytes: number;
   readonly maxDepth: number;
@@ -72,6 +74,62 @@ export function hasPollutionKey(value: unknown): boolean {
 export type ReadResult =
   | { readonly kind: 'ok'; readonly text: string }
   | { readonly kind: 'too-large'; readonly bytes: number };
+
+/**
+ * Streams the request body, enforcing `maxBytes` as bytes arrive.
+ *
+ * The returned stream is the request's own body wrapped in a counting transform:
+ * a chunk that would push the total past `maxBytes` is dropped and the stream
+ * errors with `HTP_BODY_TOO_LARGE`, so a handler that stops reading still cannot
+ * let an unbounded body through. A declared `content-length` above the limit is
+ * rejected before the first byte is read.
+ *
+ * The caller owns the stream's lifetime: it must be consumed or cancelled, just
+ * like `request.body`.
+ */
+export function streamBody(
+  request: Request,
+  maxBytes: number,
+): { readonly kind: 'ok'; readonly stream: ReadableStream<Uint8Array> } | { readonly kind: 'too-large'; readonly bytes: number } {
+  const declared = request.headers.get('content-length');
+  if (declared !== null) {
+    // coercion-ok: a framework header, only used to reject early; the counting
+    // transform below enforces the real byte cap regardless of this value.
+    const bytes = Number(declared);
+    if (Number.isFinite(bytes) && bytes > maxBytes) return { kind: 'too-large', bytes };
+  }
+
+  const source = request.body;
+  if (source === null) {
+    // An empty body is a stream that ends immediately — a handler that asks for
+    // a stream always gets one, never `null`.
+    const stream = new ReadableStream<Uint8Array>({
+      start(controller) {
+        controller.close();
+      },
+    });
+    return { kind: 'ok', stream };
+  }
+
+  let total = 0;
+  const transform = new TransformStream<Uint8Array, Uint8Array>({
+    transform(chunk, controller) {
+      total += chunk.byteLength;
+      if (total > maxBytes) {
+        controller.error(
+          new TsirError('HTP_BODY_TOO_LARGE', `body exceeds ${String(maxBytes)} bytes`, {
+            kind: 'http',
+            context: { bytes: total },
+          }),
+        );
+        return;
+      }
+      controller.enqueue(chunk);
+    },
+  });
+
+  return { kind: 'ok', stream: source.pipeThrough(transform) };
+}
 
 /**
  * Reads at most `maxBytes` from the body, counting real bytes.

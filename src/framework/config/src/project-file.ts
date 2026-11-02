@@ -35,6 +35,7 @@ export const PROJECT_TOP_LEVEL_KEYS: readonly string[] = [
   'schedule',
   'paths',
   'modules',
+  'moduleDefaults',
   'http',
   'vault',
   'presets',

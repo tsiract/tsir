@@ -10,7 +10,7 @@
 
 import { existsSync } from 'node:fs';
 import { createRequire } from 'node:module';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, relative as relativePath, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
 import { TsirError } from '@tsir/container';
@@ -29,6 +29,10 @@ const envRef = z.union([z.string().min(1), z.object({ fromEnv: z.string().min(1)
 const projectSchema = z.object({
   // CFG-113: the packages the app uses. Each must be installed, or the load refuses with the bun add line.
   modules: z.array(z.string()).optional(),
+  // Root-level per-module defaults (tsir.js modules.<name>). Lowest precedence.
+  moduleDefaults: z
+    .record(z.string(), z.record(z.string(), z.unknown()))
+    .optional(),
   app: z.object({
     name: z.string().min(1),
     entry: z.string().min(1),
@@ -91,6 +95,17 @@ const projectSchema = z.object({
               )
               .optional(),
             private: z.boolean().optional(),
+            memoryMb: z.number().int().positive().optional(),
+            timeoutSeconds: z.number().int().positive().optional(),
+          }),
+        )
+        .optional(),
+      publishes: z.array(z.string().min(1)).optional(),
+      invokes: z
+        .array(
+          z.object({
+            unit: z.string().min(1),
+            task: z.string().min(1),
           }),
         )
         .optional(),
@@ -333,6 +348,59 @@ export interface LoadedProject {
   readonly exports: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * The files that identify a distribution root (`make dist`). `manifest.json` is
+ * generated only by the dist build, and `framework/console/package.json` proves
+ * the framework was emitted — a plain app directory has neither.
+ */
+const DIST_MARKERS = ['manifest.json', 'framework/console/package.json'] as const;
+
+/**
+ * Walks up from `startDir` looking for a Tsir distribution root. Returns the
+ * root path, or `undefined` when the start directory is not inside a dist.
+ *
+ * Used so commands that fail for lack of a project can give a dist-aware hint:
+ * the distribution ships runnable examples under `apps/`, and a new
+ * application must be created from outside the dist (the next `make dist` wipes
+ * everything under it).
+ */
+export function findDistRoot(startDir: string): string | undefined {
+  let current = resolve(startDir);
+  for (;;) {
+    if (DIST_MARKERS.every((marker) => existsSync(join(current, marker)))) return current;
+    const parent = dirname(current);
+    if (parent === current) break;
+    current = parent;
+  }
+  return undefined;
+}
+
+/**
+ * The hint for "no tsir.js found". When the working directory sits inside a
+ * distribution, the generic hint is actively misleading: `tsir bootstrap` has
+ * nothing to edit and `tsir new` is refused inside the dist. Point instead at
+ * the bundled examples and the correct place to run `tsir new`.
+ */
+function noConfigHint(startDir: string): string {
+  const dist = findDistRoot(startDir);
+  if (dist === undefined) {
+    return 'run `tsir bootstrap` inside an existing application, or `tsir new <name>` to scaffold one';
+  }
+  const launcher = join(dist, 'tsir');
+  const rel = (path: string): string => {
+    const r = relativePath(startDir, path);
+    return r === '' ? '.' : r;
+  };
+  const examples = ['http', 'minimal']
+    .filter((name) => existsSync(join(dist, 'apps', name, 'tsir.js')))
+    .map((name) => rel(join(dist, 'apps', name)));
+  const exampleHint =
+    examples.length === 0
+      ? ''
+      : `to test the bundled modules, run ${rel(launcher)} dev --app ${examples[0] ?? 'apps/http'} · `;
+  return `${exampleHint}to create an app, cd out of the distribution and run ${launcher} new <name>`;
+}
+
 export function findConfigFile(startDir: string): string {
   let current = resolve(startDir);
   const found: string[] = [];
@@ -360,11 +428,7 @@ export function findConfigFile(startDir: string): string {
     current = parent;
   }
 
-  throw new CliError(
-    'no tsir.js found',
-    3,
-    'run `tsir bootstrap` inside an existing application, or `tsir new <name>` to scaffold one',
-  );
+  throw new CliError('no tsir.js found', 3, noConfigHint(startDir));
 }
 
 /** Whether a package resolves from the project root: the test a preset's modules must pass. */
@@ -527,6 +591,9 @@ export async function bootProject(
 
   const app = await project.app.createApp({
     ...options,
+    ...(project.config.moduleDefaults === undefined
+      ? {}
+      : { moduleDefaults: project.config.moduleDefaults }),
     ...(manifest === undefined || options.mode !== 'production' ? {} : { manifest }),
   });
 

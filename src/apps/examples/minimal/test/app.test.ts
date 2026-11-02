@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { expectTsirError, createTestApp } from '@tsir/testing';
 
-import app from '../src/app.ts';
+import app from '../app.ts';
 
 describe('minimal example', () => {
   test('boots through the same path production uses', async () => {

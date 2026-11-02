@@ -57,7 +57,8 @@ function linkToSource(): void {
       const path = join(folder, entry);
       return statSync(path).isDirectory() ? walk(path) : [path];
     });
-  for (const file of walk(join(dir, 'src'))) {
+  for (const file of walk(dir)) {
+    if (!file.endsWith('.ts')) continue;
     let text = readFileSync(file, 'utf8');
     for (const [specifier, target] of Object.entries(SPECIFIERS)) {
       text = text.replaceAll(specifier, target);
@@ -78,7 +79,7 @@ interface PolicyModule {
 describe('make:policy', () => {
   test('writes a rule with no imports, and the pair is keyed by resource:action', async () => {
     expect(await makePolicyCommand(['Post', 'update'])).toBe(EXIT.ok);
-    const path = join(dir, 'src', 'policies', 'post-update.policy.ts');
+    const path = join(dir, 'policies', 'post-update.policy.ts');
     expect(existsSync(path)).toBe(true);
     const text = readFileSync(path, 'utf8');
     expect(text).not.toMatch(/^import /m);
@@ -88,7 +89,7 @@ describe('make:policy', () => {
   test('the rule grants what the role grants, and denies everything else (fail closed)', async () => {
     await makePolicyCommand(['Post', 'update']);
     const mod = (await import(
-      join(dir, 'src', 'policies', 'post-update.policy.ts')
+      join(dir, 'policies', 'post-update.policy.ts')
     )) as PolicyModule;
 
     const principal = { subject: 'user-1' };
@@ -106,7 +107,7 @@ describe('make:policy', () => {
 
   test('a kebab resource is a valid permission and gets a camelCase name', async () => {
     expect(await makePolicyCommand(['BlogPost', 'publish'])).toBe(EXIT.ok);
-    const text = readFileSync(join(dir, 'src', 'policies', 'blog-post-publish.policy.ts'), 'utf8');
+    const text = readFileSync(join(dir, 'policies', 'blog-post-publish.policy.ts'), 'utf8');
     expect(text).toContain("export const blogPostPublishRef = 'blog-post:publish';");
     expect(text).toContain("permissions.has('blog-post.publish')");
   });
@@ -124,7 +125,7 @@ describe('make:policy', () => {
 describe('make:link-client', () => {
   test('writes a class whose options come through the constructor and whose path is typed', async () => {
     expect(await makeLinkClientCommand(['Billing'])).toBe(EXIT.ok);
-    const text = readFileSync(join(dir, 'src', 'clients', 'billing.client.ts'), 'utf8');
+    const text = readFileSync(join(dir, 'clients', 'billing.client.ts'), 'utf8');
     expect(text).toContain('export class BillingClient');
     expect(text).toContain('constructor(options: RestClientOptions)');
     expect(text).toContain('`/billing/${encodeURIComponent(id)}`');
@@ -132,7 +133,7 @@ describe('make:link-client', () => {
 
   test('--path sets the prefix, and a malformed prefix is refused', async () => {
     expect(await makeLinkClientCommand(['Billing', '--path', '/v2/invoices'])).toBe(EXIT.ok);
-    expect(readFileSync(join(dir, 'src', 'clients', 'billing.client.ts'), 'utf8')).toContain(
+    expect(readFileSync(join(dir, 'clients', 'billing.client.ts'), 'utf8')).toContain(
       '`/v2/invoices/${encodeURIComponent(id)}`',
     );
     for (const bad of ['/', '/billing/', 'billing', '/a//b', '/x"y']) {
@@ -145,7 +146,7 @@ describe('make:link-client', () => {
   test('the generated client makes a typed call through the real REST client', async () => {
     await makeLinkClientCommand(['Billing']);
     linkToSource();
-    const { BillingClient } = (await import(join(dir, 'src', 'clients', 'billing.client.ts'))) as {
+    const { BillingClient } = (await import(join(dir, 'clients', 'billing.client.ts'))) as {
       BillingClient: new (options: Record<string, unknown>) => {
         get(
           ctx: ReturnType<typeof createCallContext>,

@@ -7,6 +7,6 @@
 export default {
   app: {
     name: 'minimal',
-    entry: './src/app.ts',
+    entry: './app.ts',
   },
 };

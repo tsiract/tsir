@@ -169,6 +169,36 @@ function requestId(): string {
 }
 
 /**
+ * Maximum length accepted for an incoming `X-Request-Id`. Anything longer is
+ * treated as absent and a fresh id is generated instead — a header is an
+ * untrusted input, and letting a client choose a multi-kilobyte correlation id
+ * is how log volume attacks work.
+ */
+const MAX_INCOMING_REQUEST_ID_BYTES = 256;
+
+/**
+ * Resolve the request id for this request. Propagates a client-supplied
+ * `X-Request-Id` when present and well-formed, so a call chain can be traced
+ * across services. Otherwise a fresh UUID is generated.
+ *
+ * The incoming value is sanitized: trimmed, control characters stripped, and
+ * capped at {@link MAX_INCOMING_REQUEST_ID_BYTES}. A value that is empty after
+ * sanitization is ignored.
+ */
+function resolveRequestId(request: Request): string {
+  const incoming = request.headers.get('x-request-id');
+  if (incoming === null) return requestId();
+  // Strip control characters (including CR/LF — prevents log injection) and
+  // surrounding whitespace. Printable ASCII only; non-ASCII ids are not useful
+  // for correlation and risk encoding issues downstream.
+  const sanitized = incoming.replace(/[^\x20-\x7E]/g, '').trim();
+  if (sanitized.length === 0 || sanitized.length > MAX_INCOMING_REQUEST_ID_BYTES) {
+    return requestId();
+  }
+  return sanitized;
+}
+
+/**
  * Combines abort signals without `AbortSignal.any`, which is not available on
  * every runtime Tsir targets. Listener cleanup is handled by the returned abort.
  */
@@ -328,6 +358,14 @@ export function createFetchHandler(table: RouteTable, options: HttpOptions = {})
   function finalize(response: Response, request: Request, id: string): Response {
     const headers = new Headers(response.headers);
     headers.set('x-request-id', id);
+    // Helmet-equivalent headers for HTML responses — cheap, harmless for APIs,
+    // useful for any rendered page the app serves.
+    const contentType = headers.get('content-type') ?? '';
+    if (contentType.startsWith('text/html')) {
+      headers.set('x-content-type-options', 'nosniff');
+      headers.set('content-security-policy', "frame-ancestors 'none'");
+      headers.set('referrer-policy', 'strict-origin-when-cross-origin');
+    }
     for (const [key, value] of Object.entries(options.responseHeaders ?? {}))
       headers.set(key, value);
     for (const [key, value] of Object.entries(corsHeaders(request))) {
@@ -659,7 +697,7 @@ export function createFetchHandler(table: RouteTable, options: HttpOptions = {})
   }
 
   return async function handle(request: Request): Promise<Response> {
-    const id = requestId();
+    const id = resolveRequestId(request);
     const url = new URL(request.url);
     const method = request.method.toUpperCase() as HttpMethod;
 
@@ -740,6 +778,14 @@ export function createFetchHandler(table: RouteTable, options: HttpOptions = {})
       return problemResponse('HTP_VALIDATION_FAILED', {
         instance: ctx.url.pathname,
         requestId: ctx.id,
+      });
+    }
+
+    if (isTsirError(error) && error.code === 'HTP_BODY_TOO_LARGE') {
+      return problemResponse('HTP_BODY_TOO_LARGE', {
+        instance: ctx.url.pathname,
+        requestId: ctx.id,
+        detail: `body exceeds ${limits.maxBytes} bytes`,
       });
     }
 

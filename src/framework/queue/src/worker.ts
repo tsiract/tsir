@@ -152,8 +152,14 @@ export function createWorker(options: WorkerOptions): Worker {
               id: message.id,
               connection: message.connection,
               name: message.name,
+              requestId: message.requestId,
               signal,
-              log: (line) => log(`  · ${message.name}#${message.id}: ${line}`),
+              log: (line) =>
+                log(
+                  `  · ${message.name}#${message.id}${
+                    message.requestId === undefined ? '' : ` [${message.requestId}]`
+                  }: ${line}`,
+                ),
             }),
           ),
         timeoutMs,
