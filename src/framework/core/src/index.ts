@@ -54,3 +54,8 @@ export { isTsirError, normalizeError, TsirError } from '@tsir/container';
 export type { ErrorKind, TsirErrorInit } from '@tsir/container';
 export type { Container, Provider, Scope, Token } from '@tsir/container';
 export { contract, describeToken, token } from '@tsir/container';
+
+// Config types are re-exported so that modules (and packages that depend only on
+// @tsir/core, like @tsir/router) can declare module configs without
+// taking a direct @tsir/config dependency.
+export type { ConfigSpec, InferConfig } from '@tsir/config';

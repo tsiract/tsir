@@ -484,6 +484,10 @@ export async function bootstrap(
       return fail(error, json);
     }
   }
+  // Fail fast on a missing project before asking any question: a user who
+  // answers the topology prompt and then learns there is no `tsir.js` has
+  // wasted a keystroke on an operation that cannot run.
+  findConfigFile(cwd);
   // CFG-111: with neither --yes nor --plan, a terminal is asked. No terminal means no guessing.
   const interactive = !json && !boolFlag(args, '--yes') && !boolFlag(args, '--plan');
   if (interactive && !io.isTTY) {

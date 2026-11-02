@@ -1,9 +1,17 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 
 import { defineApp, defineModule } from '@tsir/core';
 import { defineConfig, env } from '@tsir/config';
 import { token, valueProvider } from '@tsir/container';
-import { Controller, Get, RouteRegistry, routeModule, routeRegistry } from '@tsir/router';
+import {
+  Controller,
+  Get,
+  RouteRegistry,
+  removeRouteModule,
+  routeModule,
+  routeRegistry,
+  type RouteModule,
+} from '@tsir/router';
 
 import { createTestApp, expectTsirError } from './index.ts';
 
@@ -13,6 +21,10 @@ const spec = defineConfig({
 
 const USERS = token<{ source: string }>('users-repository');
 const BILLING = token<{ source: string }>('billing-repository');
+
+// `routeModule` is process-global, so every module declared by `fixture()`
+// must be removed after its test to avoid leaking into other test files.
+const declaredModules: RouteModule[] = [];
 
 /**
  * A two-module app, built the way the plans say an app is built: each module owns
@@ -32,6 +44,7 @@ function fixture(): ReturnType<typeof defineApp<typeof spec>> {
     registry: billingRegistry,
     providers: [valueProvider(BILLING, { source: 'billing' })],
   });
+  declaredModules.push(users, billing);
 
   @Controller(usersRegistry, '/users')
   class UsersController {
@@ -141,4 +154,9 @@ describe('createTestApp', () => {
       routeRegistry.clear();
     }
   });
+});
+
+afterEach(() => {
+  for (const mod of declaredModules) removeRouteModule(mod);
+  declaredModules.length = 0;
 });

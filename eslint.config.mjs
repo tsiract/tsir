@@ -39,6 +39,8 @@ export default tseslint.config(
       '**/tsir.js',
       '**/tsir.config.js',
       '**/tsir.mjs',
+      // Browser-only progressive enhancement: compiled by Bun.build, not the Bun TS project.
+      'src/apps/frontpage/client.js',
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,

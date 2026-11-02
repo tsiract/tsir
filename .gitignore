@@ -1,0 +1,53 @@
+# Dependencies — reproducible installs belong in bun.lock, not in Git.
+node_modules/
+**/node_modules/
+.pnpm-store/
+
+# Bun / Node local caches and logs. Keep bun.lock tracked.
+.bun/
+.cache/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun-debug.log*
+logs/
+*.log
+# This committed fixture is an input to the console tests, not a runtime log.
+!src/framework/console/src/commands/fixtures/.ran.log
+
+# Generated build, test and release output.
+build/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+*.tgz
+
+# Tsir's local development records and distribution-verification workspaces.
+.tsir/
+.verify/
+.tmp-*/
+
+# IDE / editor local state (specs, sessions, memory, MCP state).
+.trae/
+
+# Secrets and machine-specific configuration. Explicit examples remain tracked.
+.env
+.env.*
+!.env.example
+!.env.*.example
+
+# OS / editor metadata.
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Deliberately tracked generated source:
+# - src/apps/frontpage/public/index.html (self-contained site artifact)
+# - src/contracts/** and *.gen.ts (checked by codegen gates)
+# - src/docs/api-surface.json (checked by the API-surface gate)
+# Do not add blanket ignores for public/, generated/, or *.json.

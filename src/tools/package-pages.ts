@@ -107,7 +107,18 @@ export function renderPage(
     '',
   );
 
-  lines.push('## Install', '', '```sh', `bun add ${pkg.name}`, '```', '');
+  lines.push(
+    '## Install',
+    '',
+    'After [installing the distribution](../installation.md), add this package from its workspace in your application:',
+    '',
+    '```sh',
+    `bun add '${pkg.name}@workspace:*'`,
+    '```',
+    '',
+    'The packages are not yet published to npm.',
+    '',
+  );
 
   lines.push('## Public surface', '');
   for (const key of entries) {

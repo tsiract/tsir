@@ -1,0 +1,17 @@
+# Generated artifacts: formatting these would either churn vendored code or
+# invalidate the frontpage's byte-for-byte freshness check.
+node_modules/
+build/
+dist/
+coverage/
+.tsir/
+.verify/
+.cache/
+src/contracts/
+src/apps/frontpage/public/index.html
+
+# Existing generator outputs retain their generators' formatting.
+src/apps/examples/http/src/routes.gen.ts
+src/docs/dependencies.md
+src/framework/console/src/commands/fixtures/tax.gen.ts
+src/framework/link/src/contracts/tsir/orders/v1/orders_pb.ts

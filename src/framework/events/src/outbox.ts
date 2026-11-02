@@ -77,8 +77,8 @@ export function createOutbox(options: OutboxOptions): Outbox {
     async record(message, statement) {
       // The id is the job's id, so a republished message is recognisably the same message.
       const text =
-        `INSERT INTO ${table} (id, name, payload, connection, created_at, max_attempts, idempotency_key) ` +
-        `VALUES (${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}, ${p(6)}, ${p(7)})`;
+        `INSERT INTO ${table} (id, name, payload, connection, created_at, max_attempts, idempotency_key, request_id) ` +
+        `VALUES (${p(1)}, ${p(2)}, ${p(3)}, ${p(4)}, ${p(5)}, ${p(6)}, ${p(7)}, ${p(8)})`;
       const params = [
         message.id,
         message.name,
@@ -87,6 +87,7 @@ export function createOutbox(options: OutboxOptions): Outbox {
         message.createdAt,
         message.maxAttempts,
         message.idempotencyKey ?? null,
+        message.requestId ?? null,
       ] as const;
 
       // With a caller-supplied statement the insert joins *their* batch — that is the whole
@@ -117,6 +118,9 @@ export function createOutbox(options: OutboxOptions): Outbox {
           createdAt: Number(row['created_at']),
           ...(typeof row['idempotency_key'] === 'string'
             ? { idempotencyKey: row['idempotency_key'] }
+            : {}),
+          ...(typeof row['request_id'] === 'string'
+            ? { requestId: row['request_id'] }
             : {}),
         },
       }));
@@ -160,6 +164,9 @@ export function createOutbox(options: OutboxOptions): Outbox {
           {
             maxAttempts: entry.message.maxAttempts,
             idempotencyKey: entry.message.idempotencyKey ?? entry.message.id,
+            ...(entry.message.requestId === undefined
+              ? {}
+              : { requestId: entry.message.requestId }),
           },
         );
         // Marked one at a time: if entry 40 fails, entries 1–39 stay published instead of the

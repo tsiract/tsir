@@ -176,6 +176,30 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
   const schedules = triggersOfKind(unit, 'cron')
     .flatMap(({ trigger }) => trigger.detail)
     .sort();
+  // SNS triggers: `orders` is a direct SNS → Lambda subscription;
+  // `orders:sqs` is an SNS → SQS → Lambda fan-out (DPL-028).
+  const snsTriggers = triggersOfKind(unit, 'sns')
+    .flatMap(({ trigger }) => trigger.detail)
+    .sort();
+  const snsTopics = snsTriggers
+    .map((detail) => {
+      const parts = detail.split(':');
+      const topic = parts[0];
+      if (!topic) return undefined;
+      return { topic, via: parts[1] === 'sqs' ? ('sqs' as const) : undefined };
+    })
+    .filter((t): t is { topic: string; via: 'sqs' | undefined } => t !== undefined);
+  // EventBridge rules: detail is `name:detailType` (folded in units.ts). Each becomes an
+  // `AWS::Events::Rule` matching the detail-type, with the function as a target.
+  const eventbridgeRules = triggersOfKind(unit, 'eventbridge')
+    .flatMap(({ trigger }) => trigger.detail)
+    .map((detail) => {
+      const colon = detail.indexOf(':');
+      const name = colon === -1 ? detail : detail.slice(0, colon);
+      const detailType = colon === -1 ? undefined : detail.slice(colon + 1);
+      return { name, detailType };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
   const serves = triggersOfKind(unit, 'http').concat(triggersOfKind(unit, 'websocket'));
 
   const vars: Record<string, string> = {};
@@ -236,6 +260,19 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
     lines.push('');
   }
 
+  const directSns = snsTopics.filter((t) => t.via === undefined);
+  if (directSns.length > 0) {
+    if (secrets.length === 0 && queues.length === 0) lines.push('Parameters:');
+    for (const { topic } of directSns) {
+      lines.push(
+        `  ${logicalName(topic)}TopicArn:`,
+        '    Type: String',
+        `    Description: ${quoted(`ARN of the ${topic} SNS topic this unit subscribes to`)}`,
+      );
+    }
+    lines.push('');
+  }
+
   lines.push(
     'Globals:',
     '  Function:',
@@ -258,6 +295,85 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
     );
   }
 
+  // SNS → SQS → Lambda fan-out (DPL-028): the topic, the queue it delivers to,
+  // a DLQ for messages the queue cannot process, and a raw-message subscription
+  // so the Lambda sees the published body directly, not the SNS envelope.
+  const fanoutSns = snsTopics.filter((t) => t.via === 'sqs');
+  for (const { topic } of fanoutSns) {
+    const topicName = logicalName(topic);
+    const queueName = logicalName(topic);
+    lines.push(
+      `  ${topicName}Topic:`,
+      '    Type: AWS::SNS::Topic',
+      '    Properties:',
+      `      TopicName: !Sub "\${AWS::StackName}-${topic}"`,
+      '',
+      `  ${queueName}Queue:`,
+      '    Type: AWS::SQS::Queue',
+      '    Properties:',
+      `      QueueName: !Sub "\${AWS::StackName}-${topic}"`,
+      '      VisibilityTimeout: 60',
+      '',
+      `  ${queueName}Dlq:`,
+      '    Type: AWS::SQS::Queue',
+      '    Properties:',
+      `      QueueName: !Sub "\${AWS::StackName}-${topic}-dlq"`,
+      '',
+      `  ${topicName}Subscription:`,
+      '    Type: AWS::SNS::Subscription',
+      '    Properties:',
+      `      TopicArn: !Ref ${topicName}Topic`,
+      '      Protocol: sqs',
+      `      Endpoint: !GetAtt ${queueName}Queue.Arn`,
+      '      RawMessageDelivery: true',
+      '',
+      `  ${queueName}Policy:`,
+      '    Type: AWS::SQS::QueuePolicy',
+      '    Properties:',
+      `      Queues: [!Ref ${queueName}Queue]`,
+      '      PolicyDocument:',
+      '        Version: "2012-10-17"',
+      '        Statement:',
+      '          - Effect: Allow',
+      '            Principal: { Service: sns.amazonaws.com }',
+      '            Action: sqs:SendMessage',
+      `            Resource: !GetAtt ${queueName}Queue.Arn`,
+      `            Condition: { ArnEquals: { "aws:SourceArn": !Ref ${topicName}Topic } }`,
+      '',
+    );
+  }
+
+  // EventBridge rules: each `@OnEventBridge` listener becomes a rule on the default bus
+  // matching its `detail-type`, with the function as its target. The bus-level filter
+  // lives here; the Lambda only dispatches by `detail-type` (lambda.ts).
+  for (const { name, detailType } of eventbridgeRules) {
+    const ruleName = logicalName(name);
+    const detailTypePattern = detailType === undefined ? '*' : detailType;
+    lines.push(
+      `  ${ruleName}Rule:`,
+      '    Type: AWS::Events::Rule',
+      '    Properties:',
+      `      Name: !Sub "\${AWS::StackName}-${name}"`,
+      '      EventBusName: default',
+      '      EventPattern:',
+      '        source:',
+      `          detail-type: [${quoted(detailTypePattern)}]`,
+      '      State: ENABLED',
+      '      Targets:',
+      `        - Arn: !GetAtt ${fn}.Arn`,
+      `          Id: ${ruleName}Target`,
+      '',
+      `  ${ruleName}Permission:`,
+      '    Type: AWS::Lambda::Permission',
+      '    Properties:',
+      '      Action: lambda:InvokeFunction',
+      `      FunctionName: !GetAtt ${fn}.Arn`,
+      '      Principal: events.amazonaws.com',
+      `      SourceArn: !GetAtt ${ruleName}Rule.Arn`,
+      '',
+    );
+  }
+
   lines.push(
     `  ${fn}:`,
     '    Type: AWS::Serverless::Function',
@@ -265,6 +381,15 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
     `      FunctionName: !Sub "\${AWS::StackName}-${unit.name}"`,
     '      CodeUri: .',
   );
+
+  // Per-unit memory and timeout override the shared `Globals.Function` defaults
+  // (`DPL-031`). A unit that sets neither inherits the app-wide values.
+  if (unit.memoryMb !== undefined) {
+    lines.push(`      MemorySize: ${String(unit.memoryMb)}`);
+  }
+  if (unit.timeoutSeconds !== undefined) {
+    lines.push(`      Timeout: ${String(unit.timeoutSeconds)}`);
+  }
 
   if (unit.private) {
     // `DPL-022`: health and metrics are not public because nobody typed them into a path.
@@ -307,6 +432,28 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
       '            Description: !Sub "${AWS::StackName} ${unit.name} cron"',
     );
   }
+  for (const { topic, via } of snsTopics) {
+    if (via === 'sqs') {
+      // Fan-out: the function consumes from the SQS queue the SNS topic feeds.
+      events.push(
+        `        Consume${logicalName(topic)}Sns:`,
+        '          Type: SQS',
+        '          Properties:',
+        `            Queue: !GetAtt ${logicalName(topic)}Queue.Arn`,
+        '            BatchSize: 10',
+        '            FunctionResponseTypes:',
+        '              - ReportBatchItemFailures',
+      );
+    } else {
+      // Direct SNS → Lambda subscription (DPL-027).
+      events.push(
+        `        Subscribe${logicalName(topic)}:`,
+        '          Type: SNS',
+        '          Properties:',
+        `            Topic: !Ref ${logicalName(topic)}TopicArn`,
+      );
+    }
+  }
 
   if (events.length > 0) {
     lines.push('      Events:', ...events);
@@ -320,7 +467,29 @@ export function samTemplate(unit: Unit, appName: string, options: SamOptions = {
     for (const name of secrets) {
       lines.push(`          ${name}: !Ref ${secretsByName.get(name) ?? logicalName(name)}`);
     }
+    // `TSIR_STACK_NAME` lets `invokeUnit` build the deployed function name
+    // `${AWS::StackName}-${unit}` (internal.ts). Emitted unconditionally so a unit that
+    // calls another unit resolves the right function name at runtime.
+    lines.push('          TSIR_STACK_NAME: !Sub "${AWS::StackName}"');
+  } else {
+    lines.push(
+      '      Environment:',
+      '        Variables:',
+      '          TSIR_STACK_NAME: !Sub "${AWS::StackName}"',
+    );
   }
+
+  // `invokeUnit` (DPL-030) lets one Lambda call another synchronously. The source
+  // Lambda needs `lambda:InvokeFunction` on the functions in this stack. Scoped to
+  // `${AWS::StackName}-*` so it covers every unit deployed together.
+  lines.push(
+    '      Policies:',
+    '        - Version: "2012-10-17"',
+    '          Statement:',
+    '            - Effect: Allow',
+    '              Action: lambda:InvokeFunction',
+    '              Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-*"',
+  );
 
   if (exposes) {
     lines.push(

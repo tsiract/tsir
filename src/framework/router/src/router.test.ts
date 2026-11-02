@@ -7,6 +7,9 @@ import {
   Get,
   Guards,
   joinPath,
+  OnEventBridge,
+  OnSns,
+  OnStepTask,
   Policies,
   Post,
   Route,
@@ -471,5 +474,97 @@ describe('route unit attribution (RTR-011)', () => {
       compileRoutes(registry.entries()).routes.map((route) => [route.path, route.meta.unit]),
     );
     expect(units).toEqual({ '/a': 'http', '/b': 'ingest', '/b/override': 'reports' });
+  });
+});
+
+describe('aws event listeners (DPL-026)', () => {
+  test('@OnSns registers a listener with topic and default unit', () => {
+    const registry = fresh();
+
+    @Controller(registry)
+    class OrdersListener {
+      @OnSns({ topic: 'orders' })
+      onOrder(): void {}
+    }
+    void OrdersListener;
+
+    const [entry] = registry.entries();
+    expect(entry?.listeners).toHaveLength(1);
+    expect(entry?.listeners[0]).toEqual({
+      handler: 'onOrder',
+      meta: { kind: 'sns', topic: 'orders', unit: 'sns' },
+    });
+  });
+
+  test('@OnEventBridge registers a listener with eventBus and detailType', () => {
+    const registry = fresh();
+
+    @Controller(registry)
+    class EventsListener {
+      @OnEventBridge({ eventBus: 'default', detailType: 'order.placed' })
+      onEvent(): void {}
+    }
+    void EventsListener;
+
+    const [entry] = registry.entries();
+    expect(entry?.listeners).toHaveLength(1);
+    expect(entry?.listeners[0]).toEqual({
+      handler: 'onEvent',
+      meta: { kind: 'eventbridge', eventBus: 'default', detailType: 'order.placed', unit: 'schedule' },
+    });
+  });
+
+  test('@OnStepTask registers a listener with name and default admin unit', () => {
+    const registry = fresh();
+
+    @Controller(registry)
+    class TasksListener {
+      @OnStepTask({ name: 'process-refund' })
+      onTask(): void {}
+    }
+    void TasksListener;
+
+    const [entry] = registry.entries();
+    expect(entry?.listeners).toHaveLength(1);
+    expect(entry?.listeners[0]).toEqual({
+      handler: 'onTask',
+      meta: { kind: 'steptask', name: 'process-refund', unit: 'admin' },
+    });
+  });
+
+  test('listeners and routes coexist on the same controller', () => {
+    const registry = fresh();
+
+    @Controller(registry, '/admin')
+    class MixedController {
+      @Get('/health')
+      health(): string {
+        return 'ok';
+      }
+
+      @OnSns({ topic: 'alerts' })
+      onAlert(): void {}
+    }
+    void MixedController;
+
+    const [entry] = registry.entries();
+    expect(entry?.routes).toHaveLength(1);
+    expect(entry?.listeners).toHaveLength(1);
+    expect(entry?.routes.at(0)?.handler).toBe('health');
+    expect(entry?.listeners.at(0)?.handler).toBe('onAlert');
+  });
+
+  test('listener unit can be overridden', () => {
+    const registry = fresh();
+
+    @Controller(registry)
+    class CustomUnit {
+      @OnSns({ topic: 'orders', unit: 'notifications' })
+      onOrder(): void {}
+    }
+    void CustomUnit;
+
+    const [entry] = registry.entries();
+    expect(entry?.listeners.at(0)?.meta.unit).toBe('notifications');
   });
 });

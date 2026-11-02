@@ -38,7 +38,7 @@ export const UNIT_KINDS: readonly UnitKind[] = [
 ];
 
 /** How a unit is reached. A unit may have more than one (an HTTP unit with a cron warm-up). */
-export type TriggerKind = 'http' | 'websocket' | 'queue' | 'cron' | 'manual';
+export type TriggerKind = 'http' | 'websocket' | 'queue' | 'cron' | 'sns' | 'eventbridge' | 'manual';
 
 export interface UnitTrigger {
   readonly kind: TriggerKind;
@@ -55,7 +55,7 @@ export interface UnitTrigger {
  * serialization into `unit-graph.json` — a reason you cannot commit is a comment.
  */
 export interface UnitReason {
-  readonly source: 'routes' | 'sockets' | 'queues' | 'schedules' | 'connections' | 'override';
+  readonly source: 'routes' | 'sockets' | 'queues' | 'schedules' | 'listeners' | 'connections' | 'override';
   readonly from: string;
 }
 
@@ -93,6 +93,16 @@ export interface Unit {
    * a public one.
    */
   readonly private: boolean;
+  /**
+   * Per-unit memory in MiB. When set, overrides the shared `deploy.memoryMb`
+   * default in the generated SAM template (`DPL-031`).
+   */
+  readonly memoryMb?: number | undefined;
+  /**
+   * Per-unit timeout in seconds. When set, overrides the shared
+   * `deploy.timeoutSeconds` default in the generated SAM template (`DPL-031`).
+   */
+  readonly timeoutSeconds?: number | undefined;
 }
 
 /* ── inputs ─────────────────────────────────────────────────────────────────────── */
@@ -142,6 +152,18 @@ export interface ConnectionInput {
   readonly bindings?: readonly BindingRef[] | undefined;
 }
 
+/**
+ * An AWS event-source listener declared with `@OnSns`/`@OnEventBridge`/`@OnStepTask` (DPL-026). */
+export interface ListenerInput {
+  readonly kind: 'sns' | 'eventbridge' | 'steptask';
+  /** SNS topic name, EventBridge event bus, or Step Functions task name. */
+  readonly name: string;
+  /** EventBridge detail-type filter (eventbridge only). */
+  readonly detailType?: string | undefined;
+  readonly unit?: string | undefined;
+  readonly module?: string | undefined;
+}
+
 export interface ModuleInput {
   readonly name: string;
   /** From `defineModule({ requires })` (APP-010). */
@@ -160,6 +182,8 @@ export interface UnitOverride {
   readonly requires?: readonly Capability[] | undefined;
   readonly bindings?: readonly BindingRef[] | undefined;
   readonly private?: boolean | undefined;
+  readonly memoryMb?: number | undefined;
+  readonly timeoutSeconds?: number | undefined;
 }
 
 export interface DeployOptions {
@@ -167,6 +191,17 @@ export interface DeployOptions {
   readonly units?: readonly UnitOverride[] | undefined;
   /** Modules to load into the graph even though nothing references them (rare, explicit). */
   readonly includeModules?: readonly string[] | undefined;
+  /**
+   * SNS topics this app publishes to (`DPL-030`). Each must have a matching `@OnSns({ topic })`
+   * listener in the graph; a publish to an undeclared topic is a build failure so the message never
+   * disappears into a topic nobody reads.
+   */
+  readonly publishes?: readonly string[] | undefined;
+  /**
+   * Step Functions tasks this app invokes internally (`DPL-030`). Each must have a matching
+   * `@OnStepTask({ name })` listener; an invoke to an unknown task is a build failure.
+   */
+  readonly invokes?: readonly { readonly unit: string; readonly task: string }[] | undefined;
 }
 
 export interface DeploymentInput {
@@ -185,6 +220,7 @@ export interface DeploymentInput {
   readonly sockets?: readonly SocketInput[] | undefined;
   readonly queues?: readonly QueueInput[] | undefined;
   readonly schedules?: readonly ScheduleInput[] | undefined;
+  readonly listeners?: readonly ListenerInput[] | undefined;
   readonly connections?: readonly ConnectionInput[] | undefined;
   readonly modules?: readonly ModuleInput[] | undefined;
   readonly deploy?: DeployOptions | undefined;
@@ -260,6 +296,8 @@ interface Draft {
   requires: Set<Capability>;
   bindings: Map<string, BindingRef>;
   private: boolean;
+  memoryMb?: number;
+  timeoutSeconds?: number;
 }
 
 function draftFor(drafts: Map<string, Draft>, name: string, kind: UnitKind): Draft {
@@ -361,6 +399,24 @@ export function resolveUnits(input: DeploymentInput): readonly Unit[] {
     absorb(draft, input, schedule.module);
   }
 
+  for (const listener of input.listeners ?? []) {
+    // SNS and EventBridge listeners are message consumers → `queue` unit kind.
+    // Step Functions tasks are manual invokes → `admin` unit kind.
+    const defaultUnit = listener.kind === 'steptask' ? 'admin' : 'queue';
+    const name = unitNameFor(defaultUnit, listener.unit);
+    const draft = draftFor(drafts, name, name === 'admin' ? 'admin' : 'queue');
+    // The trigger detail carries the topic/bus/task name; `detailType` is folded in for
+    // EventBridge so `deploy:plan` shows the full filter without a second source of truth.
+    const detail =
+      listener.kind === 'eventbridge' && listener.detailType !== undefined
+        ? `${listener.name}:${listener.detailType}`
+        : listener.name;
+    const triggerKind = listener.kind === 'steptask' ? 'manual' : listener.kind;
+    noteTrigger(draft, triggerKind, detail);
+    draft.reasons.push({ source: 'listeners', from: `${listener.kind}:${listener.name}` });
+    absorb(draft, input, listener.module);
+  }
+
   for (const connection of input.connections ?? []) {
     if (connection.journal !== true) {
       // A connection without a journal has no migration unit. A replica that is briefly
@@ -406,6 +462,8 @@ export function resolveUnits(input: DeploymentInput): readonly Unit[] {
     for (const capability of override.requires ?? []) draft.requires.add(capability);
     for (const binding of override.bindings ?? []) draft.bindings.set(binding.name, binding);
     if (override.private !== undefined) draft.private = override.private;
+    if (override.memoryMb !== undefined) draft.memoryMb = override.memoryMb;
+    if (override.timeoutSeconds !== undefined) draft.timeoutSeconds = override.timeoutSeconds;
   }
 
   // `deploy.includeModules` is for the one honest case: a module that ships code into a
@@ -435,6 +493,8 @@ export function resolveUnits(input: DeploymentInput): readonly Unit[] {
       (a, b) => a.kind.localeCompare(b.kind) || a.name.localeCompare(b.name),
     ),
     private: draft.private,
+    ...(draft.memoryMb !== undefined ? { memoryMb: draft.memoryMb } : {}),
+    ...(draft.timeoutSeconds !== undefined ? { timeoutSeconds: draft.timeoutSeconds } : {}),
   }));
 
   return units.sort((a, b) => a.name.localeCompare(b.name));

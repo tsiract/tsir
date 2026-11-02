@@ -26,6 +26,8 @@ export interface JobContext<Payload> {
   readonly id: string;
   readonly connection: string;
   readonly name: string;
+  /** Origin request id, when the dispatch carried one (OBS-012). */
+  readonly requestId?: string | undefined;
   /** Cooperative cancellation: fires on `timeoutMs` and on a worker shutdown. */
   readonly signal: AbortSignal;
   /** Structured progress for logs — never for control flow. */

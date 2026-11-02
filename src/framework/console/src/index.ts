@@ -33,6 +33,7 @@ import { doctorCommand } from './commands/doctor.ts';
 import { openapiGenerateCommand } from './commands/openapi.ts';
 import { makeModuleCommand, newCommand } from './commands/generate.ts';
 import { makeControllerCommand } from './commands/make-controller.ts';
+import { makeModelCommand } from './commands/make-model.ts';
 import { toolCommand } from './commands/tools.ts';
 import { makePartCommand } from './commands/make-parts.ts';
 import { makeCommandCommand } from './commands/make-command.ts';
@@ -78,25 +79,25 @@ export interface Command {
 export const COMMANDS: readonly Command[] = [
   {
     name: 'test',
-    summary: 'run the unit tests (same as make test)',
+    summary: 'run the application tests',
     phase: 1,
     run: toolCommand('test'),
   },
   {
     name: 'lint',
-    summary: 'lint the workspace (same as make lint)',
+    summary: 'run the application lint script',
     phase: 1,
     run: toolCommand('lint'),
   },
   {
     name: 'typecheck',
-    summary: 'type-check the workspace (same as make typecheck)',
+    summary: 'run the application typecheck script',
     phase: 1,
     run: toolCommand('typecheck'),
   },
   {
     name: 'dev',
-    summary: 'boot the application with lifecycle reporting',
+    summary: 'boot the application and serve its exported HTTP handler',
     phase: 1,
     run: devCommand,
   },
@@ -141,9 +142,15 @@ export const COMMANDS: readonly Command[] = [
   },
   {
     name: 'make:controller',
-    summary: 'generate a controller',
+    summary: 'generate a module-owned HTTP controller',
     phase: 1,
     run: makeControllerCommand,
+  },
+  {
+    name: 'make:model',
+    summary: 'generate a module-owned Drizzle schema',
+    phase: 1,
+    run: makeModelCommand,
   },
   {
     name: 'make:service',
@@ -442,6 +449,9 @@ function helpText(): string {
     '',
     `  ${style.dim('usage:')} tsir <command> [flags]`,
     '',
+    `  ${style.dim('global:')} --app <path>   run a project-bound command from outside its directory (or -C <path>)`,
+    `  ${style.dim('         --json')}        machine-readable output for commands that support it`,
+    '',
     `  ${style.bold('available')}`,
     ...available.map(
       (command) => `    ${style.cyan(command.name.padEnd(width))}  ${command.summary}`,
@@ -507,14 +517,52 @@ export async function runProjectCommand(
   return runCli(argv);
 }
 
+/**
+ * Extract the global `--app <path>` flag from argv.
+ *
+ * `--app` lets a project-bound command run from outside the application
+ * directory: `tsir dev --app src/examples/http` boots that example without
+ * `cd`. It is implemented by `process.chdir` before dispatch so every
+ * `loadProject(process.cwd())` call site picks up the right root.
+ *
+ * Returns the path (or undefined) and the argv with the flag removed.
+ * Accepts `--app path`, `--app=path`, and `-C path` (C for "change directory",
+ * matching `make -C` and `git -C`).
+ */
+function extractAppFlag(argv: readonly string[]): {
+  app: string | undefined;
+  argv: readonly string[];
+} {
+  const out: string[] = [];
+  let app: string | undefined;
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i];
+    if (arg === '--app' || arg === '-C') {
+      app = argv[i + 1];
+      i++;
+    } else if (arg !== undefined && arg.startsWith('--app=')) {
+      app = arg.slice('--app='.length);
+    } else if (arg !== undefined) {
+      out.push(arg);
+    }
+  }
+  return { app, argv: out };
+}
+
 export async function runCli(argv: readonly string[]): Promise<number> {
-  const json = argv.includes('--json');
+  const { app, argv: cleaned } = extractAppFlag(argv);
+  if (app !== undefined) {
+    process.chdir(app);
+  }
+  const json = cleaned.includes('--json');
   // CLI-002: `--json` is a global flag, so it may come before the command name. The command is
   // the first argument that is not `--json`; any leading `--json` is passed on to the command.
-  const commandIndex = argv.findIndex((arg) => arg !== '--json');
-  const first = commandIndex === -1 ? undefined : argv[commandIndex];
+  const commandIndex = cleaned.findIndex((arg) => arg !== '--json');
+  const first = commandIndex === -1 ? undefined : cleaned[commandIndex];
   const rest =
-    commandIndex === -1 ? [] : [...argv.slice(0, commandIndex), ...argv.slice(commandIndex + 1)];
+    commandIndex === -1
+      ? []
+      : [...cleaned.slice(0, commandIndex), ...cleaned.slice(commandIndex + 1)];
 
   // FND-016: refuse to run on a runtime below the floor, before any command
   // touches the filesystem or imports the framework. `--version` is exempt so

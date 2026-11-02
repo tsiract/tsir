@@ -11,7 +11,7 @@
 #   4. Unknown owners of a port are reported, never killed.
 #   5. Idempotent: running with nothing active exits 0.
 #
-set -uo pipefail
+set -o pipefail
 
 ROOT="${TSIR_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)}"
 RUNTIME_DIR="${ROOT}/.tsir"
@@ -31,8 +31,8 @@ ok() { printf '%s✓%s %s\n' "$C_GREEN" "$C_RESET" "$*"; }
 warn() { printf '%s!%s %s\n' "$C_YELLOW" "$C_RESET" "$*"; }
 err() { printf '%s✗%s %s\n' "$C_RED" "$C_RESET" "$*"; }
 
-declare -A START_LABELS=()
 pids=()
+labels=()
 ports=()
 
 # Is something listening on 127.0.0.1:<port>? (bash /dev/tcp, no dependencies)
@@ -58,18 +58,19 @@ if [ -f "$RECORD_TSV" ]; then
     case "$pid" in ''|*[!0-9]*) continue ;; esac
     pids+=("$pid")
     if [ -n "${port:-}" ]; then ports+=("$port"); fi
-    if [ -n "${label:-}" ]; then START_LABELS["$pid"]="$label"; fi
+    labels+=("${label:-}")
   done <"$RECORD_TSV"
 elif [ -f "$RECORD_JSON" ]; then
   # Compatibility fallback for records written by an older dev server.
   while read -r pid; do
     [ -z "$pid" ] && continue
     pids+=("$pid")
+    labels+=("")
   done < <(grep -o '"pid"[[:space:]]*:[[:space:]]*[0-9]*' "$RECORD_JSON" | grep -o '[0-9]*$')
   while read -r port; do
     [ -z "$port" ] && continue
     ports+=("$port")
-  done < <(grep -o '"ports"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$RECORD_JSON" | grep -o '[0-9]\+')
+  done < <(grep -o '"ports"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$RECORD_JSON" | grep -Eo '[0-9]+')
 fi
 
 if [ "${#pids[@]}" -eq 0 ]; then
@@ -83,13 +84,15 @@ fi
 
 signalled=()
 
+index=0
 for pid in "${pids[@]}"; do
+  recorded_label="${labels[$index]:-}"
+  index=$((index + 1))
   if ! kill -0 "$pid" 2>/dev/null; then
     note "${C_DIM}already stopped${C_RESET} (pid ${pid})"
     continue
   fi
 
-  recorded_label="${START_LABELS[$pid]:-}"
   live_label="$(start_label "$pid")"
   if [ -n "$recorded_label" ] && [ -n "$live_label" ] && [ "$recorded_label" != "$live_label" ]; then
     warn "pid ${pid} was reused by another process — not touching it"

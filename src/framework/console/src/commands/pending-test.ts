@@ -9,7 +9,7 @@
 
 import type { GeneratedFile } from '../generator.ts';
 
-/** `src/services/audit.service.ts` → `src/services/audit.service.test.ts`. */
+/** `services/audit.service.ts` → `services/audit.service.test.ts`. */
 export function pendingTestPath(generatedPath: string): string {
   return generatedPath.replace(/\.ts$/, '.test.ts');
 }

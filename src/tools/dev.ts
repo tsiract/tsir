@@ -1,8 +1,8 @@
 /**
  * Tsir development server.
  *
- * Serves the framework frontpage (`src/apps/frontpage/public`) and, from Phase 2,
- * proxies application routes. Responsibilities are deliberately small:
+ * Serves the framework frontpage (`src/apps/frontpage/public`) and the static
+ * documentation under `/docs/`. Responsibilities are deliberately small:
  *
  *   1. Resolve runtime metadata (version, runtimes, env, port).
  *   2. Record its own PID + ports in `.tsir/` so `make kill` can stop it
@@ -16,8 +16,11 @@
  * See the `dev` target in the Makefile for the workflow contract.
  */
 
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir, rm, writeFile } from 'node:fs/promises';
+import { watch } from 'node:fs';
 import { arch, platform } from 'node:os';
+import { buildDocs } from './docs-site.ts';
+import { renderFrontpage } from '../apps/frontpage/build.ts';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -304,7 +307,21 @@ async function serveStatic(
   info: RuntimeInfo,
   sizes: Readonly<Record<string, string>>,
 ): Promise<StaticResult> {
-  const requested = pathname === '/' ? '/index.html' : pathname;
+  let requested = pathname === '/' ? '/index.html' : pathname;
+  // Support clean, directory-style URLs: `/docs/installation/` serves
+  // `installation/index.html`, and `/docs/installation` (no trailing slash)
+  // redirects to the slashed form so relative links resolve correctly.
+  if (!requested.endsWith('/') && extname(requested) === '') {
+    return {
+      response: new Response(null, {
+        status: 308,
+        headers: { location: `${requested}/` },
+      }),
+    };
+  }
+  if (requested.endsWith('/')) {
+    requested = `${requested}index.html`;
+  }
   const filePath = resolveStaticPath(publicDir, requested);
 
   if (filePath === null) {
@@ -334,6 +351,117 @@ async function serveStatic(
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// File watcher — rebuild docs and frontpage without restarting `make dev`
+// ─────────────────────────────────────────────────────────────────────────────
+
+const WATCH_DEBOUNCE_MS = 150;
+
+/**
+ * Debounces a rebuild so a burst of saves produces one build, not one per file.
+ * If a change arrives while a rebuild is running, a follow-up rebuild is queued
+ * via the `dirty` flag so the latest state is always reflected.
+ */
+function debouncedRebuild(label: string, rebuild: () => Promise<void>): () => void {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let running = false;
+  let dirty = false;
+
+  const run = async (): Promise<void> => {
+    timer = null;
+    if (running) {
+      dirty = true;
+      return;
+    }
+    running = true;
+    try {
+      await rebuild();
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      process.stderr.write(`${red('✗')} ${label} rebuild failed: ${reason}\n`);
+    } finally {
+      running = false;
+      if (dirty) {
+        dirty = false;
+        timer = setTimeout(() => {
+          void run();
+        }, WATCH_DEBOUNCE_MS);
+      }
+    }
+  };
+
+  return () => {
+    if (timer !== null) clearTimeout(timer);
+    timer = setTimeout(() => {
+      void run();
+    }, WATCH_DEBOUNCE_MS);
+  };
+}
+
+/** Whether a changed file lives under an output directory and must be ignored. */
+function isOutputPath(root: string, filename: string | null): boolean {
+  if (filename === null) return false;
+  const full = join(root, filename);
+  return (
+    full.includes(`${sep}build${sep}`) ||
+    full.endsWith(`${sep}build`) ||
+    full.includes(`${sep}public${sep}`) ||
+    full.endsWith(`${sep}public`)
+  );
+}
+
+function startWatchers(root: string): void {
+  const frontpageDir = join(root, 'src', 'apps', 'frontpage');
+  const docsDir = join(root, 'src', 'docs');
+  const docsRouterDir = join(root, 'src', 'tools', 'docs-router');
+
+  const rebuildDocs = debouncedRebuild('docs', async () => {
+    const start = performance.now();
+    if ((await buildDocs(root)) === 0) {
+      log(`  ${dim('·')} docs rebuilt in ${Math.round(performance.now() - start)}ms`);
+    }
+  });
+
+  const rebuildFrontpage = debouncedRebuild('frontpage', async () => {
+    const start = performance.now();
+    const html = await renderFrontpage(root);
+    await writeFile(join(frontpageDir, 'public', 'index.html'), html);
+    log(
+      `  ${dim('·')} frontpage rebuilt in ${Math.round(performance.now() - start)}ms (${String(new TextEncoder().encode(html).byteLength)} bytes)`,
+    );
+  });
+
+  // Docs markdown, assets and copied data files.
+  const docsWatcher = watch(docsDir, { recursive: true }, (_event, filename) => {
+    if (isOutputPath(root, filename)) return;
+    rebuildDocs();
+    // Prose examples feed the frontpage code samples too.
+    if (filename !== null && filename.includes(`${sep}prose${sep}`)) {
+      rebuildFrontpage();
+    }
+  });
+
+  // Docs client-side router (compiled and inlined by buildDocs).
+  const docsRouterWatcher = watch(docsRouterDir, { recursive: true }, () => {
+    rebuildDocs();
+  });
+
+  // Frontpage template, styles, client script and package inventory.
+  const frontpageWatcher = watch(frontpageDir, { recursive: true }, (_event, filename) => {
+    if (isOutputPath(root, filename)) return;
+    rebuildFrontpage();
+  });
+
+  const shutdown = (): void => {
+    docsWatcher.close();
+    docsRouterWatcher.close();
+    frontpageWatcher.close();
+  };
+
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Server
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -347,6 +475,9 @@ async function main(): Promise<void> {
       'run this from the repository root, or pass --root <dir>',
     );
   }
+
+  if ((await buildDocs(options.root)) !== 0)
+    fail('documentation build failed', 'fix the reported documentation links before starting dev');
 
   const info = await collectRuntime(options.root, options.port);
   const sizes = await readMeasuredSizes();
@@ -378,7 +509,16 @@ async function main(): Promise<void> {
           });
         }
 
-        const { response } = await serveStatic(publicDir, url.pathname, info, sizes);
+        if (url.pathname === '/docs') {
+          return new Response(null, {
+            status: 308,
+            headers: { location: `/docs/${url.search}` },
+          });
+        }
+        const isDocs = url.pathname.startsWith('/docs/');
+        const staticRoot = isDocs ? join(options.root, 'build', 'docs-site') : publicDir;
+        const staticPath = isDocs ? url.pathname.slice('/docs'.length) : url.pathname;
+        const { response } = await serveStatic(staticRoot, staticPath, info, sizes);
         return response;
       },
       error(error: Error): Response {
@@ -430,6 +570,9 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => {
     void shutdown('SIGTERM');
   });
+
+  // Watch source files so docs and the frontpage rebuild in place.
+  startWatchers(options.root);
 
   const displayHost = options.host === '0.0.0.0' ? 'localhost' : options.host;
 

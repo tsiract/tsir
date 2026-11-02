@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/example-todo",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "A drag-and-drop todo app with a Svelte 5 frontend and a Tsir HTTP backend.",
+  "scripts": {
+    "dev": "tsir dev",
+    "build:client": "bun run build:client.ts",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsir/console": "workspace:*",
+    "@tsir/testing": "workspace:*",
+    "svelte": "5.57.3"
+  }
+}

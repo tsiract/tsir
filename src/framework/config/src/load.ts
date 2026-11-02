@@ -20,6 +20,11 @@ export interface LoadOptions {
   readonly env?: EnvRecord;
   /** Explicit overrides — tests and embedders only; they win over the environment. */
   readonly overrides?: Readonly<Record<string, string>>;
+  /**
+   * Root-level defaults, typically from the project file (`tsir.js` `modules.<name>`).
+   * Lowest precedence: overrides > env > schema default > baseDefaults.
+   */
+  readonly baseDefaults?: Readonly<Record<string, unknown>>;
   /** Treat unknown keys with the `TSIR_` prefix as errors. Default false (warning). */
   readonly strictEnv?: boolean;
   /** App name used in reports. */
@@ -72,6 +77,7 @@ export function loadConfig<S extends ConfigSpec>(
 ): LoadedConfig<InferConfig<S>> {
   const env = options.env ?? defaultEnv();
   const overrides = options.overrides ?? {};
+  const baseDefaults = options.baseDefaults ?? {};
   const appName = options.appName ?? 'tsir-app';
   const issues: ConfigIssue[] = [];
   const warnings: string[] = [];
@@ -80,19 +86,22 @@ export function loadConfig<S extends ConfigSpec>(
 
   for (const [key, field] of Object.entries<FieldSpec<unknown, boolean>>(spec)) {
     const override = overrides[key];
+    const base = baseDefaults[key];
     const raw = override ?? env[key];
-    const source = override !== undefined ? 'override' : raw !== undefined ? 'env' : 'default';
+    const fromBase = raw === undefined && !field.hasDefault && base !== undefined;
+    const source =
+      override !== undefined ? 'override' : raw !== undefined ? 'env' : fromBase ? 'base-default' : 'default';
 
-    if (raw === undefined) {
-      if (!field.hasDefault) {
-        issues.push({
-          key,
-          message: field.secret ? 'required (secret)' : 'required',
-          source,
-          code: 'missing',
-        });
-        continue;
-      }
+    const hasValue = raw !== undefined || field.hasDefault || base !== undefined;
+
+    if (!hasValue) {
+      issues.push({
+        key,
+        message: field.secret ? 'required (secret)' : 'required',
+        source,
+        code: 'missing',
+      });
+      continue;
     } else if (override !== undefined && !field.overridable) {
       issues.push({
         key,
@@ -103,11 +112,17 @@ export function loadConfig<S extends ConfigSpec>(
       continue;
     }
 
-    // A declared default was validated when the schema was written; a schema-level
-    // default (e.g. a custom `z.string().default()`) is applied by the schema
-    // itself when it receives `undefined`. Either way, boot validates the value
-    // it will actually use.
-    const input = raw === undefined ? field.defaultInput : raw;
+    // Precedence: override > env > schema default > base default.
+    // Base defaults come from the project file (typed JS values) while env
+    // schemas parse from strings, so non-string base defaults are stringified
+    // to match the input form the schema expects.
+    const input = raw !== undefined
+      ? raw
+      : field.hasDefault
+        ? field.defaultInput
+        : typeof base === 'string' || base === null
+          ? base
+          : String(base);
 
     // `validateSync` throws `VLD_ASYNC_SCHEMA` for async validators: boot must
     // never continue on a value nobody awaited.
@@ -117,7 +132,7 @@ export function loadConfig<S extends ConfigSpec>(
       issues.push({
         key,
         message: first === undefined ? 'invalid value' : first.message,
-        source: raw === undefined ? 'default' : source,
+        source,
         code: 'invalid',
       });
       continue;

@@ -8,9 +8,9 @@
  *
  * Layout it assumes:
  *
- *   src/apps/<app>/src/modules/<module>/     one module = one directory
- *   src/apps/<app>/src/modules/<module>/index.ts   its public surface
- *   src/apps/<app>/src/shared/               code with no owner
+ *   src/apps/<app>/<module>/               one module = one directory at the app root
+ *   src/apps/<app>/<module>/index.ts       its public surface
+ *   src/apps/<app>/shared/                 code with no owner
  *
  * Rules:
  *   1. A module may import another module **only** through its `index.ts`.
@@ -27,6 +27,7 @@
  * Usage: bun src/tools/check-modules.ts [--json]
  */
 
+import { existsSync } from 'node:fs';
 import { readdir } from 'node:fs/promises';
 import { dirname, join, relative, resolve, sep } from 'node:path';
 
@@ -49,26 +50,30 @@ export interface ModuleViolation {
 export interface ModuleContext {
   /** Absolute path of the importing file. */
   readonly file: string;
-  /** App root, absolute — the directory containing `src/`. */
+  /** App root, absolute — the directory containing the module directories. */
   readonly appRoot: string;
+  /** Names of the app's modules (direct children of appRoot with index.ts). */
+  readonly moduleNames: readonly string[];
 }
 
-/** Splits a repository-relative path into `modules/<name>/…` when it lives there. */
+/** Splits a repository-relative path into `<module>/…` when it lives under a module. */
 export function moduleOf(
   path: string,
+  appRoot: string,
+  moduleNames: readonly string[],
 ): { readonly name: string; readonly rest: string } | undefined {
-  const marker = `${sep}modules${sep}`;
-  const index = path.lastIndexOf(marker);
-  if (index === -1) return undefined;
-  const tail = path.slice(index + marker.length);
-  const slash = tail.indexOf(sep);
-  const name = slash === -1 ? tail : tail.slice(0, slash);
-  if (name === '') return undefined;
-  return { name, rest: slash === -1 ? '' : tail.slice(slash + 1) };
+  const rootRel = relative(appRoot, path);
+  if (rootRel.startsWith('..') || rootRel.startsWith(sep)) return undefined;
+  const parts = rootRel.split(sep);
+  const name = parts[0];
+  if (name === undefined || !moduleNames.includes(name)) return undefined;
+  const rest = parts.slice(1).join(sep);
+  return { name, rest };
 }
 
-function isInsideShared(path: string): boolean {
-  return path.includes(`${sep}shared${sep}`);
+function isInsideShared(path: string, appRoot: string): boolean {
+  const rootRel = relative(appRoot, path);
+  return rootRel.startsWith(`shared${sep}`) || rootRel === 'shared';
 }
 
 /**
@@ -93,13 +98,12 @@ export function checkModuleSpecifier(
   const file = relative(ROOT, context.file).split(sep).join('/');
   const app = relative(ROOT, context.appRoot).split(sep).join('/');
   const target = resolve(dirname(context.file), specifier);
-  const targetRel = relative(ROOT, target);
-  const targetModule = moduleOf(targetRel);
-  const selfModule = moduleOf(relative(ROOT, context.file));
+  const targetModule = moduleOf(target, context.appRoot, context.moduleNames);
+  const selfModule = moduleOf(context.file, context.appRoot, context.moduleNames);
 
   if (targetModule !== undefined) {
     // shared/ importing a module: the dependency inverts ownership.
-    if (isInsideShared(relative(ROOT, context.file)) && selfModule === undefined) {
+    if (isInsideShared(context.file, context.appRoot) && selfModule === undefined) {
       return {
         file,
         importer: 'shared',
@@ -144,6 +148,7 @@ export function checkModuleSpecifier(
   // Escaping the app entirely (`../../../../framework/...`) is a package import
   // written the long way; check-boundaries already rejected deep package paths,
   // and apps are allowed to import packages. Nothing to add here.
+  const targetRel = relative(ROOT, target);
   if (!targetRel.startsWith(`${app}/`) && !targetRel.startsWith('src/framework/')) {
     return undefined;
   }
@@ -181,19 +186,21 @@ function collectSpecifiers(source: string): readonly string[] {
 /**
  * App roots that declare modules — an app with none is simply skipped.
  *
- * Discovery is by directory, not by a hard-coded list: any `src/modules/` inside
- * `src/apps/` is an app that has adopted modules, wherever it is nested
- * (`src/apps/examples/http/src/modules`, `src/apps/acme/src/modules`, …).
+ * A module is a direct child of the app root that exports a public surface
+ * (`index.ts`). Discovery is by `tsir.js`, the canonical project marker: every
+ * app the CLI recognises declares one, and its directory is the app root.
  */
 export async function findAppsWithModules(): Promise<readonly string[]> {
   const entries = await readdir(APPS_DIR, { withFileTypes: true, recursive: true }).catch(() => []);
   const apps: string[] = [];
   for (const entry of entries) {
-    if (!entry.isDirectory() || entry.name !== 'modules') continue;
-    const src = entry.parentPath;
-    if (src.split(sep).at(-1) !== 'src') continue;
-    const appRoot = dirname(src);
-    if (!apps.includes(appRoot)) apps.push(appRoot);
+    if (!entry.isFile() || entry.name !== 'tsir.js') continue;
+    const appRoot = entry.parentPath;
+    const children = await readdir(appRoot, { withFileTypes: true }).catch(() => []);
+    const hasModule = children.some(
+      (child) => child.isDirectory() && existsSync(join(appRoot, child.name, 'index.ts')),
+    );
+    if (hasModule && !apps.includes(appRoot)) apps.push(appRoot);
   }
   return apps.sort();
 }
@@ -202,23 +209,32 @@ async function checkApp(
   appRoot: string,
   violations: ModuleViolation[],
 ): Promise<readonly string[]> {
-  const modulesDir = join(appRoot, 'src', 'modules');
-  const modules = (await readdir(modulesDir, { withFileTypes: true })).filter((entry) =>
-    entry.isDirectory(),
-  );
-  const dirs = [modulesDir, join(appRoot, 'src', 'shared')];
+  const children = await readdir(appRoot, { withFileTypes: true });
+  const moduleNames = children
+    .filter((entry) => entry.isDirectory() && existsSync(join(appRoot, entry.name, 'index.ts')))
+    .map((entry) => entry.name)
+    .sort();
+
+  const dirs = [
+    ...moduleNames.map((name) => join(appRoot, name)),
+    join(appRoot, 'shared'),
+  ];
 
   for (const dir of dirs) {
     for (const file of await listSourceFiles(dir)) {
       const source = await Bun.file(file).text();
       for (const specifier of collectSpecifiers(source)) {
-        const violation = checkModuleSpecifier(specifier, { file, appRoot });
+        const violation = checkModuleSpecifier(specifier, {
+          file,
+          appRoot,
+          moduleNames,
+        });
         if (violation !== undefined) violations.push(violation);
       }
     }
   }
 
-  return modules.map((entry) => entry.name).sort();
+  return moduleNames;
 }
 
 async function main(): Promise<void> {

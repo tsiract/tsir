@@ -46,7 +46,7 @@ export async function makeCommandCommand(argv: readonly string[]): Promise<numbe
   }
   const name = toKebab(input);
   const root = process.cwd();
-  const file = join(root, 'src', 'commands', `${name}.command.ts`);
+  const file = join(root, 'console', `${name}.command.ts`);
   const generated: GeneratedFile[] = [
     { path: file, contents: commandTemplate(name) },
     pendingTestFile(file, `${input}Command`),

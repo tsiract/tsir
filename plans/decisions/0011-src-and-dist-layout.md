@@ -36,7 +36,8 @@ output has another, and only the first is version-controlled.
 src/framework/   the product (@tsir/*) — what gets published
 src/apps/        consumers: frontpage, docs, examples
 src/tools/       repo scripts: dev server, guards, dist builder
-dist/            generated: package trees, baked frontpage, manifest.json
+dist/            generated: root tsir CLI, apps/ (runable examples including modules),
+                 static sites, framework package trees, and manifest.json
 ```
 
 Details that make this work rather than merely look tidy:
@@ -48,6 +49,13 @@ Details that make this work rather than merely look tidy:
 | Package `src/` flattened on emit                            | The repository keeps each package's own `src/` (`src/framework/core/src/…`); the distribution does not (`dist/framework/core/…`). Directory shape is a repository concern, not a consumer concern.                       |
 | `LICENSE` + generated `README.md` per package               | MIT requires the notice to travel with every copy. Generating the README from the manifest means it cannot drift from the export map.                                                                                    |
 | `dist/manifest.json`                                        | Records what was built and how large it is, so a size regression is visible in review.                                                                                                                                   |
+
+The current distribution also contains a runnable root CLI and the maintained applications under
+`apps/` (so that `tsir make:*`, which writes module files, reads the same layout a consumer
+does); application modules live directly inside their respective app roots. `make dist` installs
+the local workspace dependencies, while release archives omit `node_modules` and need
+`bun install` after extraction. The whole directory is rebuilt, not an editable home for a user
+project.
 
 ## Consequences
 

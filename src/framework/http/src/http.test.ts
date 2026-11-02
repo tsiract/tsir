@@ -64,6 +64,52 @@ describe('routing outcomes', () => {
     expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
   });
 
+  test('an incoming X-Request-Id is propagated on the response', async () => {
+    const response = await handler(
+      new Request('http://tsir.test/api/users', { headers: { 'x-request-id': 'caller-abc-123' } }),
+    );
+    expect(response.headers.get('x-request-id')).toBe('caller-abc-123');
+  });
+
+  test('a generated request id is used when no incoming header is present', async () => {
+    const response = await handler(new Request('http://tsir.test/api/users'));
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('an incoming X-Request-Id with control characters is sanitized', async () => {
+    // Tab (U+0009) passes through the Web Request constructor but is a
+    // control character; the sanitizer strips it to prevent log injection.
+    const response = await handler(
+      new Request('http://tsir.test/api/users', {
+        headers: { 'x-request-id': 'safe-id\tinjected' },
+      }),
+    );
+    expect(response.headers.get('x-request-id')).toBe('safe-idinjected');
+  });
+
+  test('an incoming X-Request-Id that is empty after sanitization is replaced', async () => {
+    const response = await handler(
+      new Request('http://tsir.test/api/users', { headers: { 'x-request-id': '   ' } }),
+    );
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('an incoming X-Request-Id over the length limit is replaced', async () => {
+    const long = 'a'.repeat(300);
+    const response = await handler(
+      new Request('http://tsir.test/api/users', { headers: { 'x-request-id': long } }),
+    );
+    expect(response.headers.get('x-request-id')).toMatch(/^[0-9a-f-]{36}$/);
+  });
+
+  test('the propagated request id reaches the problem body on errors', async () => {
+    const response = await handler(
+      new Request('http://tsir.test/nope', { headers: { 'x-request-id': 'trace-42' } }),
+    );
+    const body = (await response.json()) as { requestId: string };
+    expect(body.requestId).toBe('trace-42');
+  });
+
   test('HEAD returns the GET status and no body', async () => {
     const response = await handler(new Request('http://tsir.test/api/users', { method: 'HEAD' }));
     expect(response.status).toBe(200);
@@ -506,6 +552,66 @@ describe('failure boundaries', () => {
     expect(body.requestId).toBe(response.headers.get('x-request-id') ?? '');
   });
 
+  test('no problem body carries stack, cause, or a raw error message', async () => {
+    const handler = build((registry) => {
+      @Controller(registry, '/x')
+      class X {
+        @Get('/')
+        go(): never {
+          const err = new Error('internal detail that must not leak');
+          (err as { cause?: unknown }).cause = new Error('nested cause');
+          throw err;
+        }
+      }
+      void X;
+    });
+
+    const response = await handler(new Request('http://tsir.test/x'));
+    const body = JSON.parse(await response.text()) as Record<string, unknown>;
+    // Only the fields problemBody() emits may be present.
+    const allowed = new Set([
+      'type',
+      'title',
+      'status',
+      'code',
+      'detail',
+      'instance',
+      'requestId',
+      'issues',
+    ]);
+    for (const key of Object.keys(body)) expect(allowed.has(key)).toBe(true);
+    expect(body.stack).toBeUndefined();
+    expect(body.cause).toBeUndefined();
+    expect(body.message).toBeUndefined();
+    expect(JSON.stringify(body)).not.toContain('internal detail');
+    expect(JSON.stringify(body)).not.toContain('nested cause');
+  });
+
+  test('a malformed body response does not echo the input', async () => {
+    const handler = build((registry) => {
+      @Controller(registry, '/x')
+      class X {
+        @Post('/', { body: z.object({}) })
+        go(): { ok: true } {
+          return { ok: true };
+        }
+      }
+      void X;
+    });
+
+    const secret = 'secret-12345';
+    const response = await handler(
+      new Request('http://tsir.test/x', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: `{ "broken": ${secret} }`,
+      }),
+    );
+    expect(response.status).toBe(400);
+    const text = await response.text();
+    expect(text).not.toContain(secret);
+  });
+
   test('a ValidationError thrown in the handler is a 422 with issues', async () => {
     const { ValidationError } = await import('@tsir/validate');
     const handler = build((registry) => {
@@ -624,5 +730,137 @@ describe('body hardening', () => {
     );
     expect(response.status).toBe(400);
     expect(await response.text()).not.toContain('secret-value');
+  });
+});
+
+describe('streaming request bodies', () => {
+  test('a streaming route hands the handler a ReadableStream', async () => {
+    const handler = build((registry) => {
+      @Controller(registry, '/upload')
+      class Upload {
+        @Post('/', { stream: true })
+        async receive(args: { body: unknown }): Promise<{ bytes: number }> {
+          const stream = args.body as ReadableStream<Uint8Array>;
+          const reader = stream.getReader();
+          let total = 0;
+          for (;;) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            total += value.byteLength;
+          }
+          return { bytes: total };
+        }
+      }
+      void Upload;
+    });
+
+    const response = await handler(
+      new Request('http://tsir.test/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: new Uint8Array([1, 2, 3, 4, 5]),
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ bytes: 5 });
+  });
+
+  test('a streaming body over the size limit is rejected', async () => {
+    const handler = build(
+      (registry) => {
+        @Controller(registry, '/upload')
+        class Upload {
+          @Post('/', { stream: true })
+          async receive(args: { body: unknown }): Promise<{ ok: true }> {
+            const stream = args.body as ReadableStream<Uint8Array>;
+            const reader = stream.getReader();
+            // Consume until done — the stream errors with HTP_BODY_TOO_LARGE
+            // when the limit is exceeded, and that propagates to a 413.
+            for (;;) {
+              const { done } = await reader.read();
+              if (done) break;
+            }
+            return { ok: true };
+          }
+        }
+        void Upload;
+      },
+      { maxBodyBytes: 4 },
+    );
+
+    const response = await handler(
+      new Request('http://tsir.test/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream' },
+        body: new Uint8Array(Array.from({ length: 10 }, () => 1)),
+      }),
+    );
+    expect(response.status).toBe(413);
+  });
+
+  test('a declared content-length over the limit is rejected before reading', async () => {
+    const handler = build(
+      (registry) => {
+        @Controller(registry, '/upload')
+        class Upload {
+          @Post('/', { stream: true })
+          receive(): { ok: true } {
+            return { ok: true };
+          }
+        }
+        void Upload;
+      },
+      { maxBodyBytes: 4 },
+    );
+
+    const response = await handler(
+      new Request('http://tsir.test/upload', {
+        method: 'POST',
+        headers: { 'content-type': 'application/octet-stream', 'content-length': '100' },
+        body: new Uint8Array(Array.from({ length: 100 }, () => 1)),
+      }),
+    );
+    expect(response.status).toBe(413);
+  });
+});
+
+describe('security headers', () => {
+  test('HTML responses get helmet-equivalent headers', async () => {
+    const handler = build((registry) => {
+      @Controller(registry, '/page')
+      class Page {
+        @Get('/')
+        render(): Response {
+          return new Response('<html><body>hi</body></html>', {
+            status: 200,
+            headers: { 'content-type': 'text/html; charset=utf-8' },
+          });
+        }
+      }
+      void Page;
+    });
+
+    const response = await handler(new Request('http://tsir.test/page'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(response.headers.get('content-security-policy')).toBe("frame-ancestors 'none'");
+    expect(response.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin');
+  });
+
+  test('non-HTML responses do not get helmet headers', async () => {
+    const handler = build((registry) => {
+      @Controller(registry, '/api')
+      class Api {
+        @Get('/')
+        data(): { ok: true } {
+          return { ok: true };
+        }
+      }
+      void Api;
+    });
+
+    const response = await handler(new Request('http://tsir.test/api'));
+    expect(response.headers.get('x-content-type-options')).toBeNull();
+    expect(response.headers.get('content-security-policy')).toBeNull();
   });
 });

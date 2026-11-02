@@ -45,7 +45,7 @@ console.log(String(config.values.DATABASE_URL));
   bootstrap command with `--migrate-config` rewrites it.
 
 - `CFG_MODULE_NOT_INSTALLED`: `tsir.js` declares a module that is not installed. The message names the
-  modules, and the hint is the exact `bun add` line that installs them.
+  modules. For the pre-publication distribution, use `bun add '@tsir/<name>@workspace:*'` for each missing package instead of the registry-oriented hint.
 
 ## Security notes
 

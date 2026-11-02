@@ -128,6 +128,75 @@ describe('dispatching', () => {
     expect(await backend.size()).toBe(1);
   });
 
+  test('a requestId travels from dispatch into the job context', async () => {
+    const time = clock();
+    let ids = 0;
+    let capturedRequestId: string | undefined;
+
+    const job = defineJob<{ id: string }>({
+      name: 'SendReceipt',
+      handle(ctx) {
+        capturedRequestId = ctx.requestId;
+      },
+    });
+    const registry = createJobRegistry([job]);
+    const backend = memoryQueueDriver({ now: time.now }).open();
+    const queue = createQueue({
+      connection: 'default',
+      backend,
+      jobs: registry,
+      connections: ['default'],
+      now: time.now,
+      newId: () => `msg-${String(++ids)}`,
+    });
+    const worker = createWorker({
+      connection: 'default',
+      backend,
+      jobs: registry,
+      now: time.now,
+      sleep: () => Promise.resolve(),
+    });
+
+    await queue.dispatch({ name: 'SendReceipt' }, { id: 'o-1' }, { requestId: 'req-abc-123' });
+    await worker.drainOnce();
+
+    expect(capturedRequestId).toBe('req-abc-123');
+  });
+
+  test('a message without a requestId has an undefined requestId on the context', async () => {
+    const time = clock();
+    let ids = 0;
+    let capturedRequestId: string | undefined = 'unset';
+    const job = defineJob<{ id: string }>({
+      name: 'NoRequestId',
+      handle(ctx) {
+        capturedRequestId = ctx.requestId;
+      },
+    });
+    const registry = createJobRegistry([job]);
+    const backend = memoryQueueDriver({ now: time.now }).open();
+    const queue = createQueue({
+      connection: 'default',
+      backend,
+      jobs: registry,
+      connections: ['default'],
+      now: time.now,
+      newId: () => `msg-${String(++ids)}`,
+    });
+    const worker = createWorker({
+      connection: 'default',
+      backend,
+      jobs: registry,
+      now: time.now,
+      sleep: () => Promise.resolve(),
+    });
+
+    await queue.dispatch({ name: 'NoRequestId' }, { id: 'o-1' });
+    await worker.drainOnce();
+
+    expect(capturedRequestId).toBeUndefined();
+  });
+
   test('dispatchLater stores it for later instead of running it now', async () => {
     const { queue, worker, time, ran } = setup();
 

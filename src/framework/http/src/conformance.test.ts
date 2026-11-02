@@ -3,6 +3,7 @@ import { describe, expect, test } from 'bun:test';
 import { Controller, Get, Post, RouteRegistry, compileRoutes } from '@tsir/router';
 
 import { createFetchHandler } from './pipeline.ts';
+import { createConformanceApp, runHttpConformance } from './conformance-suite.ts';
 
 /**
  * Protocol conformance (HTP-021).
@@ -12,8 +13,14 @@ import { createFetchHandler } from './pipeline.ts';
  * to that risk — one table of behaviours, each asserted explicitly, so a
  * regression is a red test rather than a bug report from a client team.
  *
- * Every case here is about *matching and framing*, not about business logic.
+ * The adapter-agnostic assertions live in `conformance-suite.ts` and run
+ * against Bun, Cloudflare Workers, and Lambda (DPL-024). The Bun-specific
+ * assertions below exercise pipeline options (trailing-slash policy, content
+ * negotiation) that all targets inherit but are easiest to assert directly.
  */
+
+// Shared assertions, run here against the Bun dev-server handler.
+runHttpConformance('bun', createConformanceApp());
 
 function table(build: (registry: RouteRegistry) => void): ReturnType<typeof compileRoutes> {
   const registry = new RouteRegistry();

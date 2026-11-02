@@ -2,6 +2,25 @@
 
 Typed configuration loading, the managed-region writer used by `tsir bootstrap`, and validation of the project file (`tsir.js`).
 
+## Split project configuration (`configDir`)
+
+Instead of putting every section (`app`, `database`, `cache`, `queue`, …) into one `tsir.js`, keep one file per section under `config/` and let `configDir` merge them:
+
+```
+config/
+  app.ts        → { name: 'shop', entry: './app.ts' }
+  database.ts   → { default: 'primary', connections: { … } }
+  cache.ts      → { default: 'app', stores: { … } }
+```
+
+```js
+// tsir.js
+import { configDir } from '@tsir/config';
+export default await configDir(`${import.meta.dir}/config`);
+```
+
+The filename (without extension) becomes the top-level key, matching `PROJECT_TOP_LEVEL_KEYS`. Files are merged in directory order; later files override earlier ones for the same key. `node:fs` is imported dynamically, so importing `@tsir/config` from an edge runtime never pulls in Node APIs unless `configDir` is called.
+
 ## Project file validation
 
 `checkProjectFile(raw)` runs before any project value is read. It applies three rules, in order:

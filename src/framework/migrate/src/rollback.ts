@@ -126,9 +126,20 @@ export async function rollback(options: RollbackOptions): Promise<RollbackResult
     };
   }
 
-  // Every guard runs before the lock and before the first statement: a refused
-  // rollback must cost nothing and change nothing.
-  const missing = target.undo.filter((file) => file.downSql === undefined);
+  // Refuse obviously unsafe plans before waiting on a lock. Re-check under the lock below.
+  guardRollback(target.undo, options);
+
+  // Same `DB-018` rule as `migrate`: a session-scoped lock only excludes another
+  // runner if the DDL runs on the session that holds it.
+  if (database.capabilities.pinnedConnection) {
+    return database.pinned((scope) => undoAll(options, scope, started, true));
+  }
+  return undoAll(options, database, started, false);
+}
+
+function guardRollback(undo: readonly Migration[], options: RollbackOptions): void {
+  if (undo.length === 0) return;
+  const missing = undo.filter((file) => file.downSql === undefined);
   if (missing.length > 0) {
     throw new TsirError(
       'DB_ROLLBACK_UNSAFE',
@@ -143,7 +154,7 @@ export async function rollback(options: RollbackOptions): Promise<RollbackResult
     );
   }
 
-  const newest = target.undo[0]?.tag ?? '';
+  const newest = undo[0]?.tag ?? '';
   if (options.allowDestructive !== true) {
     throw new TsirError('DB_ROLLBACK_DESTRUCTIVE', `rollback to "${options.to}" destroys data`, {
       kind: 'database',
@@ -162,13 +173,6 @@ export async function rollback(options: RollbackOptions): Promise<RollbackResult
       },
     );
   }
-
-  // Same `DB-018` rule as `migrate`: a session-scoped lock only excludes another
-  // runner if the DDL runs on the session that holds it.
-  if (database.capabilities.pinnedConnection) {
-    return database.pinned((scope) => undoAll(options, scope, target.undo, started, true));
-  }
-  return undoAll(options, database, target.undo, started, false);
 }
 
 function lockPossible(database: Database): boolean {
@@ -179,7 +183,6 @@ function lockPossible(database: Database): boolean {
 async function undoAll(
   options: RollbackOptions,
   database: Database,
-  undo: readonly Migration[],
   started: number,
   canVerifyLock: boolean,
 ): Promise<RollbackResult> {
@@ -205,10 +208,21 @@ async function undoAll(
   }
 
   try {
+    // A different runner may have changed the journal while this runner waited.
+    const { migrations } = await readMigrationFolder(options.folder);
+    let applied;
+    try {
+      applied = await readApplied(database, options.tables ?? {});
+    } catch (error: unknown) {
+      if (isMissingTable(error)) applied = [];
+      else throw error;
+    }
+    const current = planRollback(migrations, applied, options.to);
+    guardRollback(current.undo, options);
     const engine = database.capabilities.engine;
     const undone: string[] = [];
 
-    for (const file of undo) {
+    for (const file of current.undo) {
       const statements = splitStatements(file.downSql ?? '');
       const remove = deleteAppliedStatement(engine, file.when, options.tables ?? {});
 

@@ -26,6 +26,7 @@
 import { copyFile, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join, relative, resolve } from 'node:path';
 import { createHash } from 'node:crypto';
+import { verifyAppJourney } from './verify-app-journey.ts';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const DIST = join(ROOT, 'dist');
@@ -79,7 +80,7 @@ async function packPackage(dir: string): Promise<PackedPackage | undefined> {
   }
 
   // `bun pm pack` honours the manifest's `files` list, which `make dist` generates.
-  const result = await run(['bun', 'pm', 'pack', '--destination', TARBALLS], dir);
+  const result = await run([process.execPath, 'pm', 'pack', '--destination', TARBALLS], dir);
   if (!result.ok) {
     failures.push(`${name}: pack failed\n${result.out.split('\n').slice(0, 5).join('\n')}`);
     return undefined;
@@ -125,7 +126,7 @@ async function verifyTarballs(packed: readonly PackedPackage[]): Promise<void> {
     )}\n`,
   );
 
-  const install = await run(['bun', 'install', '--no-cache'], SANDBOX);
+  const install = await run([process.execPath, 'install', '--no-cache'], SANDBOX);
   if (!install.ok) {
     failures.push(`tarball install failed\n${install.out.split('\n').slice(0, 8).join('\n')}`);
     return;
@@ -154,6 +155,17 @@ async function verifyTarballs(packed: readonly PackedPackage[]): Promise<void> {
     return;
   }
   steps.push('booted an app from the installed tarballs (ready → stopped)');
+
+  // The installed package's bin must point to emitted JavaScript, not src/cli.ts.
+  const cli = await run(
+    [process.execPath, join(SANDBOX, 'node_modules', '.bin', 'tsir'), '--help'],
+    SANDBOX,
+  );
+  if (!cli.ok || !cli.out.includes('tsir')) {
+    failures.push(`installed tsir CLI failed\n${cli.out.split('\n').slice(0, 8).join('\n')}`);
+    return;
+  }
+  steps.push('installed tsir CLI runs from the packed binary');
 
   // No tarball may ship test code, type tests, or TypeScript sources.
   for (const entry of packed) {
@@ -200,18 +212,41 @@ async function main(): Promise<void> {
   const tar = await run(
     [
       'tar',
+      '--exclude=node_modules',
+      '--exclude=*/node_modules',
+      '--exclude=.tsir',
+      '--exclude=*/.tsir',
       '-czf',
       distArchive,
-      '--exclude=release',
       '-C',
       DIST,
       'framework',
+      'src',
       'frontpage',
+      'tsir',
+      'README.md',
+      'LICENSE',
+      'bun.lock',
       'manifest.json',
+      'overrides.json',
+      'package.json',
+      'bin',
     ],
     ROOT,
   );
   if (!tar.ok) failures.push(`dist archive failed\n${tar.out.slice(0, 400)}`);
+  if (tar.ok && !SKIP_VERIFY && failures.length === 0) {
+    try {
+      await verifyAppJourney(distArchive);
+      steps.push(
+        'scaffolded, served, tested and built an application from the release archive outside the checkout',
+      );
+    } catch (error) {
+      failures.push(
+        `application journey failed: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  }
 
   if (failures.length > 0) {
     for (const failure of failures) process.stderr.write(`  ✗ ${failure}\n`);
@@ -219,8 +254,9 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  // Paths are relative to `dist/release/`, so `cd dist/release && sha256sum -c SHA256SUMS.txt`
-  // works unmodified — the checksum file is only useful if the paths resolve.
+  // Paths are relative to `dist/release/`, so `sha256sum -c` (Linux) or
+  // `shasum -a 256 -c` (macOS) from that directory
+  // work unmodified — the checksum file is only useful if the paths resolve.
   const files = [...packed.map((entry) => entry.file), distArchive];
   const sums = await Promise.all(
     files.map(async (file) => `${await sha256(file)}  ${relative(RELEASE, file)}`),
@@ -248,7 +284,7 @@ async function main(): Promise<void> {
   };
   await writeFile(join(RELEASE, 'release-manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
 
-  // Keep a copy of the checksum file next to the archives for `sha256sum -c`.
+  // Ship the MIT notice next to the release archives.
   await copyFile(join(ROOT, 'LICENSE'), join(RELEASE, 'LICENSE'));
 
   process.stdout.write('\n  release artifacts\n\n');

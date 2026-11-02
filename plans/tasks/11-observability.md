@@ -24,9 +24,9 @@
 
 | ID        | Title                                              | Status | Depends | Acceptance criteria (summary)            |
 | --------- | -------------------------------------------------- | ------ | ------- | ---------------------------------------- |
-| `OBS-010` | Request id generation/propagation + `X-Request-Id` | `[ ]`  | HTP-003 | Returned on every response               |
+| `OBS-010` | Request id generation/propagation + `X-Request-Id` | `[x]`  | HTP-003 | Returned on every response — incoming `X-Request-Id` is propagated (sanitized, length-capped) when present, else a UUID is generated; set on responses and problem bodies |
 | `OBS-011` | W3C `traceparent` parse/validate/propagate         | `[x]`  | OBS-010 | Malformed header replaced, not forwarded |
-| `OBS-012` | Job context (requestId stored on job record)       | `[ ]`  | —       | Worker logs carry origin request id      |
+| `OBS-012` | Job context (requestId stored on job record)       | `[x]`  | —       | Worker logs carry origin request id — `requestId` is an optional field on `JobMessage` and `JobContext`, threaded through `DispatchOptions`, the database/outbox drivers, and the worker; absent when the dispatch carried none |
 
 ## Metrics & tracing
 
@@ -43,7 +43,7 @@
 | ID        | Title                                               | Status | Depends | Acceptance criteria (summary)                   |
 | --------- | --------------------------------------------------- | ------ | ------- | ----------------------------------------------- |
 | `OBS-018` | `/health`, `/ready`, check registry, timeouts       | `[x]`  | OBS-013 | 503 with failing check list; degraded semantics |
-| `OBS-019` | Admin unit placement (private by default)           | `[ ]`  | DPL-022 | Not publicly routable by default                |
+| `OBS-019` | Admin unit placement (private by default)           | `[x]`  | DPL-022 | Not publicly routable by default — closed by `DPL-022`: `private: true` units emit no HTTP API, and `deploy:validate` fails with `DPL_PRIVATE_EXPOSED` if a private unit becomes routable                |
 | `OBS-020` | Error reporting adapters (`noop`, `otlp`, `sentry`) | `[ ]`  | OBS-016 | Bodies/headers stripped before send             |
 
 ## Error handling & sinks (`13-observability.md § 2.4`)
@@ -51,15 +51,15 @@
 | ID        | Title                                                            | Status | Depends | Acceptance criteria (summary)                           |
 | --------- | ---------------------------------------------------------------- | ------ | ------- | ------------------------------------------------------- |
 | `OBS-021` | `SafeRecord` sink contract + `stdout` driver                     | `[x]`  | OBS-002 | Drivers receive redacted records; type-checked          |
-| `OBS-022` | Error record normalization (`err` object, fingerprint, cause)    | `[ ]`  | OBS-002 | Snapshot test incl. nested `cause` and stack truncation |
-| `OBS-023` | `ecs` formatter (Kibana/OpenSearch)                              | `[ ]`  | OBS-022 | Field mapping table asserted in a test                  |
-| `OBS-024` | `otlp-json` formatter + `otlp-http` driver                       | `[ ]`  | OBS-022 | Accepted by a collector in a compose test               |
-| `OBS-025` | `cloudwatch` formatter (Logs Insights JSON)                      | `[ ]`  | OBS-022 | Timestamp in ms, message + flattened extras             |
+| `OBS-022` | Error record normalization (`err` object, fingerprint, cause)    | `[x]`  | OBS-002 | Snapshot test incl. nested `cause` and stack truncation |
+| `OBS-023` | `ecs` formatter (Kibana/OpenSearch)                              | `[x]`  | OBS-022 | Field mapping table asserted in a test                  |
+| `OBS-024` | `otlp-json` formatter + `otlp-http` driver                       | `[~]`  | OBS-022 | Formatter done; driver needs a collector (cloud)        |
+| `OBS-025` | `cloudwatch` formatter (Logs Insights JSON)                      | `[x]`  | OBS-022 | Timestamp in ms, message + flattened extras             |
 | `OBS-026` | `cloudwatch-logs` driver (SigV4 via Web Crypto, no SDK)          | `[ ]`  | OBS-025 | Signed request verified against the published vector    |
 | `OBS-027` | `opensearch` bulk driver + `loki` push driver                    | `[ ]`  | OBS-023 | Batched NDJSON / streams; 429 → retry with backoff      |
 | `OBS-028` | Cloudflare path: `logpush` shaping + `tail` + `analytics-engine` | `[ ]`  | OBS-021 | Documented plan limits cited at implementation          |
-| `OBS-029` | Dedup (`fingerprint` + window) and sampling policy               | `[ ]`  | OBS-022 | Storm collapses to one record with `occurrences`        |
-| `OBS-030` | Fail-open semantics, drop metric, `required` sink readiness      | `[ ]`  | OBS-021 | A throwing sink never turns a 200 into a 500            |
+| `OBS-029` | Dedup (`fingerprint` + window) and sampling policy               | `[x]`  | OBS-022 | Storm collapses to one record with `occurrences`        |
+| `OBS-030` | Fail-open semantics, drop metric, `required` sink readiness      | `[x]`  | OBS-021 | A throwing sink never turns a 200 into a 500            |
 
 ---
 
@@ -80,9 +80,10 @@ Still open, and named rather than implied:
   `@tsir/http` and `@tsir/queue` and are not part of this batch.
 - `OBS-014` is `[ ]`: the facade ships, the per-package instrumentation calls do not — each belongs
   in the package that owns the operation, taking an optional tracer.
-- `OBS-020` and the vendor transports (`OBS-023`…`OBS-028`, `OBS-030`'s `required`-sink readiness
-  wiring) are `[ ]`. The `ecs`/`cloudwatch`/`otlp-json` **mappings** ship and are tested; the
-  drivers that would POST them do not.
+- `OBS-020` and the vendor transports (`OBS-024` driver, `OBS-026`, `OBS-027`, `OBS-028`) are `[ ]`/`[~]`.
+  The `ecs`/`cloudwatch`/`otlp-json` **mappings** ship and are tested; the drivers that would POST
+  them do not. `OBS-022` (error normalization), `OBS-023` (ecs), `OBS-025` (cloudwatch), `OBS-029`
+  (dedup + sampling) and `OBS-030` (fail-open sinks) are implemented and tested in `@tsir/pulse`.
 
 ## Gate notes
 

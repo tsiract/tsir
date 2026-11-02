@@ -8,11 +8,13 @@
  */
 
 import { Container, TsirError, type Provider, type Scope } from '@tsir/container';
+import { loadConfig, type ConfigSpec, type InferConfig } from '@tsir/config';
 
 import { assertCapabilities, probeCapabilities } from './capabilities.ts';
 import { systemClock, systemRandom } from './clock.ts';
 import { isManifestStale } from './manifest.ts';
 import { validateModules } from './module.ts';
+import type { ModuleDefinition } from './module.ts';
 import type {
   App,
   AppDiagnosticEvent,
@@ -63,6 +65,9 @@ class AppImpl<TConfig> implements App<TConfig> {
   #shutdown: Promise<void> | null = null;
   #readyAt = 0;
   readonly #modules: NonNullable<BootstrapOptions<TConfig>['modules']>;
+  readonly #appSpec: ConfigSpec;
+  readonly #moduleDefaults: NonNullable<BootstrapOptions<TConfig>['moduleDefaults']>;
+  readonly #env: BootstrapOptions<TConfig>['env'];
   readonly #shutdownTimeoutMs: number;
   readonly #signal: AbortSignal | undefined;
   readonly #onDiagnostic: (event: AppDiagnosticEvent) => void;
@@ -77,6 +82,9 @@ class AppImpl<TConfig> implements App<TConfig> {
     this.capabilities = options.capabilities ?? probeCapabilities();
     this.container = container;
     this.#modules = options.modules;
+    this.#appSpec = options.appSpec ?? {};
+    this.#moduleDefaults = options.moduleDefaults ?? {};
+    this.#env = options.env;
     this.#shutdownTimeoutMs = options.shutdownTimeoutMs ?? DEFAULT_SHUTDOWN_TIMEOUT_MS;
     this.#signal = options.signal;
     this.#onDiagnostic = options.onDiagnostic ?? (() => undefined);
@@ -125,11 +133,11 @@ class AppImpl<TConfig> implements App<TConfig> {
     for (const module of this.#modules) {
       this.#assertNotAborted();
       const signal = this.#signal ?? new AbortController().signal;
+      const config = this.#resolveModuleConfig(module);
+      const ctx = { module: module.name, config, clock: this.clock, signal };
       if (module.onStart !== undefined) {
         const hookStarted = performance.now();
-        await this.#runHook(module.name, 'onStart', () =>
-          module.onStart?.({ module: module.name, clock: this.clock, signal }),
-        );
+        await this.#runHook(module.name, 'onStart', () => module.onStart?.(ctx));
         this.#onDiagnostic({
           type: 'module',
           module: module.name,
@@ -139,9 +147,7 @@ class AppImpl<TConfig> implements App<TConfig> {
       }
       if (module.onReady !== undefined) {
         const hookStarted = performance.now();
-        await this.#runHook(module.name, 'onReady', () =>
-          module.onReady?.({ module: module.name, clock: this.clock, signal }),
-        );
+        await this.#runHook(module.name, 'onReady', () => module.onReady?.(ctx));
         this.#onDiagnostic({
           type: 'module',
           module: module.name,
@@ -151,15 +157,31 @@ class AppImpl<TConfig> implements App<TConfig> {
       }
       if (module.onStop !== undefined) {
         this.#stoppedHooks.push(() =>
-          this.#runHook(module.name, 'onStop', () =>
-            module.onStop?.({ module: module.name, clock: this.clock, signal }),
-          ),
+          this.#runHook(module.name, 'onStop', () => module.onStop?.(ctx)),
         );
       }
     }
     this.#readyAt = performance.now();
     this.#state = { kind: 'ready', readyAt: this.clock.iso() };
     this.#onDiagnostic({ type: 'stage', stage: 'ready', durationMs: performance.now() - started });
+  }
+
+  /**
+   * Resolve a module's config.
+   *
+   * Merges the app spec with the module's own spec (module defaults win over app
+   * defaults for shared keys), then applies root-level `tsir.js` defaults as the
+   * floor. Environment variables win at every level.
+   */
+  #resolveModuleConfig(module: ModuleDefinition): InferConfig<ConfigSpec> {
+    const merged: ConfigSpec = { ...this.#appSpec, ...(module.config ?? {}) };
+    const baseDefaults = this.#moduleDefaults[module.name];
+    const loaded = loadConfig(merged, {
+      appName: this.appName,
+      ...(this.#env === undefined ? {} : { env: this.#env }),
+      ...(baseDefaults === undefined ? {} : { baseDefaults }),
+    });
+    return loaded.values as InferConfig<ConfigSpec>;
   }
 
   shutdown(reason: ShutdownReason): Promise<void> {

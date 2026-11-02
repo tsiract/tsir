@@ -8,6 +8,8 @@
  */
 
 export { defineConfig, env, isFieldSpec } from './define.ts';
+export { moduleConfig } from './module-config.ts';
+export { configDir } from './config-dir.ts';
 export type {
   BoolOptions,
   ConfigSpec,

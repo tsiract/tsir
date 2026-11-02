@@ -4,9 +4,13 @@
 
 ## Install
 
+After [installing the distribution](../installation.md), add this package from its workspace in your application:
+
 ```sh
-bun add @tsir/validate
+bun add '@tsir/validate@workspace:*'
 ```
+
+The packages are not yet published to npm.
 
 ## Public surface
 

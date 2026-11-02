@@ -23,8 +23,9 @@
  * Usage: bun src/tools/dist.ts [--out dist] [--no-frontpage]
  */
 
-import { cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, relative, resolve } from 'node:path';
+import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
+import { buildDocs } from './docs-site.ts';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const FRAMEWORK_DIR = join(ROOT, 'src', 'framework');
@@ -99,6 +100,41 @@ function subpathFor(file: string, root: string): string | undefined {
 }
 
 /**
+ * Rewrites a source package's `exports` map for the flattened distribution.
+ *
+ * Source paths are `./src/<rest>.ts` (each package keeps its own `src/` in the
+ * repository). The distribution flattens `src/` away and emits JavaScript, so
+ * every path becomes `./<rest>.js` — but the *export keys* are preserved, so a
+ * consumer importing `@tsir/queue/memory` still resolves even though the file
+ * lives at `drivers/memory.js`.
+ */
+function rewriteExports(sourceExports: Record<string, unknown>): Record<string, unknown> {
+  const rewritePath = (value: unknown, isTypes: boolean): unknown => {
+    if (typeof value !== 'string') return value;
+    if (value === './package.json') return value;
+    if (!/^\.\/src\/.+\.ts$/u.test(value) || value.includes('..')) return value;
+    const ext = isTypes ? '.d.ts' : '.js';
+    return `./${value.slice('./src/'.length).replace(/\.ts$/u, ext)}`;
+  };
+
+  const map: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(sourceExports)) {
+    if (typeof value === 'string') {
+      map[key] = rewritePath(value, false);
+    } else if (value !== null && typeof value === 'object') {
+      const rewritten: Record<string, unknown> = {};
+      for (const [cond, path] of Object.entries(value as Record<string, unknown>)) {
+        rewritten[cond] = rewritePath(path, cond === 'types');
+      }
+      map[key] = rewritten;
+    } else {
+      map[key] = value;
+    }
+  }
+  return map;
+}
+
+/**
  * Blocks a package from reaching the consumer's module graph by accident.
  * `./package.json` is always exported so tooling can read metadata.
  */
@@ -126,8 +162,11 @@ function readmeFor(manifest: SourceManifest, exports: Readonly<Record<string, un
     '',
     '## Install',
     '',
+    'Packages are not published yet. After setting up the Tsir distribution workspace,',
+    'add this package to your application:',
+    '',
     '```bash',
-    `bun add ${manifest.name}`,
+    `bun add '${manifest.name}@workspace:*'`,
     '```',
     '',
     '## Entry points',
@@ -166,7 +205,33 @@ async function buildPackage(
   await rm(emitted, { recursive: true, force: true });
 
   const files = await listFiles(target);
-  const exportMap = exportsMap(files, target);
+  // Preserve the source package's export keys (e.g. `@tsir/queue/memory` maps
+  // to `drivers/memory.js`); only the paths get rewritten for the flattened
+  // distribution. Packages without an explicit exports map fall back to the
+  // file-tree-derived map.
+  const exportMap =
+    manifest.exports !== undefined
+      ? rewriteExports(manifest.exports)
+      : exportsMap(files, target);
+  // Source package bin paths point under src/ at TypeScript. Distribution flattens
+  // src/ and emits JavaScript, so preserve a runnable CLI rather than a dangling link.
+  const bin =
+    manifest.bin === undefined
+      ? undefined
+      : Object.fromEntries(
+          Object.entries(manifest.bin).map(([command, path]) => {
+            if (!/^\.\/src\/.+\.ts$/u.test(path) || path.includes('..')) {
+              throw new Error(`${manifest.name}: unsupported bin path ${path}`);
+            }
+            return [command, `./${path.slice('./src/'.length).replace(/\.ts$/u, '.js')}`];
+          }),
+        );
+  for (const file of Object.values(bin ?? {})) {
+    const fullPath = join(target, file);
+    if (!files.includes(fullPath))
+      throw new Error(`${manifest.name}: missing emitted binary ${file}`);
+    await chmod(fullPath, 0o755);
+  }
 
   const distributed = {
     name: manifest.name,
@@ -179,7 +244,7 @@ async function buildPackage(
     sideEffects: false,
     exports: exportMap,
     files: ['**/*.js', '**/*.d.ts', '**/*.map', 'README.md', 'LICENSE', 'package.json'],
-    ...(manifest.bin === undefined ? {} : { bin: manifest.bin }),
+    ...(bin === undefined ? {} : { bin }),
     engines: { bun: '>=1.2', node: '>=22' },
     publishConfig: { access: 'public' },
     ...(() => {
@@ -245,17 +310,44 @@ async function bakeFrontpage(): Promise<number> {
   const target = join(DIST, 'frontpage', 'index.html');
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, baked);
+  if ((await buildDocs()) !== 0)
+    throw new Error('Cannot distribute a frontpage with broken documentation links.');
+  await cp(join(ROOT, 'build', 'docs-site'), join(DIST, 'frontpage', 'docs'), {
+    recursive: true,
+  });
   return new TextEncoder().encode(baked).byteLength;
+}
+
+export function compilerDiagnostics(
+  stdout: string,
+  stderr: string,
+  exitCode: number | null,
+): string {
+  return `${stdout}${stderr}` || `tsc failed (exit ${String(exitCode)})\n`;
 }
 
 async function main(): Promise<void> {
   await rm(DIST, { recursive: true, force: true });
   await mkdir(join(DIST, 'framework'), { recursive: true });
 
-  const tsc = join(ROOT, 'node_modules', '.bin', 'tsc');
+  // Run TypeScript with the same Bun executable as this script. The `tsc` shim
+  // has a Node shebang, but Node is not required to build this Bun project.
+  const tsc = join(ROOT, 'node_modules', 'typescript', 'bin', 'tsc');
+  try {
+    await stat(tsc);
+  } catch {
+    throw new Error('TypeScript is not installed. Run `make install` from the repository root.');
+  }
   // `--outDir` follows `--out`: tsconfig.dist.json hard-codes dist/framework, which breaks any other --out.
   const compile = Bun.spawnSync(
-    [tsc, '-p', join(ROOT, 'tsconfig.dist.json'), '--outDir', join(DIST, 'framework')],
+    [
+      process.execPath,
+      tsc,
+      '-p',
+      join(ROOT, 'tsconfig.dist.json'),
+      '--outDir',
+      join(DIST, 'framework'),
+    ],
     {
       cwd: ROOT,
       stdout: 'pipe',
@@ -263,7 +355,10 @@ async function main(): Promise<void> {
     },
   );
   if (compile.exitCode !== 0) {
-    process.stderr.write(compile.stderr.toString() || 'tsc failed\n');
+    // TypeScript writes diagnostics to stdout, not stderr, on both macOS and Linux.
+    process.stderr.write(
+      compilerDiagnostics(compile.stdout.toString(), compile.stderr.toString(), compile.exitCode),
+    );
     process.exit(1);
   }
 
@@ -276,6 +371,52 @@ async function main(): Promise<void> {
   for (const name of names) results.push(await buildPackage(name));
 
   const frontpageBytes = WITH_FRONTPAGE ? await bakeFrontpage() : 0;
+
+  // Ship the actual applications, including the HTTP example's owned modules.
+  // They are runnable TypeScript examples, not published framework packages.
+  const apps = join(DIST, 'apps');
+  for (const name of ['minimal', 'http', 'todo-app-example.com', 'full-actions-example.com']) {
+    await cp(join(ROOT, 'src', 'apps', 'examples', name), join(apps, name), {
+      recursive: true,
+      filter: (path) =>
+        !['node_modules', '.tsir', 'dist', 'coverage', '.env'].includes(basename(path)),
+    });
+    await writeFile(
+      join(apps, name, 'README.md'),
+      `# ${name} example
+
+Run from this directory after installing the distribution dependencies:
+
+    ../../tsir test
+    ../../tsir dev
+${name === 'minimal' ? '' : '    ../../tsir route:list\n'}
+${name === 'minimal' ? 'This is a lifecycle-only app: it does not export an HTTP handler.' : ''}
+${name === 'http' ? 'This app exports an HTTP handler and contains users and media modules (each with http/ and models/ subdirectories).' : ''}
+${name === 'todo-app-example.com' ? 'A drag-and-drop todo app with a Svelte 5 frontend. Run `bun run build:client.ts` to compile the frontend, then `../../tsir dev`.' : ''}
+${name === 'full-actions-example.com' ? 'An app exercising HTTP, SQS queues, and the event bus. The orders module owns a controller, a job, an event, and a listener.' : ''}
+The distribution is generated. Copy an example elsewhere before making changes: rebuilding it removes dist/.
+`,
+    );
+  }
+  if (WITH_FRONTPAGE) {
+    await cp(join(DIST, 'frontpage'), join(DIST, 'src', 'frontpage'), { recursive: true });
+    await cp(join(DIST, 'frontpage', 'docs'), join(DIST, 'src', 'docs'), { recursive: true });
+    // The standalone docs copy is a sibling of frontpage, not nested under it.
+    // Rewrite only links back to the site home, preserving all docs-relative links.
+    const docsRoot = join(DIST, 'src', 'docs');
+    for (const file of await listFiles(docsRoot)) {
+      if (!file.endsWith('.html')) continue;
+      const depth = relative(docsRoot, dirname(file)).split(/[\\/]/u).filter(Boolean).length;
+      const home = '../'.repeat(depth + 1);
+      const html = await readFile(file, 'utf8');
+      await writeFile(
+        file,
+        html
+          .replaceAll(`href="${home}"`, `href="${home}frontpage/"`)
+          .replaceAll(`href="${home}#`, `href="${home}frontpage/#`),
+      );
+    }
+  }
 
   const summary = {
     generatedAt: new Date().toISOString(),
@@ -297,6 +438,131 @@ async function main(): Promise<void> {
   );
   await writeFile(join(DIST, 'overrides.json'), `${JSON.stringify(overrides, null, 2)}\n`);
 
+  // Workspaces keep the launcher, apps, and modules on the same package instances.
+  const localPackages = Object.fromEntries(results.map((result) => [result.name, 'workspace:*']));
+  // External dependencies of workspace packages must be declared at the root so
+  // `bun install` hoists them into dist/node_modules. Without this, an app booted
+  // from dist/apps cannot resolve transitive deps such as `zod`.
+  const externalDeps: Record<string, string> = {};
+  for (const result of results) {
+    const pkg = JSON.parse(
+      await readFile(
+        join(DIST, 'framework', result.name.replace('@tsir/', ''), 'package.json'),
+        'utf8',
+      ),
+    ) as { dependencies?: Record<string, string> };
+    for (const [dep, range] of Object.entries(pkg.dependencies ?? {})) {
+      if (!dep.startsWith('@tsir/')) externalDeps[dep] = range;
+    }
+  }
+  const rootManifest = JSON.parse(await readFile(join(ROOT, 'package.json'), 'utf8')) as {
+    version: string;
+  };
+  await writeFile(
+    join(DIST, 'package.json'),
+    `${JSON.stringify(
+      {
+        name: 'tsir-distribution',
+        version: rootManifest.version,
+        private: true,
+        type: 'module',
+        workspaces: ['framework/*', 'apps/*'],
+        dependencies: { ...localPackages, ...externalDeps },
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  await cp(join(ROOT, 'LICENSE'), join(DIST, 'LICENSE'));
+  await writeFile(
+    join(DIST, 'README.md'),
+    `# Tsir distribution
+
+This generated directory is rebuilt by \`make dist\`. Do not keep your own work here.
+
+\`\`\`text
+.
+├── tsir                         # command; ./tsir --help
+├── bin/tsir                     # add bin/ to PATH
+├── apps/
+│   ├── http/                    # runnable HTTP app
+│   │   ├── users/               # module with http/ and models/ subdirectories
+│   │   └── media/
+│   ├── minimal/                 # lifecycle-only app
+│   ├── todo-app-example.com/    # Svelte 5 drag-and-drop todo app
+│   └── full-actions-example.com/# HTTP + SQS queues + event bus
+├── src/
+│   ├── frontpage/               # static welcome page and docs/
+│   └── docs/                    # static documentation
+├── framework/<package>/         # emitted @tsir packages, not application modules
+├── frontpage/                   # compatibility copy of the static site
+├── package.json  bun.lock       # distribution workspace
+└── manifest.json  README.md  LICENSE
+\`\`\`
+
+The maintained examples live in this distribution, not in your application. A new application
+created elsewhere has \`home/\` as its first module. Run \`tsir make:module shop\` first, then
+\`tsir make:controller order shop\` and \`tsir make:model order shop\` to create
+\`shop/http/order.controller.ts\` and \`shop/models/order.model.ts\`. Generators do not infer
+or create missing modules. See \`src/docs/guides/controllers.html\` for registration and
+\`src/docs/guides/database.html\` for Drizzle setup and migrations.
+
+A repository build installs the distribution dependencies automatically. After extracting a release
+archive, run \`bun install --ignore-scripts\` here (the archive does not contain node_modules).
+Run \`./tsir --help\`, or from the distribution root run \`./tsir route:list --app apps/http\`,
+\`./tsir test --app apps/http\`, and \`./tsir dev --app apps/http\` (\`--app\` / \`-C\` runs
+any project-bound command from outside its directory). To create your own app, work outside this
+directory and use \`/path/to/distribution/tsir new my-app\`; do not create it under dist/.
+Packages are pre-alpha and not published; generated apps refer to this distribution's workspace.
+`,
+  );
+  await mkdir(join(DIST, 'bin'), { recursive: true });
+  const launcher = `#!/bin/sh
+# The distribution owns its framework; apps use their own local CLI when installed.
+set -e
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+case "\${1-}" in
+  new) export TSIR_DIST="$root" ;;
+esac
+current="$PWD"
+while :; do
+  if [ -f "$current/node_modules/@tsir/console/cli.js" ]; then
+    exec bun "$current/node_modules/@tsir/console/cli.js" "$@"
+  fi
+  [ "$current" = / ] && break
+  current=$(dirname -- "$current")
+done
+if [ ! -f "$root/node_modules/@tsir/console/cli.js" ]; then
+  echo 'Tsir distribution dependencies are missing. Run bun install in the distribution directory.' >&2
+  exit 3
+fi
+exec bun "$root/node_modules/@tsir/console/cli.js" "$@"
+`;
+  const launcherPath = join(DIST, 'bin', 'tsir');
+  await writeFile(launcherPath, launcher);
+  await chmod(launcherPath, 0o755);
+  const rootLauncher = join(DIST, 'tsir');
+  await writeFile(
+    rootLauncher,
+    `#!/bin/sh
+exec "$(dirname -- "$0")/bin/tsir" "$@"
+`,
+  );
+  await chmod(rootLauncher, 0o755);
+
+  // A local build should be usable immediately, not merely contain package files.
+  // Published archives deliberately exclude installed dependencies and are installed after extraction.
+  const install = Bun.spawnSync([process.execPath, 'install', '--ignore-scripts'], {
+    cwd: DIST,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  if (install.exitCode !== 0) {
+    throw new Error(
+      `Cannot install distribution dependencies:\n${install.stdout.toString()}${install.stderr.toString()}`,
+    );
+  }
+
   const width = Math.max(...results.map((result) => result.name.length));
   process.stdout.write('\n  distributable source\n\n');
   for (const result of results) {
@@ -307,7 +573,10 @@ async function main(): Promise<void> {
   if (frontpageBytes > 0) {
     process.stdout.write(`  ${'frontpage'.padEnd(width)}  ${KB(frontpageBytes).padStart(9)}\n`);
   }
-  process.stdout.write(`\n  ✓ ${DIST}/ (gitignored — rebuild with \`make dist\`)\n\n`);
+  process.stdout.write(`\n  ✓ ${DIST}/ (gitignored — rebuild with \`make dist\`)\n`);
+  process.stdout.write(
+    `  → ${DIST}/tsir --help · applications in ${DIST}/apps/ · read ${DIST}/README.md\n\n`,
+  );
 }
 
-await main();
+if (import.meta.main) await main();

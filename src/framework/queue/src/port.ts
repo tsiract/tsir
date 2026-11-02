@@ -31,6 +31,8 @@ export interface JobMessage {
   readonly availableAt: number;
   /** Deduplication key for the backend, when it supports one. */
   readonly idempotencyKey?: string | undefined;
+  /** Origin request id, for correlating a job with the request that dispatched it. */
+  readonly requestId?: string | undefined;
   readonly createdAt: number;
   /** The last failure, for the dead-letter listing and logs. */
   readonly lastError?: string | undefined;
@@ -158,6 +160,8 @@ export interface DispatchOptions {
   /** Deduplication: two dispatches with one key cannot both be delivered. */
   readonly idempotencyKey?: string | undefined;
   readonly delayMs?: number | undefined;
+  /** Origin request id — pass `ctx.id` from an HTTP handler to correlate the job. */
+  readonly requestId?: string | undefined;
 }
 
 export interface DispatchResult {

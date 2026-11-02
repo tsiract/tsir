@@ -56,6 +56,21 @@ describe('the HTTP unit', () => {
     expect(template).toContain('Handler: index.handler');
   });
 
+  test('every function carries TSIR_STACK_NAME so invokeUnit resolves peer function names', () => {
+    // `invokeUnit` builds `${TSIR_STACK_NAME}-${unit}`; the env var must be present on
+    // every unit, even those with no other environment variables.
+    expect(template).toContain('TSIR_STACK_NAME: !Sub "${AWS::StackName}"');
+  });
+
+  test('every function may invoke peers in the same stack (DPL-030)', () => {
+    // `invokeUnit` needs `lambda:InvokeFunction`; the policy is scoped to this stack's
+    // functions so a unit cannot reach into another app's account.
+    expect(template).toContain('Action: lambda:InvokeFunction');
+    expect(template).toContain(
+      'Resource: !Sub "arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:${AWS::StackName}-*"',
+    );
+  });
+
   test('the runtime knobs are the documented defaults and are overridable', () => {
     expect(template).toContain('Runtime: "nodejs22.x"');
     expect(template).toContain('MemorySize: 1024');
@@ -129,6 +144,73 @@ describe('queue and cron units', () => {
     expect(template).not.toContain('AWS::Serverless::HttpApi');
     expect(template).not.toContain('Type: HttpApi');
     expect(template).not.toContain('Outputs:');
+  });
+});
+
+describe('SNS units (DPL-027, DPL-028)', () => {
+  test('a direct SNS unit subscribes the function to the topic (DPL-027)', () => {
+    const template = samTemplate(
+      unit({
+        name: 'notify',
+        kind: 'queue',
+        triggers: [{ kind: 'sns', detail: ['orders'] }],
+      }),
+      'acme-api',
+    );
+
+    // The topic ARN is a parameter — the topic lives outside this stack.
+    expect(template).toContain('  OrdersTopicArn:');
+    expect(template).toContain('Type: SNS');
+    expect(template).toContain('Topic: !Ref OrdersTopicArn');
+    // No SQS queue or subscription resource is created for a direct subscription.
+    expect(template).not.toContain('AWS::SQS::Queue');
+    expect(template).not.toContain('RawMessageDelivery');
+  });
+
+  test('an SNS → SQS → Lambda fan-out creates topic, queue, DLQ and raw subscription (DPL-028)', () => {
+    const template = samTemplate(
+      unit({
+        name: 'notify',
+        kind: 'queue',
+        triggers: [{ kind: 'sns', detail: ['orders:sqs'] }],
+      }),
+      'acme-api',
+    );
+
+    // The fan-out owns its own topic, queue, DLQ and subscription.
+    expect(template).toContain('Type: AWS::SNS::Topic');
+    expect(template).toContain('OrdersTopic:');
+    expect(template).toContain('OrdersQueue:');
+    expect(template).toContain('OrdersDlq:');
+    expect(template).toContain('RawMessageDelivery: true');
+    // The function consumes from the queue, not from the topic directly.
+    expect(template).toContain('Type: SQS');
+    expect(template).toContain('Queue: !GetAtt OrdersQueue.Arn');
+    // No topic-ARN parameter: the topic is created in this stack.
+    expect(template).not.toContain('OrdersTopicArn:');
+  });
+});
+
+describe('EventBridge units (DPL-026)', () => {
+  test('an @OnEventBridge listener becomes an Events::Rule matching its detail-type', () => {
+    const template = samTemplate(
+      unit({
+        name: 'events',
+        kind: 'schedule',
+        triggers: [{ kind: 'eventbridge', detail: ['orders:order.placed'] }],
+      }),
+      'acme-api',
+    );
+
+    expect(template).toContain('Type: AWS::Events::Rule');
+    expect(template).toContain('OrdersRule:');
+    // The rule filters by detail-type on the default bus; the Lambda dispatches inside.
+    expect(template).toContain('EventBusName: default');
+    expect(template).toContain('detail-type: ["order.placed"]');
+    // The function is the rule's target, with a Lambda permission to be invoked.
+    expect(template).toContain('- Arn: !GetAtt EventsFunction.Arn');
+    expect(template).toContain('OrdersPermission:');
+    expect(template).toContain('Principal: events.amazonaws.com');
   });
 });
 
@@ -243,5 +325,34 @@ describe('the document itself', () => {
 
     expect([...templates.keys()].sort()).toEqual(['template.drain.yaml', 'template.http.yaml']);
     expect(templates.get('template.http.yaml')).toContain('unit "http"');
+  });
+});
+
+describe('per-unit memory and timeout (DPL-031)', () => {
+  test('a unit without overrides keeps the shared default', () => {
+    const template = samTemplate(HTTP_UNIT, 'acme-api', { memoryMb: 512, timeoutSeconds: 10 });
+
+    // The default lives in `Globals.Function` only — not on the function resource.
+    expect(template).toContain('    MemorySize: 512');
+    expect(template).toContain('    Timeout: 10');
+    // No per-unit override, so the function resource does NOT re-declare MemorySize/Timeout.
+    const functionBlock = template.split('Properties:\n      FunctionName');
+    expect(functionBlock.at(1)?.split('Events:').at(0)).not.toContain('MemorySize');
+  });
+
+  test('a unit with overrides emits its own MemorySize and Timeout', () => {
+    const heavy = unit({
+      name: 'heavy',
+      kind: 'schedule',
+      memoryMb: 2048,
+      timeoutSeconds: 120,
+    });
+    const template = samTemplate(heavy, 'acme-api', { memoryMb: 512, timeoutSeconds: 10 });
+
+    expect(template).toContain('MemorySize: 2048');
+    expect(template).toContain('Timeout: 120');
+    // The shared default is still present in `Globals.Function`.
+    expect(template).toContain('    MemorySize: 512');
+    expect(template).toContain('    Timeout: 10');
   });
 });

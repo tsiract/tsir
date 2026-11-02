@@ -4,9 +4,13 @@
 
 ## Install
 
+After [installing the distribution](../installation.md), add this package from its workspace in your application:
+
 ```sh
-bun add @tsir/testing
+bun add '@tsir/testing@workspace:*'
 ```
+
+The packages are not yet published to npm.
 
 ## Public surface
 

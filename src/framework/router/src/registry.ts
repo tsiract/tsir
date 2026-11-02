@@ -11,7 +11,7 @@
  * their own instance; `routeRegistry` is the process-local default.
  */
 
-import type { ControllerClass, PolicyRef, RouteMeta, TokenRef } from './types.ts';
+import type { ControllerClass, DeclaredListener, PolicyRef, RouteMeta, TokenRef } from './types.ts';
 
 /** A route as declared on one method, before class-level metadata is merged. */
 export interface DeclaredRoute {
@@ -27,6 +27,7 @@ export interface ControllerEntry {
   /** `''` when the controller declares no prefix. */
   readonly path: string;
   readonly routes: readonly DeclaredRoute[];
+  readonly listeners: readonly DeclaredListener[];
   readonly middleware: readonly TokenRef[];
   readonly guards: readonly TokenRef[];
   readonly policies: readonly PolicyRef[];

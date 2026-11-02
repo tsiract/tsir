@@ -19,69 +19,64 @@
 
 ## 2. Constraints
 
-1. **Zero runtime dependencies.** One HTML file, inline CSS, inline SVG. No CDN, no web fonts, no analytics. This is both a branding statement ("we don't ship a frontend framework") and a practical one: the page must work in an offline container, in a sandboxed iframe, and on a plane.
-2. **No external assets.** All icons are inline SVG; all gradients are CSS.
-3. **Progressive enhancement only.** Live data (version, port, config summary) is rendered server-side by the Bun dev server via token replacement; with JavaScript disabled the page still reads correctly, with the tokens replaced by static defaults.
-4. **Accessible.** WCAG 2.2 AA contrast for text, visible focus rings, semantic landmarks, `prefers-reduced-motion` respected, no keyboard traps.
-5. **Honest branding.** Sections for unbuilt features are labeled `planned` — never presented as present tense capabilities.
-
----
+1. **Zero runtime dependencies.** One homepage HTML file with compiled inline CSS, JavaScript and SVG. No CDN, web font, analytics or client framework (ADR-0029).
+2. **No external assets.** Icons and favicon are inline; gradients are CSS. Documentation is a separate static destination, included in distribution.
+3. **Progressive enhancement.** Runtime facts are injected server-side. All package cards, code examples and section links remain readable without JavaScript. Optional controls are hidden until their handlers are installed.
+4. **Accessible.** WCAG 2.2 AA contrast, visible focus, semantic landmarks, keyboard-operated tabs, labelled search/filters, reduced motion and no keyboard traps.
+5. **Honest branding.** Package statuses are conservative. Partial cards explain remaining work; a visual refresh never closes a framework task.
+6. **Measured delivery.** The uncompressed homepage is at most **128 KiB**, enforced by the build and claims gate. ADR-0029 explicitly supersedes the old 60 KiB target, which the previous 69,643-byte page already exceeded.
 
 ## 3. Information architecture
 
+Laravel-inspired hierarchy, not Laravel branding or unsupported claims:
+
+1. Compact header: framework, ecosystem, documentation, examples, GitHub, theme switch.
+2. Centered headline, pre-alpha disclosure, two actions and a runnable start command.
+3. Tested code tabs: HTTP, validation and database examples from the package prose suite.
+4. Alternating framework, data/secrets and deploy-unit showcases.
+5. Complete 24-package ecosystem with search, category filters, honest statuses and docs links.
+6. Principles, two runnable example applications and a three-step getting-started path.
+7. Expandable live runtime facts, roadmap and measured bundle sizes.
+8. Closing action and grouped framework/package/project footer.
+
+Each package card has a unique `@tsir/*` name, `data-status`, `data-phase`, a real `data-src`,
+a purpose, a reference link and, when partial, an explicit remaining-work note. The typed
+inventory lives in `src/apps/frontpage/packages.ts`; the claims gate checks complete coverage.
+
+### Source and delivery
+
 ```
-┌──────────────────────────────────────────────────────────────────────┐
-│  header:  tsir ◧   Docs  Ecosystem  Examples  GitHub     [v0.0.0]    │
-├──────────────────────────────────────────────────────────────────────┤
-│  hero:    "The backend framework that shows its work."               │
-│           Strictly typed · Bun · Drizzle · Postgres · Edge-ready     │
-│           $ bun run tsir dev        [ copy button ]                  │
-│           status chips:  runtime bun 1.x · env development           │
-│                          port 3000 · config tsir.js ✓                │
-├──────────────────────────────────────────────────────────────────────┤
-│  ecosystem grid (cards, grouped in 4 rows):                          │
-│    Foundation:  Core · Container · Config · Validate                 │
-│    HTTP:        Router · HTTP · Console                              │
-│    Data:        Database · Migrate · Seed · Vault                    │
-│    Interop:     Link (REST/gRPC/SOAP/WS)                             │
-│    Deploy:      Deploy (Workers/Lambda)                              │
-│    Capabilities (planned): Auth · Policy · Cache · Queue · Events    │
-│                            Schedule · Mail · Notify · Storage·Pulse  │
-├──────────────────────────────────────────────────────────────────────┤
-│  principles strip:  no global locator · compiled routes ·           │
-│                     fail-closed crypto · explicit transactions        │
-├──────────────────────────────────────────────────────────────────────┤
-│  next steps:  1. create a controller   2. add a migration           │
-│               3. describe deployment   4. read the source            │
-├──────────────────────────────────────────────────────────────────────┤
-│  footer:  Tsir v<version> · Bun <bun> · Node <node> · <os> ·        │
-│           docs · changelog · security policy                         │
-└──────────────────────────────────────────────────────────────────────┘
+src/apps/frontpage/
+├── template.html       semantic structure and inline SVG
+├── styles.css          Tailwind input, DaisyUI themes and responsive layout
+├── client.js           optional browser enhancement
+├── packages.ts         typed package inventory
+├── build.ts            compile/inline; --check detects stale output
+├── build.test.ts       reproducibility, coverage, escaping and offline checks
+├── public/index.html   committed single-file artifact
+└── package.json        private static app
 ```
 
-Each ecosystem card contains: name (`@tsir/core`), one-line purpose, a status badge (`shipping` when implemented in the current phase, `planned` otherwise), and a `data-src` path into the package directory that backs the claim.
-
----
+`bun run frontpage:build` regenerates the artifact. `bun run frontpage` checks freshness and
+claims. The dev server builds the Markdown docs at startup and serves them under `/docs/`.
+`bun run dist` includes those docs beside the homepage so relative links work in both places.
 
 ## 4. Visual language
 
-| Token      | Value                                                        | Rationale                                          |
-| ---------- | ------------------------------------------------------------ | -------------------------------------------------- |
-| Background | `#0a0c10` with a subtle radial wash                          | Dark, low-glare, familiar to backend tooling       |
-| Surface    | `#11151c`, border `#1e2632`                                  | Card separation without shadows                    |
-| Text       | `#e6ebf2` primary, `#93a1b3` secondary                       | AA contrast on both surfaces                       |
-| Accent     | `#7dd3a0` (mint, "explicit/correct")                         | Distinct from Laravel red, Nest red, Adonis purple |
-| Accent-2   | `#7aa2f7` (blue, links/commands)                             | Command blocks and links                           |
-| Type       | `ui-monospace` for commands and names; system sans for prose | No web fonts                                       |
+- **Light:** authentic DaisyUI **Nord** theme definitions.
+- **Dark:** authentic DaisyUI **Abyss** theme definitions.
+- Initial theme follows the OS. The explicit toggle persists `tsir-theme` in local storage;
+  the preference is shared with docs. Storage failure is non-fatal; no-JS fallback is Nord.
+- Semantic text/border aliases are derived from the active theme. Code windows retain a
+  readable dark treatment in both modes. Small labels use a stronger contrast mix.
+- System sans for prose, system monospace for code. No downloaded fonts.
+- Spacious centered hero, alternating product sections, three-column package grid on desktop,
+  two on tablet and one on mobile. Inline SVG diagrams illustrate actual framework boundaries.
+- Motion is limited to short hover/focus feedback and is disabled by `prefers-reduced-motion`.
 
-Grid rules: 4-column card grid ≥ 1100 px, 2-column ≥ 720 px, 1-column below. The `Link` and `Deploy` cards are visually wider (they are the differentiators called out in the brief).
-
-Motion: one 120 ms fade-in on load; no parallax, no marquee. `prefers-reduced-motion: reduce` disables it.
-
-**Theming.** Dark is the default; `prefers-color-scheme: light` switches to a re-derived palette (not an
-inversion) whose accent hues are darkened so tinted surfaces keep ≥ 4.5:1 text contrast. Inline SVGs use
-presentation attributes that are remapped through CSS custom properties, so both themes are contrast-checked
-in one place. There is no manual theme toggle: the OS preference is the only input.
+DaisyUI, Tailwind and its CLI are pinned root **development** dependencies, classified under
+ADR-0012. Their MIT notices are embedded in the generated HTML. No framework source imports
+them and no consumer bundle contains them. See [ADR-0029](../decisions/0029-frontpage-daisyui.md).
 
 ---
 
@@ -99,16 +94,16 @@ The dev server (`src/tools/dev.ts`) replaces `__TSIR_*__` tokens **on each reque
 | `__TSIR_PORT__`    | bound port                        | `3000`        |
 | `__TSIR_STARTED__` | boot timestamp (ISO)              | —             |
 
-This makes the page a genuine **health/orientation screen**, not a static brochure. In production builds (`tsir build`), tokens are baked once at build time.
+This makes the page a genuine **health/orientation screen**, not a static brochure. In production builds (`bun run dist`), tokens are baked once at build time. Unmeasured sizes say `not measured`; run `make verify-dist` to obtain measurements.
 
 ---
 
 ## 6. Content rules
 
-- Every command shown is **runnable in the repository as it stands**. A command that does not exist yet is not shown on the page. (The page currently shows `make dev`, `make kill`, `make check`, `bun run tsir`.)
+- Every command shown is **runnable in the repository as it stands**. A command that does not exist yet is not shown on the page. (Examples include `make install`, `make dev`, `make doctor`, `make deploy-plan` and the two example test commands.)
 - Status badges must match the repository. Changing a badge is a docs change and requires a task update — `src/tools/check-frontpage.ts` parses the HTML for `data-status` and `data-src` attributes and compares the claim against the package directory on disk.
 - No superlatives ("fastest", "most secure", "better than Laravel") without a committed benchmark or review: `DOC` test greps for the banned-claims list.
-- Ecosystem names use the proposed `Tsir <Module>` labels from the brief; `@tsir/*` package names appear in monospace so users can copy them once published. Until publication, cards point at the package directory, not at npm.
+- Ecosystem names use the proposed `Tsir <Module>` labels from the brief; `@tsir/*` package names appear in monospace so users can copy them once published. Until publication, cards link to local reference pages, not at npm.
 
 ---
 
@@ -117,18 +112,18 @@ This makes the page a genuine **health/orientation screen**, not a static brochu
 | Failure                                   | Behavior                                                                               |
 | ----------------------------------------- | -------------------------------------------------------------------------------------- |
 | `index.html` missing                      | Dev server serves a minimal built-in fallback with the same tokens resolved            |
-| Token unresolved                          | Rendered as `—` (em dash), never a raw `__TSIR_*__` string                             |
+| Token unresolved at distribution time     | Build fails rather than inventing a value                                              |
 | Port already in use                       | `make dev` runs `make kill` first; if still occupied, fails with `make kill: PID` hint |
 | Page served outside the workspace preview | Fully functional — no external requests, no absolute URLs                              |
-| JavaScript disabled                       | All content visible; copy buttons hidden via `<noscript>` styling                      |
+| JavaScript disabled                       | All content visible; enhancement-only controls stay hidden                             |
 
 ---
 
 ## 8. Acceptance criteria
 
-1. Single file, ≤ 60 KiB uncompressed, zero network requests after load (verified by an offline test).
-2. Lighthouse: performance ≥ 95 on a throttled profile (static page, so this is a guard, not a boast).
-3. Colour contrast checked programmatically in CI (`axe` run over the built page).
+1. Single homepage file, ≤ 128 KiB uncompressed, zero external asset requests (build gate and browser smoke test).
+2. Lighthouse performance ≥ 95 remains an optional release target, not a measured claim in this refresh.
+3. Axe checks in both themes, keyboard smoke checks and 320–1440px overflow checks. The recorded 2026-10-31 pass is in the task ledger; CI automation of browser QA remains separate from the deterministic build tests.
 4. All ecosystem cards present, with `data-status` values matching the plans.
 5. `make dev` serves it in < 500 ms after start; token values reflect the running environment.
 
@@ -160,10 +155,17 @@ file. Three rules follow:
 | ---- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
 | Q27  | Should the page be reachable at `/` in _user applications_ (opt-in `tsir welcome` route) or only in the frontpage app? Current: frontpage app + optional `tsir welcome:route` generator. | Phase 2 |
 | Q28  | Add a "what this app contains" panel (module list from the resolved config) via a JSON endpoint?                                                                                         | Phase 2 |
-| `Q5` | Docs framework for `apps/docs` — a static pipeline shared with this page? Defined in [`00-foundation.md § 6`](../roadmap/00-foundation.md#6-open-questions).                             | Phase 6 |
+| `Q5` | Docs framework for `src/docs` — a static pipeline shared with this page? Defined in [`00-foundation.md § 6`](../roadmap/00-foundation.md#6-open-questions).                              | Phase 6 |
 
 ---
 
 ## 11. Task index
 
 [`tasks/09-frontpage.md`](../tasks/09-frontpage.md) — `DOC-001` … `DOC-014`.
+
+## 12. Application-first entry point
+
+The landing page introduces the distribution's `tsir` command, then links to an installation-first
+manual. Repository Make targets remain contributor build and test tools, not the application
+workflow. Pre-alpha and unpublished-package limitations stay visible; do not imply cloud resources
+are provisioned automatically.

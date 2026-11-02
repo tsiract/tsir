@@ -218,6 +218,75 @@ describe('the handler (DPL-013)', () => {
     expect(envelope.statusCode).toBe(200);
   });
 
+  test('an EventBridge Scheduler event (aws.scheduler) also runs the scheduled handler', async () => {
+    let ran = false;
+    const handler = toLambdaHandler({
+      unit: 'schedule',
+      scheduled: async () => {
+        ran = true;
+      },
+    });
+
+    const envelope = await handler(
+      {
+        source: 'aws.scheduler',
+        'detail-type': 'Scheduler Event',
+        time: '2026-10-28T00:00:00Z',
+        detail: {},
+      },
+      context,
+    );
+
+    expect(ran).toBe(true);
+    expect(envelope.statusCode).toBe(200);
+  });
+
+  test('a custom-bus EventBridge event routes to the eventbridge handler', async () => {
+    let received: unknown;
+    const handler = toLambdaHandler({
+      unit: 'schedule',
+      eventbridge: async (event) => {
+        received = event;
+      },
+    });
+
+    const envelope = await handler(
+      {
+        source: 'com.example.orders',
+        'detail-type': 'OrderPlaced',
+        time: '2026-10-28T00:00:00Z',
+        detail: { orderId: 'o_1' },
+      },
+      context,
+    );
+
+    expect(envelope.statusCode).toBe(200);
+    expect(received).toMatchObject({
+      source: 'com.example.orders',
+      'detail-type': 'OrderPlaced',
+      detail: { orderId: 'o_1' },
+    });
+  });
+
+  test('a custom-bus EventBridge event fails loudly when the unit has no eventbridge handler', async () => {
+    const handler = toLambdaHandler({
+      unit: 'schedule',
+      scheduled: async () => {},
+    });
+
+    return expect(
+      handler(
+        {
+          source: 'com.example.orders',
+          'detail-type': 'OrderPlaced',
+          time: '2026-10-28T00:00:00Z',
+          detail: { orderId: 'o_1' },
+        },
+        context,
+      ),
+    ).rejects.toThrow(/no eventbridge handler/);
+  });
+
   test('a unit that does not serve the trigger fails loudly instead of returning 200', async () => {
     const handler = toLambdaHandler({ unit: 'http', fetch: async () => new Response('') });
 
@@ -226,7 +295,122 @@ describe('the handler (DPL-013)', () => {
     ).rejects.toThrow(/no queue handler/);
   });
 
-  test('an unrecognised event names the three shapes it accepts', async () => {
+  test('an SNS notification delivers the parsed message, topic and subject', async () => {
+    let received: { id: string; topicArn: string; subject?: string; body: unknown } | undefined;
+    const handler = toLambdaHandler({
+      unit: 'notify',
+      sns: async (message) => {
+        received = {
+          id: message.id,
+          topicArn: message.topicArn,
+          ...(message.subject !== undefined ? { subject: message.subject } : {}),
+          body: message.body,
+        };
+      },
+    });
+
+    const envelope = await handler(
+      {
+        Records: [
+          {
+            EventSource: 'aws:sns',
+            Sns: {
+              TopicArn: 'arn:aws:sns:us-east-1:123:orders',
+              MessageId: 'msg-1',
+              Subject: 'New order',
+              Message: JSON.stringify({ orderId: 'o_42' }),
+              Timestamp: '2026-11-01T00:00:00Z',
+            },
+          },
+        ],
+      },
+      context,
+    );
+
+    expect(received).toEqual({
+      id: 'msg-1',
+      topicArn: 'arn:aws:sns:us-east-1:123:orders',
+      subject: 'New order',
+      body: { orderId: 'o_42' },
+    });
+    expect(envelope.statusCode).toBe(200);
+  });
+
+  test('an SNS message that is not JSON is handed over as the raw string', async () => {
+    let body: unknown;
+    const handler = toLambdaHandler({
+      unit: 'notify',
+      sns: async (message) => {
+        body = message.body;
+      },
+    });
+
+    await handler(
+      {
+        Records: [
+          {
+            EventSource: 'aws:sns',
+            Sns: { TopicArn: 'arn:aws:sns:us-east-1:123:orders', MessageId: 'msg-2', Message: 'plain text' },
+          },
+        ],
+      },
+      context,
+    );
+
+    expect(body).toBe('plain text');
+  });
+
+  test('an SNS failure is reported and rethrown so SNS retries', async () => {
+    let reported: unknown;
+    const handler = toLambdaHandler(
+      {
+        unit: 'notify',
+        sns: async () => {
+          throw new Error('boom');
+        },
+      },
+      {
+        onError: (error) => {
+          reported = error;
+        },
+      },
+    );
+
+    expect(
+      handler(
+        {
+          Records: [
+            {
+              EventSource: 'aws:sns',
+              Sns: { TopicArn: 'arn:aws:sns:us-east-1:123:orders', MessageId: 'msg-3', Message: '{}' },
+            },
+          ],
+        },
+        context,
+      ),
+    ).rejects.toThrow('boom');
+    expect(reported).toBeInstanceOf(Error);
+  });
+
+  test('a unit with no sns handler rejects an SNS event loudly', async () => {
+    const handler = toLambdaHandler({ unit: 'http', fetch: async () => new Response('') });
+
+    expect(
+      handler(
+        {
+          Records: [
+            {
+              EventSource: 'aws:sns',
+              Sns: { TopicArn: 'arn:aws:sns:us-east-1:123:orders', MessageId: 'm', Message: '{}' },
+            },
+          ],
+        },
+        context,
+      ),
+    ).rejects.toThrow(/no sns handler/);
+  });
+
+  test('an unrecognised event names the shapes it accepts', async () => {
     const handler = toLambdaHandler({ unit: 'http', fetch: async () => new Response('') });
 
     expect(handler({ hello: 'world' }, context)).rejects.toThrow(/API Gateway v2/);

@@ -38,8 +38,16 @@ tsir/
 │   └── tools/                    # dev runner, kill script, guards, dist builder
 ├── rfc/                          # public proposals: features, breaking changes, tooling
 ├── dist/                         # GENERATED (gitignored) — the distributable
-│   ├── framework/<pkg>/          # package.json, *.js, *.d.ts, *.map, LICENSE, README
-│   ├── frontpage/index.html      # baked tokens
+│   ├── tsir                      # executable application CLI
+│   ├── bin/tsir                  # PATH-friendly CLI
+│   ├── src/                      # runnable examples and static applications
+│   │   ├── examples/http/src/modules/{users,media}/
+│   │   ├── examples/minimal/
+│   │   ├── frontpage/            # baked static site
+│   │   └── docs/                 # rendered documentation
+│   ├── framework/<pkg>/          # distributable framework packages
+│   ├── frontpage/                # compatibility copy of the static site
+│   ├── README.md  package.json  bun.lock  LICENSE
 │   └── manifest.json             # what was built, and how big it is
 ├── plans/                        # this directory (internal — never cited from src/)
 ├── status.json                   # the phase and status the README badge reports
@@ -73,7 +81,12 @@ Rules:
    `sideEffects: false`, `type: "module"`, `engines`, `publishConfig.access: "public"`, no `private`;
 4. copies `LICENSE` into every package (MIT requires the notice to travel with copies) and
    generates a README from the manifest;
-5. bakes the frontpage and writes `dist/manifest.json` with byte counts.
+5. bakes the frontpage and docs, copies the maintained example applications and their modules,
+   writes an executable root CLI and workspace manifest, and records `dist/manifest.json`;
+6. installs the distribution workspace dependencies so `./dist/tsir --help` and the examples work
+   immediately after `make dist`. The release archive omits `node_modules`; after extracting it,
+   run `bun install --ignore-scripts` in the distribution. Both operations require Bun and may need
+   npm registry access. `dist/` is regenerated: create application projects outside it.
 
 The output is deliberately **not** a bundle. One file in, one file out, with `sideEffects: false`,
 is what lets a consumer's bundler drop what it does not use. `make verify-dist` measures that

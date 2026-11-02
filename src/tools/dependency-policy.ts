@@ -79,6 +79,11 @@ export const RUNTIME_ALLOWLIST: Readonly<Record<string, Policy>> = {
  * `RUNTIME_ALLOWLIST` is for.
  */
 export const DEV_ONLY: Readonly<Record<string, string>> = {
+  daisyui:
+    'CSS component source and Nord/Abyss themes; compiled into the static frontpage, never shipped as a framework dependency (ADR-0029)',
+  tailwindcss: 'build-time CSS compiler for the frontpage; no runtime import (ADR-0029)',
+  '@tailwindcss/cli': 'build-time CLI that compiles only the frontpage styles (ADR-0029)',
+  marked: 'Markdown renderer for the static docs site; build time only (ADR-0028)',
   typescript: 'compiler; never imported by shipped code',
   'typescript-eslint': 'lint rules; build time only',
   eslint: 'lint runner; build time only',

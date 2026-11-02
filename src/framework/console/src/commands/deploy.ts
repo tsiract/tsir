@@ -93,6 +93,24 @@ export function deploymentOf(project: LoadedProject): DeploymentInput {
     };
   });
 
+  // AWS event-source listeners (`@OnSns`, `@OnEventBridge`, `@OnStepTask` — DPL-026).
+  // Collected from the controller entries directly, not from the compiled route table,
+  // because listeners are not routes: they have no method/path and the matcher never
+  // sees them. The deploy planner turns each one into a unit with the right trigger.
+  const listeners = collectRouteEntries().flatMap((entry) =>
+    entry.listeners.map((listener) => {
+      const module = owner.get(entry.controller);
+      return {
+        kind: listener.meta.kind,
+        name:
+          listener.meta.topic ?? listener.meta.eventBus ?? listener.meta.name ?? entry.controller.name,
+        ...(listener.meta.detailType === undefined ? {} : { detailType: listener.meta.detailType }),
+        unit: listener.meta.unit,
+        ...(module === undefined ? {} : { module }),
+      };
+    }),
+  );
+
   const loaded = project.app.load();
   const modules = project.app.modulesFor(loaded).map((module) => ({
     name: module.name,
@@ -148,6 +166,7 @@ export function deploymentOf(project: LoadedProject): DeploymentInput {
     ...(connections.length === 0 ? {} : { connections }),
     ...(queue.length === 0 ? {} : { queue }),
     ...(schedules.length === 0 ? {} : { schedules }),
+    ...(listeners.length === 0 ? {} : { listeners }),
     ...(config.deploy === undefined
       ? {}
       : {
@@ -157,6 +176,10 @@ export function deploymentOf(project: LoadedProject): DeploymentInput {
               ? {}
               : { includeModules: config.deploy.includeModules }),
             ...(config.deploy.units === undefined ? {} : { units: config.deploy.units }),
+            ...(config.deploy.publishes === undefined
+              ? {}
+              : { publishes: config.deploy.publishes }),
+            ...(config.deploy.invokes === undefined ? {} : { invokes: config.deploy.invokes }),
           },
         }),
   };

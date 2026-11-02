@@ -37,7 +37,7 @@ const LINE_OVERRIDES: Readonly<Record<string, number>> = {
 const funcGate = Number(values.funcs);
 const targets = positionals.length > 0 ? positionals : ['src/framework'];
 
-const result = spawnSync('bun', ['test', '--coverage', ...targets], {
+const result = spawnSync(process.execPath, ['test', '--coverage', ...targets], {
   encoding: 'utf8',
   env: { ...process.env, FORCE_COLOR: '0' },
 });

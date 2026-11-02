@@ -1,0 +1,56 @@
+name: macOS and Linux
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  make:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.4.4
+      - name: Inspect platform tools
+        run: |
+          uname -sm
+          make --version | head -n 1
+          /bin/bash --version | head -n 1
+          bun --version
+      - run: make install
+      - name: Verify installed commit hook
+        run: |
+          message="$(mktemp)"
+          printf 'fix(repo): test the hook\n' > "$message"
+          .git/hooks/commit-msg "$message"
+          printf 'not a conventional commit\n' > "$message"
+          if .git/hooks/commit-msg "$message"; then echo 'invalid commit was accepted'; exit 1; fi
+          rm "$message"
+      - run: make help doctor kill-ports-dry
+      - name: Test cleanup without touching host processes
+        run: |
+          temporary_root="$(mktemp -d)"
+          TSIR_ROOT="$temporary_root" make kill-owned
+          rm -rf "$temporary_root"
+      - run: make check
+      - run: make test
+      - run: make release-pack # includes verify-dist and installs/boots the tarballs
+      - run: make release-pack-fast
+      - name: Validate archive and checksums
+        run: |
+          cd dist/release
+          shasum -a 256 -c SHA256SUMS.txt
+          tar -tzf tsir-*-dist.tar.gz > archive-contents.txt
+          grep -q '^frontpage/docs/' archive-contents.txt
+          grep -q '^tsir$' archive-contents.txt
+          grep -q '^src/examples/http/src/modules/users/' archive-contents.txt
+          grep -q '^src/examples/http/src/modules/media/' archive-contents.txt
+          if grep -q 'node_modules/' archive-contents.txt; then echo 'archive contains installed dependencies'; exit 1; fi
+          rm archive-contents.txt

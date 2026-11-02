@@ -8,48 +8,49 @@
  *   · print the next command to run.
  */
 
-import { chmodSync, existsSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { chmodSync, existsSync, realpathSync } from 'node:fs';
+import { isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { boolFlag, parseArgs } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
-import { CliError, EXIT, info, ok, style, UsageError } from '../output.ts';
+import { CliError, EXIT, info, ok, style, UsageError, warn } from '../output.ts';
+import { findConfigFile } from '../project.ts';
 import { RACT_MODE, RACT_TEMPLATE } from './project-command.ts';
+import { scopedName, splitAppModule } from './naming.ts';
 
-const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
-
-function toKebab(value: string): string {
-  return value
-    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-    .replace(/[_\s]+/g, '-')
-    .toLowerCase();
-}
-
-function assertIdentifier(name: string, kind: string): void {
-  if (!IDENTIFIER.test(name)) {
-    throw new UsageError(
-      `"${name}" is not a valid ${kind} name`,
-      'use PascalCase identifiers, e.g. UsersService',
-    );
-  }
-}
-
-const APP_TEMPLATE = (
-  name: string,
-): string => `import { defineApp, defineModule } from '@tsir/core';
-import { defineConfig, env } from '@tsir/config';
-
-export const spec = defineConfig({
-  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'development' }),
-});
-
-const RootModule = defineModule({ name: 'root' });
+const APP_TEMPLATE = (name: string): string => `import { defineApp } from '@tsir/core';
+import { createFetchHandler } from '@tsir/http';
+import { collectRouteEntries, compileRoutes } from '@tsir/router';
+import { spec } from './config.ts';
+import { home } from './home/index.ts';
+import './home/http/home.controller.ts';
 
 export default defineApp({
   name: '${name}',
   config: spec,
-  modules: [RootModule],
+  modules: [home.module],
 });
+
+// Import each controller above before compiling the route table.
+export const handler = createFetchHandler(compileRoutes(collectRouteEntries()));
+`;
+
+const HOME_ROUTES = `import { RouteRegistry, routeModule } from '@tsir/router';
+
+export const registry = new RouteRegistry();
+export const home = routeModule({ name: 'home', registry, unit: 'http' });
+`;
+
+const HOME_CONTROLLER = `import { Controller, Get } from '@tsir/router';
+import { registry } from '../routes.ts';
+
+@Controller(registry, '')
+export class HomeController {
+  @Get('/')
+  index(): { message: string } {
+    return { message: 'Welcome to Tsir' };
+  }
+}
 `;
 
 const CONFIG_TEMPLATE = (name: string): string => `import { defineConfig, env } from '@tsir/config';
@@ -71,31 +72,32 @@ const TSR_CONFIG_TEMPLATE = (name: string): string => `// tsir.js — canonical 
 export default {
   app: {
     name: '${name}',
-    entry: './src/app.ts',
+    entry: './app.ts',
   },
 };
 `;
 
 /**
- * The files `make:module` writes, in the layout the example application uses (MOD-005): a module
- * directory with its own registry, one controller bound to that registry, a public `index.ts`, and
- * a test that boots the module and checks its route. Each file is written only if it is absent.
+ * The files `make:module` writes. A module owns its components in typed
+ * subdirectories: `http/` for controllers, `models/` for schemas, etc. The
+ * module root holds `routes.ts` (the route registry), `index.ts` (the public
+ * surface), and the module's test.
  */
 function moduleFiles(
   base: string,
+  kebab: string,
 ): readonly { readonly name: string; readonly contents: string }[] {
-  const kebab = toKebab(base);
   const camel = base.charAt(0).toLowerCase() + base.slice(1);
   const prefix = `/${kebab}`;
   return [
     {
       name: 'routes.ts',
-      contents: `import { RouteRegistry, routeModule } from '@tsir/router';
+      contents: `import { RouteRegistry, routeModule as _routeModule } from '@tsir/router';
 
 /** This module's route table. Only its own controllers add to it. */
 export const registry = new RouteRegistry();
 
-export const ${camel} = routeModule({
+export const ${camel} = _routeModule({
   name: '${kebab}',
   registry,
   unit: 'http',
@@ -103,10 +105,10 @@ export const ${camel} = routeModule({
 `,
     },
     {
-      name: `${kebab}.controller.ts`,
+      name: `http/${kebab}.controller.ts`,
       contents: `import { Controller, Get } from '@tsir/router';
 
-import { registry } from './routes.ts';
+import { registry } from '../routes.ts';
 
 @Controller(registry, '${prefix}')
 export class ${base}Controller {
@@ -130,8 +132,8 @@ import { defineConfig, env } from '@tsir/config';
 import { defineApp } from '@tsir/core';
 import { createTestApp } from '@tsir/testing';
 
-import { ${camel} } from './index.ts';
-import './${kebab}.controller.ts';
+import { ${camel} as _module } from './index.ts';
+import './http/${kebab}.controller.ts';
 
 const spec = defineConfig({
   APP_ENV: env.enum(['development', 'test', 'production'], { default: 'test' }),
@@ -139,7 +141,7 @@ const spec = defineConfig({
 
 describe('${kebab} module', () => {
   test('boots on its own and serves its route', async () => {
-    const app = defineApp({ name: '${kebab}-test', config: spec, modules: [${camel}.module] });
+    const app = defineApp({ name: '${kebab}-test', config: spec, modules: [_module.module] });
     const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
     try {
       const paths = harness.routes().routes.map((route) => route.path);
@@ -157,7 +159,7 @@ describe('${kebab} module', () => {
 const TEST_TEMPLATE = (name: string): string => `import { describe, expect, test } from 'bun:test';
 import { createTestApp } from '@tsir/testing';
 
-import app from '../src/app.ts';
+import app from '../app.ts';
 
 describe('${name}', () => {
   test('boots through the production path', async () => {
@@ -184,6 +186,26 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
 
   const force = boolFlag(args, '--force');
   const root = resolve(process.cwd(), name);
+  // Distribution builds replace their entire output directory. Do not let a user
+  // accidentally create an application where the next build will delete it.
+  const distRoot = process.env['TSIR_DIST'];
+  if (distRoot !== undefined) {
+    // Resolve symlinks so `/tmp` vs `/private/tmp` (macOS) and other logical
+    // path differences do not defeat the guard.
+    const realDist = realpathSync(resolve(distRoot));
+    const realCwd = realpathSync(process.cwd());
+    const fromDist = relative(realDist, resolve(realCwd, name));
+    if (
+      fromDist === '' ||
+      (fromDist !== '..' && !fromDist.startsWith(`..${sep}`) && !isAbsolute(fromDist))
+    ) {
+      throw new CliError(
+        'create applications outside the generated distribution directory',
+        EXIT.usage,
+        `the distribution is replaced by make dist — cd to another directory and run ${resolve(distRoot, 'tsir')} new ${name}`,
+      );
+    }
+  }
   if (existsSync(root) && !force) {
     throw new CliError(
       `${name}/ already exists`,
@@ -191,6 +213,20 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
       'pass --force to scaffold into it anyway',
     );
   }
+
+  // The pre-publication packages form a Bun workspace. This preserves a single
+  // instance of process-local registries across the app and its CLI.
+  const dist = process.env['TSIR_DIST'];
+  const packages = dist === undefined ? undefined : join(resolve(dist), 'framework');
+  if (packages !== undefined && !existsSync(join(packages, 'console', 'package.json'))) {
+    throw new CliError('TSIR_DIST is not a valid Tsir distribution', EXIT.environment);
+  }
+  const dependencies = Object.fromEntries(
+    ['console', 'config', 'core', 'http', 'router', 'testing', 'validate'].map((part) => [
+      `@tsir/${part}`,
+      packages === undefined ? '0.0.0' : 'workspace:*',
+    ]),
+  );
 
   const files: readonly (readonly [string, string])[] = [
     [
@@ -204,14 +240,37 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
           private: true,
           type: 'module',
           scripts: { ract: 'bun ./ract' },
+          dependencies,
+          ...(packages === undefined ? {} : { workspaces: [`${packages}/*`] }),
         },
         null,
         2,
       ) + '\n',
     ],
     ['tsir.js', TSR_CONFIG_TEMPLATE(name)],
-    ['src/app.ts', APP_TEMPLATE(name)],
-    ['src/config.ts', CONFIG_TEMPLATE(name)],
+    ['app.ts', APP_TEMPLATE(name)],
+    ['config.ts', CONFIG_TEMPLATE(name)],
+    ['home/index.ts', "export { home } from './routes.ts';\n"],
+    ['home/routes.ts', HOME_ROUTES],
+    ['home/http/home.controller.ts', HOME_CONTROLLER],
+    ['.gitignore', 'node_modules/\n.env\n.tsir/\n'],
+    [
+      'tsconfig.json',
+      JSON.stringify(
+        {
+          compilerOptions: {
+            target: 'ESNext',
+            module: 'ESNext',
+            moduleResolution: 'Bundler',
+            strict: true,
+            noEmit: true,
+            allowImportingTsExtensions: true,
+          },
+        },
+        null,
+        2,
+      ) + '\n',
+    ],
     ['ract', RACT_TEMPLATE],
     // CLI-018: `ract` has no extension, so prettier cannot parse it and must ignore it by name.
     ['.prettierignore', 'ract\n'],
@@ -236,11 +295,13 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   info('');
   info(`  created ${style.bold(name)} — next steps:`);
   info(`    ${style.cyan(`cd ${name}`)}`);
-  info(
-    `    ${style.cyan('bun add @tsir/core @tsir/config @tsir/testing')}   ${style.dim('(when published)')}`,
-  );
-  info(`    ${style.cyan('tsir build')}   ${style.dim('generate the manifest')}`);
-  info(`    ${style.cyan('tsir dev')}     ${style.dim('boot with lifecycle reporting')}`);
+  info(`    ${style.cyan('bun install')}   ${style.dim('install the application dependencies')}`);
+  info(`    ${style.cyan('tsir dev')}      ${style.dim('serve the application')}`);
+  if (dist === undefined) {
+    warn(
+      'No distribution was detected. @tsir packages are not yet published; use the distribution launcher to scaffold an installable app.',
+    );
+  }
   info('');
   return EXIT.ok;
 }
@@ -248,24 +309,44 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
 export async function makeModuleCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--force': { type: 'boolean', description: 'overwrite an existing file' },
-    '--dry-run': { type: 'boolean', description: 'print the file that would be written' },
+    '--dry-run': { type: 'boolean', description: 'print the files that would be written' },
   });
   const name = args.positionals[0];
-  if (name === undefined) throw new UsageError('tsir make:module <Name>');
+  if (name === undefined || args.positionals.length !== 1)
+    throw new UsageError('tsir make:module <name>', 'e.g. tsir make:module shop');
 
-  const base = name.endsWith('Module') ? name.slice(0, -'Module'.length) : name;
-  assertIdentifier(`${base}Module`, 'module');
-  const dir = join(process.cwd(), 'src', 'modules', toKebab(base));
+  // `make:module` accepts `<app>/<name>` to create a module in another app.
+  const { app, module: moduleName } = splitAppModule(name);
+  if (app !== undefined) process.chdir(app);
+
+  // A module only matters inside an application: without a `tsir.js`, the files
+  // are written but nothing registers them. Warn rather than refuse — a user
+  // may be scaffolding a directory before adding the project file — but make
+  // the gap obvious so the output is not mistaken for a working module.
+  try {
+    findConfigFile(process.cwd());
+  } catch {
+    warn(
+      'no tsir.js found in this directory — the module is written but not registered by any app',
+    );
+  }
+
+  const raw = moduleName.endsWith('Module') ? moduleName.slice(0, -'Module'.length) : moduleName;
+  const { pascal: base, stem } = scopedName(raw, 'module');
+  const dir = join(process.cwd(), stem);
   const dryRun = boolFlag(args, '--dry-run');
   const plan = await commitWrites(
-    moduleFiles(base).map((file) => ({ path: join(dir, file.name), contents: file.contents })),
+    moduleFiles(base, stem).map((file) => ({
+      path: join(dir, file.name),
+      contents: file.contents,
+    })),
     { force: boolFlag(args, '--force'), dryRun },
   );
   reportPlan(plan, dryRun);
   if (dryRun) return EXIT.ok;
 
   info(
-    `  ${style.dim('register it:')} import { ${toCamel(base)} } from './modules/${toKebab(base)}/index.ts' and add ${toCamel(base)}.module to modules`,
+    `  ${style.dim('register it:')} import { ${toCamel(base)} } from './${stem}/index.ts' and add ${toCamel(base)}.module to modules`,
   );
   return EXIT.ok;
 }

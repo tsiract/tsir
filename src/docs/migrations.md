@@ -38,37 +38,47 @@ The second one exists because the first one answers "what ran" and not "who ran 
 and how long it took". A migration that took four minutes in production is a fact
 you want next time, and it is not recoverable from a timestamp pair.
 
-## 1.1 Multiple connections
+## 1.1 Module journals and multiple connections
 
-A project with more than one database connection has more than one migration folder:
+Modules can own their own Drizzle journals, separate from the project-wide journal:
 
-```
-drizzle/
-├── app/                    # connection `app` — the default
-│   ├── meta/_journal.json
-│   └── 0000_init.sql
-└── reporting/              # connection `reporting`
+```text
+shop/
+├── models/order.model.ts
+├── seeders/order.seeder.ts
+└── migrations/
+    ├── 0000_create-orders.sql
     ├── meta/_journal.json
-    └── 0000_init.sql
+    ├── meta/0000_snapshot.json
+    └── reporting/              # only for a non-default connection
+        └── meta/_journal.json
 ```
 
-`paths.migrations` in `tsir.js` is one folder for a single-connection project, or a
-map keyed by connection name for a multi-connection one (ADR-0019). Every command
-takes `--connection <name>` — default `database.default` — and prints the connection
-it is about to change before it changes it:
+For project-wide migrations, `paths.migrations` is a **string** (default `drizzle`).
+The default connection uses that folder; a non-default connection uses a subfolder such as
+`drizzle/reporting`. Module migrations use `<module>/migrations/` for the default
+connection and `migrations/<connection>/` for another connection. Export a named `databases`
+registry from the app entry before using `--connection`:
 
-```bash
-tsir migrate --connection=reporting
-tsir migrate:status --connection=reporting
-tsir db:seed --connection=reporting --reference-data
+```sh
+tsir migrate shop --connection reporting
+tsir migrate:status shop --connection reporting
+tsir db:seed --connection reporting --reference-data
 ```
 
-The journal, the `__tsir_migration_runs` sidecar and the advisory lock key are all
-per connection, so `app` and `reporting` can be migrated concurrently by different
-units without contending for one lock. There is no implicit "migrate everything":
-a multi-connection deploy runs one `migrate:<connection>` unit per connection
-, because a replica that is behind must not block the
-primary's release.
+Each module/connection journal has separate database bookkeeping tables; their stable names are
+hashed from the module and connection names. The project-wide journal keeps its existing tables.
+Keep module and connection names stable after deployment: renaming either changes the bookkeeping
+identity and can cause previously applied work to appear pending. Use Tsir to apply module journals;
+a plain `drizzle-kit migrate` uses different bookkeeping and must not be mixed with Tsir for them.
+All journals for the same named connection use the same migration advisory lock on PostgreSQL.
+D1 has no advisory lock: run only one migration process at a time. As always, PostgreSQL locking
+is only verified when the client supports a pinned session.
+
+There is **no automatic cross-module ordering, dependency discovery, or migrate-all command**.
+Choose and enforce an order when modules have foreign keys or other dependencies. Roll back in
+reverse dependency order. Avoid having multiple journals manage the same tables. Review each SQL
+file and plan before applying it; a snapshot is not evidence that a live database matches it.
 
 ## 2. The per-migration transaction header
 
@@ -96,15 +106,63 @@ create index concurrently "users_email_idx" on "users" ("email");
 
 ## 3. Commands
 
-### `tsir make:migration <name>`
+### `tsir make:migration <name> <module>`
 
-Wraps `drizzle-kit generate`, then lints what it produced: an empty file (drizzle-kit
-writes one when the schema did not change), a missing trailing newline, or two
-transaction headers. The name becomes the file tag, so it must be
-`snake_case`-shaped — `AddUserRoles` and `add user roles` are rejected before
-drizzle-kit runs.
+From an application created by `tsir new`:
 
-### `tsir migrate [--dry-run] [--wait <ms>]`
+```sh
+tsir make:module shop
+tsir make:model order shop
+bun add drizzle-orm@0.45.4
+bun add -d drizzle-kit@0.31.11
+tsir make:migration create-orders shop
+```
+
+The module must already exist. This runs `drizzle-kit generate` against
+`shop/models/*.model.ts` and writes its SQL, snapshot and journal under
+`shop/migrations/`. It does **not** connect to a database or apply SQL. The name is a
+lowercase hyphen- or underscore-separated tag; Drizzle supplies the numeric prefix. Check the SQL,
+snapshot and journal into version control together. An unchanged schema produces no new migration.
+
+SQLite/D1 is the default. For a PostgreSQL model, use `--dialect postgres`. Select a module-local
+schema file or glob with `--schema shop/models/order.model.ts`; use this when a module has
+separate schemas for different databases or dialects. Keep the same complete schema scope for
+subsequent generations of a journal: dropping files from the scope can generate destructive DROP
+statements. Do not mix dialects or manage the same tables in multiple journals. Tsir checks the
+existing journal's dialect but cannot infer your intended schema ownership.
+
+To generate for a non-default named connection, add `--connection reporting`; the app must export
+its connection registry. Use the same connection option when running the migration.
+
+The legacy `tsir make:migration <name>` remains project-wide and delegates to the app's
+`drizzle.config.ts` and `paths.migrations`. It does not infer a module. The project must configure
+Drizzle's output to the same folder as `paths.migrations`. Tsir lints generated SQL for empty files,
+missing trailing newlines and duplicate transaction headers.
+
+### Run a module journal
+
+After configuring and exporting the app's `database` or `databases` (see the
+[database guide](./guides/database.md)), review the migration, then:
+
+```sh
+tsir migrate:status shop
+tsir migrate shop --dry-run
+tsir migrate shop
+# On a separate, throwaway database only:
+tsir migrate:verify shop
+```
+
+`migrate`, `migrate:status`, `migrate:verify` and `migrate:rollback` accept the module as their
+positional argument. Omitting it selects the existing project-wide journal, not all modules.
+`verify` checks that the **selected journal** has no applied rows; it does not prove that the
+entire database is empty, so always supply a throwaway database yourself. Rollback still needs a
+hand-written down file and explicit destructive confirmation:
+
+```sh
+tsir migrate:rollback shop --to empty --allow-destructive --confirm 0000_create-orders
+```
+
+### `tsir migrate [module] [--dry-run] [--wait <ms>]`
 
 Applies every pending migration in journal order.
 
@@ -115,20 +173,20 @@ Applies every pending migration in journal order.
 - Drift is checked **before** the first statement: if an applied migration changed
   on disk, nothing runs.
 
-### `tsir migrate:status [--json]`
+### `tsir migrate:status [module] [--json]`
 
 Prints applied, pending and drifted tags. Exits non-zero when anything drifted or
 when applied rows have no file on disk (orphans) — a green status that only looks
 at pending migrations is how drift reaches production.
 
-### `tsir migrate:verify`
+### `tsir migrate:verify [module]`
 
-Applies the whole journal to a **throwaway, empty** database. This is the CI
-command: if it fails, `0000 → head` no longer applies cleanly, and nobody finds out
-during a deploy. A database that already has migrations in it is a usage error
-(exit `3`), not a job to do.
+Applies the selected journal to a **throwaway, empty** database. This is the CI
+command: if it fails, `0000 → head` no longer applies cleanly. The command rejects a
+selected journal that already has applied rows, but does not detect unrelated tables or
+other journals. Ensure the database really is disposable before running it.
 
-### `tsir migrate:rollback --to <tag> [--allow-destructive] [--confirm <tag>]`
+### `tsir migrate:rollback [module] --to <tag> [--allow-destructive] [--confirm <tag>]`
 
 Undoes migrations newest-first until `--to` is the head, using `<tag>.down.sql`.
 
@@ -139,12 +197,34 @@ Three guards, all of them deliberate:
 3. `--confirm` must equal the **newest** tag being undone — typing it back is the
    difference between a considered action and a paste.
 
+### Generate a module seeder
+
+```sh
+bun add '@tsir/seed@workspace:*'
+tsir make:seeder order shop
+```
+
+This creates `shop/seeders/order.seeder.ts` exporting `OrderSeeder`, and a companion test that
+fails until replaced. The seeder starts as a no-op: implement idempotent inserts and test them.
+Import it in the app entry and export the `seeders` array; discovery is not automatic:
+
+```ts
+// Add to app.ts, alongside the app's existing database export.
+import { OrderSeeder } from './shop/seeders/order.seeder.ts';
+export const seeders = [OrderSeeder];
+```
+
+Then run `tsir db:seed --class OrderSeeder` after configuring the app's database. A seeder without
+an explicit module is still generated under `seeders/` for compatibility. Use `--order 10` to
+control ordering; duplicate orders are refused. `--reference` marks intentional reference data,
+and production additionally requires `--reference-data` at execution time.
+
 ### `tsir db:seed [--class A,B] [--all] [--reference-data]`
 
 Runs seeders exported from the application entry:
 
 ```ts
-// src/app.ts
+// app.ts
 export const seeders = [RolesSeeder, UsersSeeder];
 ```
 

@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/example-full-actions",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "An app exercising HTTP, SQS queues, and the event bus: the full action surface of Tsir.",
+  "scripts": {
+    "dev": "tsir dev",
+    "test": "bun test"
+  },
+  "dependencies": {
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/events": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/queue": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/validate": "workspace:*"
+  },
+  "devDependencies": {
+    "@tsir/console": "workspace:*",
+    "@tsir/testing": "workspace:*"
+  }
+}

@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { pendingTestFile } from './pending-test.ts';
+import { requireModule, scopedName, splitAppModule } from './naming.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
@@ -126,7 +127,7 @@ interface PartSpec {
 
 const SPECS: Record<'service' | 'middleware' | 'guard', PartSpec> = {
   service: {
-    usage: 'tsir make:service <Name>',
+    usage: 'tsir make:service <name> [module]',
     suffix: 'Service',
     dir: 'services',
     ext: 'service',
@@ -135,7 +136,7 @@ const SPECS: Record<'service' | 'middleware' | 'guard', PartSpec> = {
       `register it: classProvider(${base}Token, ${base}Service, [clockToken]) in your module's providers`,
   },
   middleware: {
-    usage: 'tsir make:middleware <Name>',
+    usage: 'tsir make:middleware <name> [module]',
     suffix: 'Middleware',
     dir: 'middleware',
     ext: 'middleware',
@@ -144,7 +145,7 @@ const SPECS: Record<'service' | 'middleware' | 'guard', PartSpec> = {
       `call create${base}Middleware({ log }) and pass the result to the app's middleware list`,
   },
   guard: {
-    usage: 'tsir make:guard <Name>',
+    usage: 'tsir make:guard <name> [module]',
     suffix: 'Guard',
     dir: 'guards',
     ext: 'guard',
@@ -159,19 +160,32 @@ export function makePartCommand(kind: keyof typeof SPECS) {
     const args = parseArgs(argv, {
       '--force': { type: 'boolean', description: 'overwrite an existing file' },
       '--dry-run': { type: 'boolean', description: 'print the file that would be written' },
-      '--dir': { type: 'string', description: `directory under src/ (default ${spec.dir})` },
+      '--dir': { type: 'string', description: `directory under the app root (default ${spec.dir})` },
     });
     const input = args.positionals[0];
-    if (input === undefined)
-      throw new UsageError(spec.usage, `e.g. ${spec.usage.replace('<Name>', 'Audit')}`);
+    if (input === undefined || args.positionals.length > 2)
+      throw new UsageError(
+        spec.usage,
+        `e.g. ${spec.usage.replace('<name> [module]', 'audit shop')}`,
+      );
 
-    const base = baseName(input, spec.suffix);
-    const stem = toKebab(base);
+    const raw = input.endsWith(spec.suffix) ? input.slice(0, -spec.suffix.length) : input;
+    const { pascal: base, stem } = scopedName(raw, kind);
     const dir = stringFlag(args, '--dir') ?? spec.dir;
     if (!/^[a-z][a-z0-9/-]*$/.test(dir) || dir.includes('..')) {
-      throw new UsageError(`"${dir}" is not a valid directory`, 'use a relative path under src/');
+      throw new UsageError(`"${dir}" is not a valid directory`, 'use a relative path under the app root');
     }
-    const path = join(process.cwd(), 'src', dir, `${stem}.${spec.ext}.ts`);
+    const moduleInput = args.positionals[1];
+    if (moduleInput !== undefined && stringFlag(args, '--dir') !== undefined)
+      throw new UsageError('cannot combine a module with --dir');
+    let moduleDir: string | undefined;
+    if (moduleInput !== undefined) {
+      const { app, module: moduleArg } = splitAppModule(moduleInput);
+      if (app !== undefined) process.chdir(app);
+      moduleDir = requireModule(moduleArg).dir;
+    }
+    const target = moduleDir === undefined ? join(process.cwd(), dir) : join(moduleDir, dir);
+    const path = join(target, `${stem}.${spec.ext}.ts`);
     const generated: GeneratedFile[] = [{ path, contents: spec.render(base) }];
     // CLI-015: every generated part ships with a test that is red until it is implemented.
     const primary = generated[0];

@@ -94,7 +94,7 @@ function runtimeDependencyCounts(): { root: number; scoped: number } {
  * size of a failing suite is worse than no badge at all.
  */
 function passingTests(): number | undefined {
-  const result = spawnSync('bun', ['test'], {
+  const result = spawnSync(process.execPath, ['test'], {
     cwd: ROOT,
     encoding: 'utf8',
     env: { ...process.env, FORCE_COLOR: '0' },

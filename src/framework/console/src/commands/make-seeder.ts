@@ -1,5 +1,5 @@
 /**
- * `tsir make:seeder <Name> [--order n] [--reference]` (CLI-012).
+ * `tsir make:seeder <name> [module] [--order n] [--reference]` (CLI-012).
  *
  * The output is one `defineSeeder({...})` file. The contract it fills in is SED-001: a name, an
  * order, a promise that it is idempotent, and the environments it belongs to. The name is what
@@ -12,6 +12,7 @@ import { join } from 'node:path';
 import { parseArgs, stringFlag, boolFlag } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { pendingTestFile } from './pending-test.ts';
+import { requireModule, scopedName, splitAppModule } from './naming.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
 
 const IDENTIFIER = /^[A-Za-z][A-Za-z0-9]*$/;
@@ -67,6 +68,12 @@ export const ${className} = defineSeeder({
 }
 
 export async function makeSeederCommand(argv: readonly string[]): Promise<number> {
+  if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
+    info(
+      'usage: tsir make:seeder <name> [module] [--order n] [--reference] [--dry-run] [--force]\n\nExample: tsir make:seeder order shop. Import it and export it in the app entry seeders array.',
+    );
+    return EXIT.ok;
+  }
   const args = parseArgs(argv, {
     '--order': { type: 'string', description: 'run order (default 100)' },
     '--reference': { type: 'boolean', description: 'reference data, legitimate in production' },
@@ -74,17 +81,31 @@ export async function makeSeederCommand(argv: readonly string[]): Promise<number
     '--dry-run': { type: 'boolean', description: 'print what would be written' },
   });
   const input = args.positionals[0];
-  if (input === undefined) {
-    throw new UsageError('make:seeder needs a name', 'e.g. `tsir make:seeder Users`');
+  if (input === undefined || args.positionals.length > 2) {
+    throw new UsageError('make:seeder needs a name', 'e.g. `tsir make:seeder order shop`');
   }
 
-  const { className, stem } = seederNames(input);
+  const moduleInput = args.positionals[1];
+  const raw = input.endsWith('Seeder') ? input.slice(0, -6) : input;
+  const { className, stem: legacyStem } = seederNames(
+    moduleInput === undefined ? input : scopedName(raw, 'seeder').pascal,
+  );
+  const stem = moduleInput === undefined ? legacyStem : scopedName(raw, 'seeder').stem;
   const orderText = stringFlag(args, '--order') ?? '100';
   if (!ORDER.test(orderText)) {
     throw new UsageError(`--order must be a non-negative integer, got "${orderText}"`);
   }
 
-  const path = join(process.cwd(), 'src', 'seeders', `${stem}.seeder.ts`);
+  let moduleDir: string | undefined;
+  if (moduleInput !== undefined) {
+    const { app, module: moduleArg } = splitAppModule(moduleInput);
+    if (app !== undefined) process.chdir(app);
+    moduleDir = requireModule(moduleArg).dir;
+  }
+  const path = join(
+    moduleDir === undefined ? join(process.cwd(), 'seeders') : join(moduleDir, 'seeders'),
+    `${stem}.seeder.ts`,
+  );
   const generated: GeneratedFile[] = [
     {
       path,

@@ -13,7 +13,7 @@
 import type { RouteEntry, RouteParams } from '@tsir/router';
 import { type AnyStandardSchema, validate, type ValidationIssue } from '@tsir/validate';
 
-import { readJsonBody, readWithin, type BodyLimits } from './body.ts';
+import { readJsonBody, readWithin, streamBody, type BodyLimits } from './body.ts';
 import type { MultipartResult } from './multipart.ts';
 
 export interface BoundRequest {
@@ -157,7 +157,14 @@ export async function bindRequest(
     return { kind: 'validation', field: 'headers', issues: boundHeaders.issues };
 
   let body: unknown;
-  if (meta.body === undefined) {
+  if (meta.stream === true) {
+    // Streaming body: hand the handler a size-limited stream instead of
+    // buffering or parsing. No content-type restriction and no body schema —
+    // the handler owns the bytes.
+    const stream = streamBody(request, limits.maxBytes);
+    if (stream.kind === 'too-large') return { kind: 'too-large', bytes: stream.bytes };
+    body = stream.stream;
+  } else if (meta.body === undefined) {
     // No body schema: still consume the body under the same cap. An unread body
     // is not a free body — it is an unauthenticated allocation, and trusting
     // `content-length` here would let a chunked request bypass the limit.

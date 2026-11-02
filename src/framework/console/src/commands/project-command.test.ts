@@ -68,7 +68,7 @@ describe('make:command (CLI-019)', () => {
 
   test('tsir make:command Ping scaffolds a command that names the next step', async () => {
     expect(await makeCommandCommand(['Ping'])).toBe(EXIT.ok);
-    const file = readFileSync(join(root, 'src', 'commands', 'ping.command.ts'), 'utf8');
+    const file = readFileSync(join(root, 'console', 'ping.command.ts'), 'utf8');
     expect(file).toBe(commandTemplate('ping'));
     expect(file).toContain("name: 'ping'");
     expect(file).toContain('bun ract ping');
