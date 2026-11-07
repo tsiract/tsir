@@ -145,3 +145,6 @@ export {
 } from './config.ts';
 
 export type { NotifyErrorCode } from './errors.ts';
+
+export { createNotifyBootstrap } from './bootstrap.ts';
+export type { NotifyBootstrap, NotifyBootstrapOptions } from './bootstrap.ts';

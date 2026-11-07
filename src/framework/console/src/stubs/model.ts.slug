@@ -1,0 +1,9 @@
+import { {{tableFunction}} as _table, text as _text } from 'drizzle-orm/{{core}}';
+
+// Define columns for your application. Creating a schema does not create a database table.
+export const {{camel}} = _table('{{table}}', {
+  id: _text('id').primaryKey(),
+});
+
+export type {{pascal}} = typeof {{camel}}.$inferSelect;
+export type New{{pascal}} = typeof {{camel}}.$inferInsert;

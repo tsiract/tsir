@@ -28,6 +28,12 @@ export const connectionConfigSchema = z
     /** Explicit always. Never sniffed from the environment (ADR-0016). */
     driver: z.enum(DATABASE_ENGINES).default('d1'),
 
+    /** D1 only: the binding name injected by the Cloudflare runtime into `env`. */
+    binding: z.string().min(1).optional(),
+
+    /** Postgres only: the connection URL. */
+    url: z.string().min(1).optional(),
+
     logging: z.enum(['off', 'slow', 'all']).default('slow'),
     slowQueryMs: z.number().int().positive().max(60_000).default(200),
 
@@ -50,6 +56,10 @@ export const connectionConfigSchema = z
   .refine(
     (value) => value.driver !== 'd1' || value.pool === undefined,
     'database.connections.<name>.pool is a Postgres setting and has no effect on D1 — remove it or switch driver to "postgres"',
+  )
+  .refine(
+    (value) => value.driver !== 'd1' || value.url === undefined,
+    'database.connections.<name>.url is a Postgres setting and has no effect on D1 — remove it or switch driver to "postgres"',
   );
 
 export type ConnectionConfig = z.infer<typeof connectionConfigSchema>;

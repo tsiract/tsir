@@ -16,6 +16,10 @@ exact = true
 [test]
 # Only authored tests belong to the workspace suite; dist includes runnable example copies.
 root = "./src"
+# Playwright e2e specs are run via `bun run e2e` in the admin app, not the
+# workspace unit suite — they import `@playwright/test` which Bun's runner
+# cannot execute.
+pathIgnorePatterns = ["**/e2e/**"]
 # Refuses unit-test network calls to hosts other than loopback (TST-008).
 preload = ["./src/tools/test-preload.ts"]
 # Coverage gates are enforced per package by CI (TST-007).

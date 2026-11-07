@@ -181,7 +181,7 @@ class AppImpl<TConfig> implements App<TConfig> {
       ...(this.#env === undefined ? {} : { env: this.#env }),
       ...(baseDefaults === undefined ? {} : { baseDefaults }),
     });
-    return loaded.values as InferConfig<ConfigSpec>;
+    return loaded.values;
   }
 
   shutdown(reason: ShutdownReason): Promise<void> {

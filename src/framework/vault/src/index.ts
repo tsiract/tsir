@@ -93,3 +93,6 @@ export {
 export type { Envelope, SplitPayload, VaultAlg } from './envelope.ts';
 
 export type { VaultErrorCode } from './errors.ts';
+
+export { createVaultBootstrap } from './bootstrap.ts';
+export type { VaultBootstrap, VaultBootstrapOptions, VaultConfig } from './bootstrap.ts';

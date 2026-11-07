@@ -111,3 +111,6 @@ export type {
 
 /** The synchronous digest a pseudonymised field uses; exported for a test that asserts the vectors. */
 export { sha256Hex, sha256Text } from './hash.ts';
+
+export { createPulseBootstrap } from './bootstrap.ts';
+export type { PulseBootstrap, PulseBootstrapOptions } from './bootstrap.ts';

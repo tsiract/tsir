@@ -1,5 +1,23 @@
 {
+  "cashier": [
+    "BillingProvider",
+    "CashierBootstrap",
+    "CashierBootstrapOptions",
+    "CheckoutSession",
+    "Coupon",
+    "Customer",
+    "Invoice",
+    "PaymentMethod",
+    "StripeProviderOptions",
+    "Subscription",
+    "TaxRate",
+    "WebhookEvent",
+    "constructWebhookEvent",
+    "createCashierBootstrap",
+    "stripeProvider"
+  ],
   "database": [
+    "BindingsSource",
     "CloseOptions",
     "CodedColumn",
     "CodedColumns",
@@ -17,6 +35,8 @@
     "D1_CAPABILITIES",
     "DATABASE_ENGINES",
     "Database",
+    "DatabaseBootstrap",
+    "DatabaseBootstrapOptions",
     "DatabaseConfig",
     "DatabaseEngine",
     "DatabaseErrorCode",
@@ -38,6 +58,7 @@
     "RetryOptions",
     "RotationStoreOptions",
     "RowFormat",
+    "RuntimeBindings",
     "TransactionLogEvent",
     "TransactionOptions",
     "advisoryLockKey",
@@ -47,10 +68,13 @@
     "connectionConfigSchema",
     "connectionNames",
     "createConnections",
+    "createConnectionsFromConfig",
     "createD1Driver",
     "createDatabase",
+    "createDatabaseBootstrap",
     "createDrizzle",
     "createRotationStore",
+    "createSqliteBinding",
     "databaseConfigSchema",
     "declare",
     "defineCodedColumns",
@@ -80,9 +104,7 @@
     "postgresCapabilities",
     "resolvePool"
   ],
-  "database:postgres/drizzle": [
-    "createPgDrizzle"
-  ],
+  "database:postgres/drizzle": ["createPgDrizzle"],
   "notify": [
     "BUILT_IN_CHANNELS",
     "BuildChannelsOptions",
@@ -124,6 +146,8 @@
     "NotificationReport",
     "Notifications",
     "Notifier",
+    "NotifyBootstrap",
+    "NotifyBootstrapOptions",
     "NotifyErrorCode",
     "NotifyQueue",
     "PreviewRecord",
@@ -145,6 +169,7 @@
     "createInboxStore",
     "createNotifications",
     "createNotifier",
+    "createNotifyBootstrap",
     "databaseChannel",
     "defineChannel",
     "defineNotification",
@@ -166,16 +191,8 @@
     "webhookBody",
     "webhookChannel"
   ],
-  "notify:memory": [
-    "MemoryChannel",
-    "MemoryChannelOptions",
-    "memoryChannel"
-  ],
-  "notify:conformance": [
-    "ChannelConformanceOptions",
-    "ConformanceCase",
-    "channelConformance"
-  ],
+  "notify:memory": ["MemoryChannel", "MemoryChannelOptions", "memoryChannel"],
+  "notify:conformance": ["ChannelConformanceOptions", "ConformanceCase", "channelConformance"],
   "validate": [
     "AnyStandardSchema",
     "InferOutput",
@@ -232,14 +249,18 @@
     "LockSqlStatement",
     "ParseCronOptions",
     "RunStatus",
+    "ScheduleBootstrap",
+    "ScheduleBootstrapOptions",
     "ScheduleErrorCode",
     "Scheduler",
     "TASK_DEFAULTS",
     "TaskContext",
     "TaskDefinition",
+    "TaskHooks",
     "TaskOutcome",
     "TaskRegistry",
     "TaskStatus",
+    "createScheduleBootstrap",
     "createScheduler",
     "createTaskRegistry",
     "databaseLock",
@@ -251,13 +272,10 @@
     "nextRuns",
     "parseCron",
     "scheduleLockDdl",
+    "timezoneOffsetAt",
     "toUtcCron"
   ],
-  "schedule:conformance": [
-    "ConformanceCase",
-    "LockConformanceOptions",
-    "lockConformance"
-  ],
+  "schedule:conformance": ["ConformanceCase", "LockConformanceOptions", "lockConformance"],
   "seed": [
     "Fixture",
     "FixtureContext",
@@ -335,11 +353,14 @@
     "Cache",
     "CacheBackend",
     "CacheBindings",
+    "CacheBootstrap",
+    "CacheBootstrapOptions",
     "CacheCapabilities",
     "CacheDriver",
     "CacheDriverName",
     "CacheEntryOptions",
     "CacheErrorCode",
+    "CacheLock",
     "Caches",
     "CachesOptions",
     "Codec",
@@ -358,6 +379,7 @@
     "checkRequirements",
     "conformanceCases",
     "createCache",
+    "createCacheBootstrap",
     "createCaches",
     "defineStore",
     "driverFor",
@@ -371,16 +393,8 @@
     "memoryCapabilities",
     "memoryDriver"
   ],
-  "cache:null": [
-    "NULL_CAPABILITIES",
-    "nullCapabilities",
-    "nullDriver"
-  ],
-  "cache:conformance": [
-    "ConformanceCase",
-    "ConformanceOptions",
-    "conformanceCases"
-  ],
+  "cache:null": ["NULL_CAPABILITIES", "nullCapabilities", "nullDriver"],
+  "cache:conformance": ["ConformanceCase", "ConformanceOptions", "conformanceCases"],
   "cache:database": [
     "CacheSql",
     "CacheSqlResult",
@@ -406,6 +420,21 @@
     "RedisPipeline",
     "redisCapabilities",
     "redisDriver"
+  ],
+  "pennant": [
+    "FeatureContext",
+    "FeatureDefinition",
+    "FeatureManager",
+    "FeatureRule",
+    "FeatureStore",
+    "PennantBootstrap",
+    "PennantBootstrapOptions",
+    "createFeatureManager",
+    "createPennantBootstrap",
+    "databaseStore",
+    "evaluate",
+    "memoryStore",
+    "nullStore"
   ],
   "config": [
     "AppendList",
@@ -546,10 +575,7 @@
     "memoryApiKeyStore",
     "memorySessionStore"
   ],
-  "auth:bun": [
-    "BunArgon2Options",
-    "bunArgon2Hasher"
-  ],
+  "auth:bun": ["BunArgon2Options", "bunArgon2Hasher"],
   "mail": [
     "AddressInput",
     "Attachment",
@@ -567,6 +593,8 @@
     "LogTransportOptions",
     "MAIL_DRIVERS",
     "MailAddress",
+    "MailBootstrap",
+    "MailBootstrapOptions",
     "MailDriverName",
     "MailErrorCode",
     "MailMessage",
@@ -591,6 +619,7 @@
     "assertDelivers",
     "buildMime",
     "cloudflareTransport",
+    "createMailBootstrap",
     "createMailer",
     "createMailers",
     "createMessage",
@@ -621,11 +650,7 @@
     "transportFromConfig",
     "withSender"
   ],
-  "mail:memory": [
-    "MemoryTransport",
-    "MemoryTransportOptions",
-    "memoryTransport"
-  ],
+  "mail:memory": ["MemoryTransport", "MemoryTransportOptions", "memoryTransport"],
   "mail:smtp": [
     "SmtpConnection",
     "SmtpConnector",
@@ -635,11 +660,7 @@
     "parseCapabilities",
     "smtpTransport"
   ],
-  "mail:conformance": [
-    "ConformanceCase",
-    "MailConformanceOptions",
-    "mailConformance"
-  ],
+  "mail:conformance": ["ConformanceCase", "MailConformanceOptions", "mailConformance"],
   "deploy": [
     "BindingKind",
     "BindingRef",
@@ -813,6 +834,8 @@
     "MetricsWarning",
     "OMITTED",
     "PiiPolicy",
+    "PulseBootstrap",
+    "PulseBootstrapOptions",
     "PulseErrorCode",
     "REDACTED",
     "REDACTION_ERROR",
@@ -846,6 +869,7 @@
     "createHealth",
     "createLogger",
     "createMetrics",
+    "createPulseBootstrap",
     "createRateLimiter",
     "createRedactor",
     "createSampler",
@@ -869,6 +893,26 @@
     "stdoutSink",
     "summarize"
   ],
+  "scout": [
+    "ScoutBootstrap",
+    "ScoutBootstrapOptions",
+    "SearchDocument",
+    "SearchEngine",
+    "SearchResult",
+    "createScoutBootstrap",
+    "memoryEngine",
+    "postgresEngine",
+    "sqliteEngine"
+  ],
+  "nightwatch": [
+    "BrowserBackend",
+    "NightwatchBootstrap",
+    "NightwatchBootstrapOptions",
+    "Page",
+    "createNightwatchBootstrap",
+    "inMemoryBackend",
+    "playwrightBackend"
+  ],
   "storage": [
     "AwsCredentials",
     "BuildDisksOptions",
@@ -890,15 +934,19 @@
     "STORAGE_DRIVERS",
     "SignRequestInput",
     "SigningContext",
+    "StorageBootstrap",
+    "StorageBootstrapOptions",
     "StorageDriver",
     "StorageDriverName",
     "StorageErrorCode",
     "StoredBody",
     "StoredObject",
+    "Visibility",
     "assertDurable",
     "assertKey",
     "createDisk",
     "createDisks",
+    "createStorageBootstrap",
     "defineDisk",
     "disksFromConfig",
     "driverFromConfig",
@@ -910,22 +958,10 @@
     "text",
     "utf8"
   ],
-  "storage:memory": [
-    "memoryDriver"
-  ],
-  "storage:local": [
-    "LocalDriverOptions",
-    "localDriver"
-  ],
-  "storage:s3": [
-    "S3DriverOptions",
-    "s3Driver"
-  ],
-  "storage:conformance": [
-    "ConformanceCase",
-    "DiskConformanceOptions",
-    "diskConformance"
-  ],
+  "storage:memory": ["memoryDriver"],
+  "storage:local": ["LocalDriverOptions", "localDriver"],
+  "storage:s3": ["S3DriverOptions", "s3Driver"],
+  "storage:conformance": ["ConformanceCase", "DiskConformanceOptions", "diskConformance"],
   "testing": [
     "CreateTestAppOptions",
     "ExpectedProblem",
@@ -1279,11 +1315,7 @@
     "searchParamsToObject",
     "statusOf"
   ],
-  "http:bun": [
-    "BunServeOptions",
-    "BunServer",
-    "serve"
-  ],
+  "http:bun": ["BunServeOptions", "BunServer", "serve"],
   "http:openapi": [
     "JsonSchema",
     "OpenApiDocument",
@@ -1300,11 +1332,29 @@
     "createOpenApiDocument",
     "openApiPath"
   ],
-  "http:multipart": [
-    "MultipartLimits",
-    "MultipartResult",
-    "readMultipart",
-    "sniffMimeType"
+  "http:multipart": ["MultipartLimits", "MultipartResult", "readMultipart", "sniffMimeType"],
+  "forge": [
+    "DatabaseEngine",
+    "DatabaseSpec",
+    "DeployRecipe",
+    "DeployStep",
+    "ForgeBootstrap",
+    "ForgeBootstrapOptions",
+    "Server",
+    "ServerProvider",
+    "SiteConfig",
+    "SshProviderOptions",
+    "SslSpec",
+    "createDatabase",
+    "createForgeBootstrap",
+    "createSite",
+    "deleteDatabase",
+    "deleteSite",
+    "deploy",
+    "localProvider",
+    "obtainSslCertificate",
+    "revokeSslCertificate",
+    "sshProvider"
   ],
   "queue": [
     "BackoffOptions",
@@ -1325,6 +1375,8 @@
     "Queue",
     "QueueBackend",
     "QueueBindings",
+    "QueueBootstrap",
+    "QueueBootstrapOptions",
     "QueueCapabilities",
     "QueueDriver",
     "QueueErrorCode",
@@ -1339,6 +1391,7 @@
     "WorkerOptions",
     "createJobRegistry",
     "createQueue",
+    "createQueueBootstrap",
     "createQueues",
     "createWorker",
     "defineJob",
@@ -1393,10 +1446,21 @@
     "sqsClientOf",
     "sqsDriver"
   ],
-  "queue:conformance": [
-    "ConformanceCase",
-    "ConformanceOptions",
-    "conformanceCases"
+  "queue:conformance": ["ConformanceCase", "ConformanceOptions", "conformanceCases"],
+  "telemetry": [
+    "JobCounts",
+    "JobState",
+    "QueueJobRow",
+    "RequestLog",
+    "RequestLogEntry",
+    "TelemetryBootstrap",
+    "TelemetryBootstrapOptions",
+    "createQueueMonitor",
+    "createRequestLogger",
+    "createTelemetryBootstrap",
+    "queueDead",
+    "queueJobs",
+    "requestLogs"
   ],
   "events": [
     "BatchStatement",
@@ -1409,6 +1473,8 @@
     "EventDefinition",
     "EventMode",
     "Events",
+    "EventsBootstrap",
+    "EventsBootstrapOptions",
     "EventsErrorCode",
     "EventsQueue",
     "ListenerDefinition",
@@ -1417,6 +1483,7 @@
     "OutboxOptions",
     "Publisher",
     "createEvents",
+    "createEventsBootstrap",
     "createOutbox",
     "createPublisher",
     "defineEvent",
@@ -1424,6 +1491,53 @@
     "deliveryJobName",
     "deliveryMessage",
     "modeOf"
+  ],
+  "socialize": [
+    "GitHubProviderConfig",
+    "GoogleProviderConfig",
+    "ProviderConfig",
+    "SocialUser",
+    "Socialize",
+    "SocializeBootstrap",
+    "SocializeBootstrapOptions",
+    "SocializeConfig",
+    "SocializeProvider",
+    "StateStore",
+    "TokenResponse",
+    "createSocializeBootstrap",
+    "generateState",
+    "githubProvider",
+    "googleProvider",
+    "socialize",
+    "verifyState"
+  ],
+  "socialize:google": ["GoogleProviderConfig", "googleProvider"],
+  "socialize:github": ["GitHubProviderConfig", "githubProvider"],
+  "broadcast": [
+    "AuthorizeResult",
+    "BroadcastBootstrap",
+    "BroadcastBootstrapOptions",
+    "BroadcastMessage",
+    "Broadcaster",
+    "ChannelSubscriber",
+    "EchoChannel",
+    "EchoOptions",
+    "EchoPresenceChannel",
+    "EchoPrivateChannel",
+    "PresenceMember",
+    "PusherBroadcasterOptions",
+    "PusherLike",
+    "RedisBroadcasterOptions",
+    "RedisPubSubClient",
+    "WebSocketConnection",
+    "WebSocketPrincipal",
+    "WebSocketServerOptions",
+    "createBroadcastBootstrap",
+    "createEcho",
+    "createWebSocketHandler",
+    "memoryBroadcaster",
+    "pusherBroadcaster",
+    "redisBroadcaster"
   ],
   "policy": [
     "AuthorizeInput",
@@ -1433,6 +1547,8 @@
     "HttpPolicy",
     "PERMISSION_PATTERN",
     "PolicyAnswer",
+    "PolicyBootstrap",
+    "PolicyBootstrapOptions",
     "PolicyContext",
     "PolicyErrorCode",
     "PolicyMatrixRow",
@@ -1451,6 +1567,7 @@
     "allowGate",
     "assertPermission",
     "authorizeService",
+    "createPolicyBootstrap",
     "createRegistry",
     "createRoleGraph",
     "defineRole",
@@ -1503,9 +1620,12 @@
     "VAULT_ALGS",
     "Vault",
     "VaultAlg",
+    "VaultBootstrap",
+    "VaultBootstrapOptions",
     "VaultColumn",
     "VaultColumnCodec",
     "VaultColumnRef",
+    "VaultConfig",
     "VaultErrorCode",
     "VaultKeyProvider",
     "VaultKeyRequest",
@@ -1518,6 +1638,7 @@
     "createBlindIndex",
     "createKeyring",
     "createVault",
+    "createVaultBootstrap",
     "createVaultCodec",
     "decodeBase64Url",
     "encodeBase64Url",
@@ -1557,6 +1678,32 @@
     "runCli",
     "runProjectCommand"
   ],
+  "media": [
+    "CloudflareAdapterOptions",
+    "CloudinaryAdapterOptions",
+    "FfmpegAdapterOptions",
+    "ImageKitAdapterOptions",
+    "MediaAdapter",
+    "MediaBootstrap",
+    "MediaBootstrapOptions",
+    "MediaKind",
+    "MediaManager",
+    "ProcessOptions",
+    "ProcessResult",
+    "SharpAdapterOptions",
+    "cloudflareAdapter",
+    "cloudinaryAdapter",
+    "createMediaBootstrap",
+    "createMediaManager",
+    "ffmpegAdapter",
+    "imagekitAdapter",
+    "sharpAdapter"
+  ],
+  "media:sharp": ["SharpAdapterOptions", "sharpAdapter"],
+  "media:ffmpeg": ["FfmpegAdapterOptions", "ffmpegAdapter"],
+  "media:cloudflare": ["CloudflareAdapterOptions", "cloudflareAdapter"],
+  "media:cloudinary": ["CloudinaryAdapterOptions", "cloudinaryAdapter"],
+  "media:imagekit": ["ImageKitAdapterOptions", "imagekitAdapter"],
   "router": [
     "AwsListenerKind",
     "AwsListenerMeta",

@@ -46,10 +46,19 @@ export interface CronSpec {
   readonly daysOfWeek: readonly number[];
   /** The task asked for a fixed offset from UTC, in minutes. `480` is UTC+8. */
   readonly utcOffsetMinutes: number;
+  /**
+   * An IANA timezone (`America/New_York`), evaluated per tick so DST is honoured.
+   *
+   * When set it overrides `utcOffsetMinutes` for matching: the offset is recomputed at every
+   * instant via `Intl.DateTimeFormat`, so a `0 9 * * *` task in `Europe/London` fires at 09:00
+   * GMT in winter and 09:00 BST in summer — the wall clock the business reads, not a fixed shift.
+   */
+  readonly timezone?: string | undefined;
 }
 
 export interface ParseCronOptions {
   readonly utcOffsetMinutes?: number | undefined;
+  readonly timezone?: string | undefined;
   /** Where the expression came from, so a bad one in `tsir.js` names its field. */
   readonly origin?: string | undefined;
 }
@@ -187,6 +196,19 @@ export function parseCron(expression: string, options: ParseCronOptions = {}): C
     Limit,
   ];
 
+  const timezone = options.timezone;
+  if (timezone !== undefined) {
+    // Validate by constructing a formatter — an unknown zone throws `RangeError` here, at
+    // declaration time, rather than at the first tick when the only symptom is a task that
+    // never ran. `supportedValuesOf` is not available on every runtime, so the try/catch is
+    // the portable check.
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: timezone });
+    } catch {
+      throw invalidCron(expression, `timezone "${timezone}" is not a recognised IANA zone`, origin);
+    }
+  }
+
   const daysOfWeek = parseField(dowField, dowLimit, expression, origin).map((day) =>
     day === 7 ? 0 : day,
   );
@@ -211,6 +233,7 @@ export function parseCron(expression: string, options: ParseCronOptions = {}): C
     months: parseField(monthField, monthLimit, expression, origin),
     daysOfWeek,
     utcOffsetMinutes: options.utcOffsetMinutes ?? 0,
+    ...(timezone === undefined ? {} : { timezone }),
   };
 }
 
@@ -224,17 +247,121 @@ export function isValidCron(expression: string, options: ParseCronOptions = {}):
   }
 }
 
-/** The wall-clock parts of an instant, in the spec's own offset. */
-function wallClock(
-  spec: CronSpec,
-  at: number,
-): {
+/** The wall-clock parts of an instant. */
+interface WallClock {
   readonly minute: number;
   readonly hour: number;
   readonly dayOfMonth: number;
   readonly month: number;
   readonly dayOfWeek: number;
-} {
+}
+
+/**
+ * Formatters are cached per timezone: `nextRunAt` calls `wallClock` in a tight loop, and
+ * constructing an `Intl.DateTimeFormat` on every iteration would dominate the cost. A handful
+ * of zones per process is the realistic upper bound.
+ */
+const tzFormatters = new Map<string, Intl.DateTimeFormat>();
+
+function formatterFor(timezone: string): Intl.DateTimeFormat {
+  let formatter = tzFormatters.get(timezone);
+  if (formatter === undefined) {
+    formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: timezone,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+      weekday: 'short',
+      hour12: false,
+    });
+    tzFormatters.set(timezone, formatter);
+  }
+  return formatter;
+}
+
+/**
+ * The wall-clock parts of `at` in an IANA timezone, via `formatToParts`.
+ *
+ * `hour12: false` yields `0`–`23` on every runtime we target; the `24` guard is defence in
+ * depth against an ICU quirk where midnight has rendered as `24`.
+ */
+function wallClockInTimezone(timezone: string, at: number): WallClock {
+  const parts = formatterFor(timezone).formatToParts(new Date(at));
+  const value = (type: string): number => {
+    const part = parts.find((entry) => entry.type === type);
+    // coercion-ok: `formatToParts` emits numeric strings for these types; `Number` is the
+    // documented conversion and the fields are bounded by the calendar.
+    return part === undefined ? 0 : Number(part.value);
+  };
+  let hour = value('hour');
+  if (hour === 24) hour = 0;
+  // `weekday` is "Mon".."Sun"; map to 0..6 with Sunday = 0 to match `getUTCDay`.
+  const weekday = parts.find((entry) => entry.type === 'weekday')?.value ?? 'Sun';
+  const dayOfWeek = WEEKDAY_INDEX[weekday] ?? 0;
+  return {
+    minute: value('minute'),
+    hour,
+    dayOfMonth: value('day'),
+    month: value('month'),
+    dayOfWeek,
+  };
+}
+
+const WEEKDAY_INDEX: Readonly<Record<string, number>> = {
+  Sun: 0,
+  Mon: 1,
+  Tue: 2,
+  Wed: 3,
+  Thu: 4,
+  Fri: 5,
+  Sat: 6,
+};
+
+/**
+ * The offset of an IANA timezone at an instant, in minutes (local = UTC + offset).
+ *
+ * Reconstructed from the wall clock `formatToParts` reports, because `Intl` exposes the
+ * formatted local time but not the raw offset — and the difference between the reconstructed
+ * UTC instant and `at` *is* the offset.
+ */
+export function timezoneOffsetAt(timezone: string, at: number): number {
+  const parts = formatterFor(timezone).formatToParts(new Date(at));
+  const value = (type: string): number => {
+    const part = parts.find((entry) => entry.type === type);
+    // coercion-ok: numeric strings from `formatToParts`, calendar-bounded.
+    return part === undefined ? 0 : Number(part.value);
+  };
+  let hour = value('hour');
+  if (hour === 24) hour = 0;
+  const asUtc = Date.UTC(
+    value('year'),
+    value('month') - 1,
+    value('day'),
+    hour,
+    value('minute'),
+    value('second'),
+  );
+  return Math.round((asUtc - at) / MINUTE);
+}
+
+/**
+ * Whether an IANA timezone observes DST: the offset differs between a northern-hemisphere
+ * winter and summer instant. Zones near the equator (and `Etc/GMT*`) are fixed.
+ */
+function timezoneHasDst(timezone: string): boolean {
+  const winter = timezoneOffsetAt(timezone, Date.UTC(2026, 0, 1));
+  const summer = timezoneOffsetAt(timezone, Date.UTC(2026, 6, 1));
+  return winter !== summer;
+}
+
+/** The wall-clock parts of an instant, in the spec's own offset or timezone. */
+function wallClock(spec: CronSpec, at: number): WallClock {
+  if (spec.timezone !== undefined) {
+    return wallClockInTimezone(spec.timezone, at);
+  }
   // A fixed offset, so this is arithmetic rather than a calendar library: `utcOffsetMinutes`
   // shifts the instant and the UTC getters then read the local wall clock.
   const date = new Date(at + spec.utcOffsetMinutes * MINUTE);
@@ -340,10 +467,53 @@ export function nextRuns(spec: CronSpec, after: number, count = 3): readonly num
  * failure this function exists to prevent.
  */
 export function toUtcCron(spec: CronSpec): string {
+  // An IANA timezone with DST has no single UTC equivalent: the offset moves twice a year, so a
+  // fixed UTC cron would fire an hour off for half the year. Refuse rather than emit the wrong
+  // trigger — the scheduler still evaluates such tasks itself (`runDue`), which is the correct
+  // path for a DST-aware schedule. A fixed-offset zone (`Etc/GMT-8`, `Asia/Manila`) is converted
+  // just like `utcOffsetMinutes`.
+  if (spec.timezone !== undefined) {
+    if (timezoneHasDst(spec.timezone)) {
+      throw invalidCron(
+        spec.expression,
+        `timezone "${spec.timezone}" observes DST, so it cannot be expressed as a single UTC cron ` +
+          '— run the task through the scheduler (`schedule:work` / a `scheduled` handler) ' +
+          'instead of delegating the trigger to the platform',
+        undefined,
+      );
+    }
+    const offset = timezoneOffsetAt(spec.timezone, Date.UTC(2026, 0, 1));
+    return toUtcCronWithOffset(spec, offset);
+  }
+
   const offset = spec.utcOffsetMinutes;
   if (offset === 0) return spec.expression;
+  return toUtcCronWithOffset(spec, offset);
+}
 
-  // What the UTC wall clock adds to the local one: the offset is local = UTC + offset.
+/**
+ * Shift a five-field cron from a fixed local offset into UTC.
+ *
+ * Workers and EventBridge fire in UTC and take no offset, while a task may be declared in a
+ * business-local hour (`0 3 * * *` at offset 480 is 3 AM in Manila, 19:00 UTC). Emitting the
+ * declared expression unchanged is a fire eight hours early in production and on time in every
+ * test, so the shift happens here, once, where the graph can show it.
+ *
+ * The shift is only expressible when the calendar does not move under it:
+ *
+ *   · **a whole number of hours**, unless the cron matches every minute of every hour, where a
+ *     minute rotation is still "every minute" — a UTC+5:30 offset moves the minute field, and
+ *     a set of minutes cannot be rotated without also moving hours;
+ *   · **no wrap past midnight across a day rule.** `0 3 * * *` at UTC+8 is 19:00 UTC on the
+ *     previous day — and that is *fine*, because "19:00 UTC daily" is exactly "03:00 Manila
+ *     daily": the same instants, one label apart. It stops being fine the moment the cron names
+ *     a day (`0 3 1 * *` is the 1st in Manila and the last day of the previous month in UTC), so
+ *     that combination is refused rather than shifted onto the wrong day.
+ *
+ * Refused, not approximated: an expression the platform would fire at a different moment is the
+ * failure this function exists to prevent.
+ */
+function toUtcCronWithOffset(spec: CronSpec, offset: number): string {
   const minutes = -offset;
   const hourShift = Math.floor(minutes / 60);
   const minuteShift = minutes - hourShift * 60;

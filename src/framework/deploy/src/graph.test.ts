@@ -649,7 +649,9 @@ describe('internal publish and invoke validation (DPL-030)', () => {
   test('a publish to a declared topic passes; an undeclared topic fails', () => {
     const { problems } = buildGraph(input);
     const publishProblems = problems.filter((p) => p.code === 'DPL_PUBLISH_UNKNOWN');
-    expect(publishProblems.map((p) => p.message)).toContain('no @OnSns listener for topic "ghost-topic"');
+    expect(publishProblems.map((p) => p.message)).toContain(
+      'no @OnSns listener for topic "ghost-topic"',
+    );
     // 'orders' is declared, so it must not appear.
     expect(publishProblems.map((p) => p.message)).not.toContain('"orders"');
   });

@@ -210,9 +210,7 @@ async function buildPackage(
   // distribution. Packages without an explicit exports map fall back to the
   // file-tree-derived map.
   const exportMap =
-    manifest.exports !== undefined
-      ? rewriteExports(manifest.exports)
-      : exportsMap(files, target);
+    manifest.exports !== undefined ? rewriteExports(manifest.exports) : exportsMap(files, target);
   // Source package bin paths point under src/ at TypeScript. Distribution flattens
   // src/ and emits JavaScript, so preserve a runnable CLI rather than a dangling link.
   const bin =
@@ -307,12 +305,12 @@ async function bakeFrontpage(): Promise<number> {
     }
     return value;
   });
-  const target = join(DIST, 'frontpage', 'index.html');
+  const target = join(DIST, 'apps', 'frontpage', 'index.html');
   await mkdir(dirname(target), { recursive: true });
   await writeFile(target, baked);
   if ((await buildDocs()) !== 0)
     throw new Error('Cannot distribute a frontpage with broken documentation links.');
-  await cp(join(ROOT, 'build', 'docs-site'), join(DIST, 'frontpage', 'docs'), {
+  await cp(join(ROOT, 'build', 'docs-site'), join(DIST, 'apps', 'frontpage', 'docs'), {
     recursive: true,
   });
   return new TextEncoder().encode(baked).byteLength;
@@ -372,35 +370,39 @@ async function main(): Promise<void> {
 
   const frontpageBytes = WITH_FRONTPAGE ? await bakeFrontpage() : 0;
 
-  // Ship the actual applications, including the HTTP example's owned modules.
-  // They are runnable TypeScript examples, not published framework packages.
+  // Ship the actual applications. They are runnable TypeScript examples, not
+  // published framework packages.
   const apps = join(DIST, 'apps');
-  for (const name of ['minimal', 'http', 'todo-app-example.com', 'full-actions-example.com']) {
-    await cp(join(ROOT, 'src', 'apps', 'examples', name), join(apps, name), {
+  for (const name of ['admin.product.com']) {
+    await cp(join(ROOT, 'src', 'apps', name), join(apps, name), {
       recursive: true,
       filter: (path) =>
-        !['node_modules', '.tsir', 'dist', 'coverage', '.env'].includes(basename(path)),
+        !['node_modules', '.tsir', 'dist', 'coverage', '.env', '.build'].includes(basename(path)),
     });
     await writeFile(
       join(apps, name, 'README.md'),
       `# ${name} example
 
+A complete admin panel application demonstrating authentication, RBAC, i18n, email,
+and a Svelte 5 SPA frontend.
+
+Requirements: Postgres (set \`DATABASE_URL\`).
+
 Run from this directory after installing the distribution dependencies:
 
-    ../../tsir test
-    ../../tsir dev
-${name === 'minimal' ? '' : '    ../../tsir route:list\n'}
-${name === 'minimal' ? 'This is a lifecycle-only app: it does not export an HTTP handler.' : ''}
-${name === 'http' ? 'This app exports an HTTP handler and contains users and media modules (each with http/ and models/ subdirectories).' : ''}
-${name === 'todo-app-example.com' ? 'A drag-and-drop todo app with a Svelte 5 frontend. Run `bun run build:client.ts` to compile the frontend, then `../../tsir dev`.' : ''}
-${name === 'full-actions-example.com' ? 'An app exercising HTTP, SQS queues, and the event bus. The orders module owns a controller, a job, an event, and a listener.' : ''}
+    bun run ../../framework/console/src/cli.ts migrate
+    bun run ../../framework/console/src/cli.ts dev
+
+The frontend is prebuilt in \`public/\`. Rebuild it with \`bun run client/build.ts\`.
 The distribution is generated. Copy an example elsewhere before making changes: rebuilding it removes dist/.
 `,
     );
   }
   if (WITH_FRONTPAGE) {
-    await cp(join(DIST, 'frontpage'), join(DIST, 'src', 'frontpage'), { recursive: true });
-    await cp(join(DIST, 'frontpage', 'docs'), join(DIST, 'src', 'docs'), { recursive: true });
+    await cp(join(DIST, 'apps', 'frontpage'), join(DIST, 'src', 'frontpage'), { recursive: true });
+    await cp(join(DIST, 'apps', 'frontpage', 'docs'), join(DIST, 'src', 'docs'), {
+      recursive: true,
+    });
     // The standalone docs copy is a sibling of frontpage, not nested under it.
     // Rewrite only links back to the site home, preserving all docs-relative links.
     const docsRoot = join(DIST, 'src', 'docs');
@@ -485,17 +487,12 @@ This generated directory is rebuilt by \`make dist\`. Do not keep your own work 
 ├── tsir                         # command; ./tsir --help
 ├── bin/tsir                     # add bin/ to PATH
 ├── apps/
-│   ├── http/                    # runnable HTTP app
-│   │   ├── users/               # module with http/ and models/ subdirectories
-│   │   └── media/
-│   ├── minimal/                 # lifecycle-only app
-│   ├── todo-app-example.com/    # Svelte 5 drag-and-drop todo app
-│   └── full-actions-example.com/# HTTP + SQS queues + event bus
-├── src/
 │   ├── frontpage/               # static welcome page and docs/
+│   └── admin.product.com/       # admin panel app (auth, RBAC, i18n, mail, Svelte SPA)
+├── src/
+│   ├── frontpage/               # compatibility copy of the static site
 │   └── docs/                    # static documentation
 ├── framework/<package>/         # emitted @tsir packages, not application modules
-├── frontpage/                   # compatibility copy of the static site
 ├── package.json  bun.lock       # distribution workspace
 └── manifest.json  README.md  LICENSE
 \`\`\`
@@ -509,8 +506,8 @@ or create missing modules. See \`src/docs/guides/controllers.html\` for registra
 
 A repository build installs the distribution dependencies automatically. After extracting a release
 archive, run \`bun install --ignore-scripts\` here (the archive does not contain node_modules).
-Run \`./tsir --help\`, or from the distribution root run \`./tsir route:list --app apps/http\`,
-\`./tsir test --app apps/http\`, and \`./tsir dev --app apps/http\` (\`--app\` / \`-C\` runs
+Run \`./tsir --help\`, or from the distribution root run \`./tsir route:list --app apps/admin.product.com\`,
+\`./tsir test --app apps/admin.product.com\`, and \`./tsir dev --app apps/admin.product.com\` (\`--app\` / \`-C\` runs
 any project-bound command from outside its directory). To create your own app, work outside this
 directory and use \`/path/to/distribution/tsir new my-app\`; do not create it under dist/.
 Packages are pre-alpha and not published; generated apps refer to this distribution's workspace.

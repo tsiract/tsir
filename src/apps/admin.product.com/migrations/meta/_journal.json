@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "0000",
+      "when": 1730000000000,
+      "tag": "0000_init",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "0001",
+      "when": 1730000001000,
+      "tag": "0001_request_logs",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "0002",
+      "when": 1730000002000,
+      "tag": "0002_queue_tables",
+      "breakpoints": true
+    }
+  ]
+}

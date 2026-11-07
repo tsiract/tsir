@@ -229,3 +229,45 @@ describe('toUtcCron (§ 4.6, deploy)', () => {
     expect(utc('15 * * * *', 480)).toBe('15 * * * *');
   });
 });
+
+describe('timezone (IANA)', () => {
+  test('an unknown timezone is refused at parse time', () => {
+    expect(() => parseCron('0 9 * * *', { timezone: 'Not/AZone' })).toThrow(
+      /not a recognised IANA zone/u,
+    );
+  });
+
+  test('a fixed-offset IANA zone matches like the equivalent utcOffsetMinutes', () => {
+    // Asia/Manila is UTC+8 year-round; 09:00 Manila = 01:00 UTC.
+    const spec = parseCron('0 9 * * *', { timezone: 'Asia/Manila' });
+    expect(matchesCron(spec, Date.UTC(2026, 0, 1, 1, 0))).toBe(true);
+    expect(matchesCron(spec, Date.UTC(2026, 0, 1, 9, 0))).toBe(false);
+  });
+
+  test('a DST zone honours the wall clock in both winter and summer', () => {
+    // Europe/London: GMT (UTC+0) in winter, BST (UTC+1) in summer.
+    // 09:00 London = 09:00 UTC in January, 08:00 UTC in July.
+    const spec = parseCron('0 9 * * *', { timezone: 'Europe/London' });
+    expect(matchesCron(spec, Date.UTC(2026, 0, 1, 9, 0))).toBe(true);
+    expect(matchesCron(spec, Date.UTC(2026, 0, 1, 8, 0))).toBe(false);
+    expect(matchesCron(spec, Date.UTC(2026, 6, 1, 8, 0))).toBe(true);
+    expect(matchesCron(spec, Date.UTC(2026, 6, 1, 9, 0))).toBe(false);
+  });
+
+  test('nextRunAt in a DST zone lands on the local wall clock', () => {
+    const spec = parseCron('0 9 * * *', { timezone: 'Europe/London' });
+    // After 2026-03-29 00:00 UTC (BST starts 2026-03-29 01:00 UTC), the next 09:00 London
+    // is 08:00 UTC.
+    const next = nextRunAt(spec, Date.UTC(2026, 2, 29, 0, 0));
+    expect(next).toBe(Date.UTC(2026, 2, 29, 8, 0));
+  });
+
+  test('toUtcCron converts a fixed-offset IANA zone and refuses a DST zone', () => {
+    // Asia/Manila (UTC+8, no DST) converts like utcOffsetMinutes: 480.
+    expect(toUtcCron(parseCron('0 9 * * *', { timezone: 'Asia/Manila' }))).toBe('0 1 * * *');
+    // Europe/London has DST, so no single UTC cron exists.
+    expect(() => toUtcCron(parseCron('0 9 * * *', { timezone: 'Europe/London' }))).toThrow(
+      /observes DST/u,
+    );
+  });
+});

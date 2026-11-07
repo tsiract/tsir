@@ -30,9 +30,7 @@ const projectSchema = z.object({
   // CFG-113: the packages the app uses. Each must be installed, or the load refuses with the bun add line.
   modules: z.array(z.string()).optional(),
   // Root-level per-module defaults (tsir.js modules.<name>). Lowest precedence.
-  moduleDefaults: z
-    .record(z.string(), z.record(z.string(), z.unknown()))
-    .optional(),
+  moduleDefaults: z.record(z.string(), z.record(z.string(), z.unknown())).optional(),
   app: z.object({
     name: z.string().min(1),
     entry: z.string().min(1),
@@ -130,6 +128,10 @@ const projectSchema = z.object({
             timeoutSeconds: z.number().int().positive().optional(),
             architecture: z.enum(['x86_64', 'arm64']).optional(),
             region: z.string().optional(),
+            // Custom domain the unit serves. Cloudflare emits a `routes` entry;
+            // Lambda emits a `DomainName` parameter for API Gateway / ALB wiring.
+            domain: z.string().optional(),
+            zone: z.string().optional(),
           }),
         )
         .optional(),
@@ -391,13 +393,13 @@ function noConfigHint(startDir: string): string {
     const r = relativePath(startDir, path);
     return r === '' ? '.' : r;
   };
-  const examples = ['http', 'minimal']
+  const examples = ['frontpage']
     .filter((name) => existsSync(join(dist, 'apps', name, 'tsir.js')))
     .map((name) => rel(join(dist, 'apps', name)));
   const exampleHint =
     examples.length === 0
       ? ''
-      : `to test the bundled modules, run ${rel(launcher)} dev --app ${examples[0] ?? 'apps/http'} · `;
+      : `to test the bundled modules, run ${rel(launcher)} dev --app ${examples[0] ?? 'apps/frontpage'} · `;
   return `${exampleHint}to create an app, cd out of the distribution and run ${launcher} new <name>`;
 }
 

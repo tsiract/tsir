@@ -6,9 +6,8 @@ Tsir separates **what your app does** from **where it runs**. Your controllers, 
 schedules are declared in plain TypeScript. The deploy layer maps those declarations onto a
 specific cloud: Cloudflare Workers, AWS Lambda, or both.
 
-This is the same separation Laravel gives you with `QUEUE_CONNECTION=database` vs `redis`: your
-job code stays the same; only the connection changes. In Tsir, your HTTP handler stays the same;
-only the deploy target changes.
+Your job code stays the same; only the connection changes. In Tsir, your HTTP handler stays the
+same; only the deploy target changes.
 
 The goal is **portable application code**, not identical infrastructure. A Cloudflare Worker and
 an AWS Lambda function are different runtimes with different constraints. Tsir abstracts the

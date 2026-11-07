@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { EXIT } from '../output.ts';
 import { openapiGenerateCommand } from './openapi.ts';
 
-const HTTP_EXAMPLE = join(import.meta.dir, '..', '..', '..', '..', 'apps', 'examples', 'http');
+const HTTP_EXAMPLE = join(import.meta.dir, 'fixtures', 'http-app');
 
 describe('openapi:generate (DXS-011)', () => {
   let scratch = '';

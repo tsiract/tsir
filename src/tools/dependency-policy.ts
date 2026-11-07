@@ -95,4 +95,8 @@ export const DEV_ONLY: Readonly<Record<string, string>> = {
   postgres:
     'the Postgres *client* is supplied by the application (ADR-0009); installed here only so ' +
     'type-tests/ can prove the real client satisfies the driver’s structural type',
+  playwright:
+    'browser backend for @tsir/nightwatch; an application installs it only when running e2e tests, never as a runtime dependency',
+  sharp:
+    'native image transform for the @tsir/media sharp adapter; an optional peer dependency the application opts into, installed here only for adapter tests',
 };

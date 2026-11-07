@@ -22,10 +22,10 @@
 
 ## Context
 
-| ID        | Title                                              | Status | Depends | Acceptance criteria (summary)            |
-| --------- | -------------------------------------------------- | ------ | ------- | ---------------------------------------- |
-| `OBS-010` | Request id generation/propagation + `X-Request-Id` | `[x]`  | HTP-003 | Returned on every response — incoming `X-Request-Id` is propagated (sanitized, length-capped) when present, else a UUID is generated; set on responses and problem bodies |
-| `OBS-011` | W3C `traceparent` parse/validate/propagate         | `[x]`  | OBS-010 | Malformed header replaced, not forwarded |
+| ID        | Title                                              | Status | Depends | Acceptance criteria (summary)                                                                                                                                                                                                   |
+| --------- | -------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OBS-010` | Request id generation/propagation + `X-Request-Id` | `[x]`  | HTP-003 | Returned on every response — incoming `X-Request-Id` is propagated (sanitized, length-capped) when present, else a UUID is generated; set on responses and problem bodies                                                       |
+| `OBS-011` | W3C `traceparent` parse/validate/propagate         | `[x]`  | OBS-010 | Malformed header replaced, not forwarded                                                                                                                                                                                        |
 | `OBS-012` | Job context (requestId stored on job record)       | `[x]`  | —       | Worker logs carry origin request id — `requestId` is an optional field on `JobMessage` and `JobContext`, threaded through `DispatchOptions`, the database/outbox drivers, and the worker; absent when the dispatch carried none |
 
 ## Metrics & tracing
@@ -40,11 +40,11 @@
 
 ## Health
 
-| ID        | Title                                               | Status | Depends | Acceptance criteria (summary)                   |
-| --------- | --------------------------------------------------- | ------ | ------- | ----------------------------------------------- |
-| `OBS-018` | `/health`, `/ready`, check registry, timeouts       | `[x]`  | OBS-013 | 503 with failing check list; degraded semantics |
-| `OBS-019` | Admin unit placement (private by default)           | `[x]`  | DPL-022 | Not publicly routable by default — closed by `DPL-022`: `private: true` units emit no HTTP API, and `deploy:validate` fails with `DPL_PRIVATE_EXPOSED` if a private unit becomes routable                |
-| `OBS-020` | Error reporting adapters (`noop`, `otlp`, `sentry`) | `[ ]`  | OBS-016 | Bodies/headers stripped before send             |
+| ID        | Title                                               | Status | Depends | Acceptance criteria (summary)                                                                                                                                                             |
+| --------- | --------------------------------------------------- | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OBS-018` | `/health`, `/ready`, check registry, timeouts       | `[x]`  | OBS-013 | 503 with failing check list; degraded semantics                                                                                                                                           |
+| `OBS-019` | Admin unit placement (private by default)           | `[x]`  | DPL-022 | Not publicly routable by default — closed by `DPL-022`: `private: true` units emit no HTTP API, and `deploy:validate` fails with `DPL_PRIVATE_EXPOSED` if a private unit becomes routable |
+| `OBS-020` | Error reporting adapters (`noop`, `otlp`, `sentry`) | `[ ]`  | OBS-016 | Bodies/headers stripped before send                                                                                                                                                       |
 
 ## Error handling & sinks (`13-observability.md § 2.4`)
 

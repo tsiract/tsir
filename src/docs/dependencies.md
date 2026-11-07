@@ -11,6 +11,6 @@ it is worth carrying (ADR-0012).
 | ------- | ------- | ------- | --------- |
 | `@bufbuild/protobuf` | 2.16.0 | @tsir/link | Protobuf runtime for the gRPC adapter. Chosen over protobufjs because `protoc-gen-es` emits plain ESM that imports it per-symbol, and it is the runtime Buf maintains for its own generator. _(only with @tsir/link/grpc)_ |
 | `@grpc/grpc-js` | 1.14.6 | @tsir/link | The gRPC transport (HTTP/2, HPACK, status handling) on Node and Bun. Pure JavaScript so it needs no native build; CommonJS, which is why it is a Node-only, subpath-scoped adapter dependency. _(only with @tsir/link/grpc)_ |
-| `drizzle-orm` | 0.45.4 | @tsir/database | SQL query builder and migrations. Chosen over a bespoke query layer in ADR-0007; per-dialect entry points keep unused drivers out of the bundle. |
+| `drizzle-orm` | 0.45.4 | @tsir/database, @tsir/telemetry | SQL query builder and migrations. Chosen over a bespoke query layer in ADR-0007; per-dialect entry points keep unused drivers out of the bundle. |
 | `zod` | ^4.6.7 | @tsir/validate | Schema validation. The de-facto standard in the TypeScript ecosystem and the author of Standard Schema; @tsir/validate is built on top of it rather than re-implementing validation. |
 

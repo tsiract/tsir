@@ -5,5 +5,13 @@
     "noEmit": true
   },
   "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist", ".tsir", ".verify", "src/apps/frontpage/public"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    ".tsir",
+    ".verify",
+    "src/apps/frontpage/public",
+    "src/apps/admin.product.com/client",
+    "src/apps/admin.product.com/public"
+  ]
 }

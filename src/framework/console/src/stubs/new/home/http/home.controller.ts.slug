@@ -1,0 +1,16 @@
+import { Controller, Get } from '@tsir/router';
+import { token } from '@tsir/container';
+
+import { registry } from '../registry.ts';
+
+export const homeControllerToken = token<HomeController>('HomeController');
+
+@Controller(registry, '')
+export class HomeController {
+  constructor(private readonly appName: string) {}
+
+  @Get('/')
+  index(): { message: string } {
+    return { message: `Welcome to ${this.appName} app!` };
+  }
+}

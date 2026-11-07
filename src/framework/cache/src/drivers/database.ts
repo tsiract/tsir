@@ -57,6 +57,7 @@ export const DATABASE_CAPABILITIES = {
   increment: true,
   ttl: true,
   clearAll: true,
+  locks: true,
 } as const;
 
 export interface CacheTableOptions {
@@ -208,6 +209,41 @@ export function databaseDriver(options: DatabaseDriverOptions): CacheDriver<neve
         async clear(): Promise<void> {
           await run(`DELETE FROM ${table}`);
           await run(`DELETE FROM ${tagTable}`);
+        },
+
+        /**
+         * One statement, atomic: insert, and on conflict update only when the existing row's
+         * `expires_at` is in the past. `RETURNING key` tells us whether we acquired it — a
+         * row comes back for an absent or expired key, nothing for a live lock.
+         */
+        async acquireLock(
+          key: string,
+          owner: string,
+          expiresAt: number | undefined,
+        ): Promise<boolean> {
+          const rows = await run(
+            `INSERT INTO ${table} (key, value, counter, expires_at) ` +
+              `VALUES (${p(1)}, ${p(2)}, NULL, ${p(3)}) ` +
+              `ON CONFLICT (key) DO UPDATE ` +
+              `SET value = excluded.value, counter = NULL, expires_at = excluded.expires_at ` +
+              `WHERE ${table}.expires_at IS NOT NULL AND ${table}.expires_at < ${p(4)} ` +
+              `RETURNING key`,
+            [key, owner, expiresAt ?? null, now()],
+          );
+          return rows.length > 0;
+        },
+
+        /**
+         * Atomic compare-and-delete: the row is removed only if the value still matches this
+         * owner. A lock acquired by someone else (or already released) leaves no row to
+         * delete, so `RETURNING key` is empty and we report `false`.
+         */
+        async releaseLock(key: string, owner: string): Promise<boolean> {
+          const rows = await run(
+            `DELETE FROM ${table} WHERE key = ${p(1)} AND value = ${p(2)} RETURNING key`,
+            [key, owner],
+          );
+          return rows.length > 0;
         },
       };
 

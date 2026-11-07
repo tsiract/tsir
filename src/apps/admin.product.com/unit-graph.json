@@ -1,0 +1,256 @@
+{
+  "schemaVersion": 1,
+  "app": "admin",
+  "topology": "separate",
+  "targets": [
+    "cloudflare",
+    "lambda"
+  ],
+  "merged": [],
+  "units": [
+    {
+      "name": "http",
+      "kind": "http",
+      "private": false,
+      "modules": [
+        "auth",
+        "i18n",
+        "mail",
+        "rbac",
+        "setup",
+        "users"
+      ],
+      "requires": [],
+      "triggers": [
+        {
+          "kind": "http",
+          "detail": [
+            "DELETE /api/email-templates/:name",
+            "DELETE /api/groups/:id",
+            "DELETE /api/i18n/keys/:id",
+            "DELETE /api/permissions/:id",
+            "DELETE /api/roles/:id",
+            "DELETE /api/users/:id",
+            "GET /api/auth/captcha",
+            "GET /api/auth/me",
+            "GET /api/auth/setup",
+            "GET /api/email-templates",
+            "GET /api/email-templates/:name",
+            "GET /api/groups",
+            "GET /api/groups/:id",
+            "GET /api/i18n/dictionary",
+            "GET /api/i18n/keys",
+            "GET /api/i18n/keys/:id/translations",
+            "GET /api/permissions",
+            "GET /api/roles",
+            "GET /api/roles/:id",
+            "GET /api/users",
+            "GET /api/users/:id",
+            "GET /api/users/:id/roles",
+            "PATCH /api/email-templates/:name",
+            "PATCH /api/groups/:id",
+            "PATCH /api/i18n/keys/:id/translations/:locale",
+            "PATCH /api/roles/:id",
+            "PATCH /api/users/:id",
+            "POST /api/auth/forgot-password",
+            "POST /api/auth/login",
+            "POST /api/auth/logout",
+            "POST /api/auth/reset-password",
+            "POST /api/auth/setup",
+            "POST /api/email-templates",
+            "POST /api/groups",
+            "POST /api/i18n/keys",
+            "POST /api/i18n/seed",
+            "POST /api/permissions",
+            "POST /api/roles",
+            "POST /api/users"
+          ]
+        }
+      ],
+      "bindings": [
+        {
+          "kind": "d1",
+          "name": "DB",
+          "resource": "db-id:admin"
+        }
+      ],
+      "reasons": [
+        {
+          "source": "override",
+          "from": "deploy.units.http"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/email-templates/:name"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/groups/:id"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/i18n/keys/:id"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/permissions/:id"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/roles/:id"
+        },
+        {
+          "source": "routes",
+          "from": "DELETE /api/users/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/auth/captcha"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/auth/me"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/auth/setup"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/email-templates"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/email-templates/:name"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/groups"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/groups/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/i18n/dictionary"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/i18n/keys"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/i18n/keys/:id/translations"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/permissions"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/roles"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/roles/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/users/:id/roles"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/email-templates/:name"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/groups/:id"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/i18n/keys/:id/translations/:locale"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/roles/:id"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/users/:id"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/auth/forgot-password"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/auth/login"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/auth/logout"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/auth/reset-password"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/auth/setup"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/email-templates"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/groups"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/i18n/keys"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/i18n/seed"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/permissions"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/roles"
+        },
+        {
+          "source": "routes",
+          "from": "POST /api/users"
+        }
+      ]
+    },
+    {
+      "name": "queue:memory",
+      "kind": "queue",
+      "private": true,
+      "modules": [],
+      "requires": [],
+      "triggers": [],
+      "bindings": [],
+      "reasons": [
+        {
+          "source": "queues",
+          "from": "memory (memory)"
+        }
+      ]
+    }
+  ]
+}

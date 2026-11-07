@@ -274,5 +274,68 @@ export function conformanceCases<Config = unknown>(
     });
   }
 
+  if (capabilities.locks) {
+    cases.push({
+      name: `${name}: a lock is acquired only once and released by its owner`,
+      async run() {
+        const store = makeStore(options, 'lock');
+        const lock = store.lock('mutex', 10_000);
+        // Two owners, one lock: the first acquire wins, the second loses.
+        assert((await lock.get()) === true, 'the first acquire must succeed');
+        const other = store.lock('mutex', 10_000);
+        assert((await other.get()) === false, 'a second owner must not acquire a held lock');
+        // The first owner releases; the second can now acquire.
+        assert((await lock.release()) === true, 'the owner must release its own lock');
+        assert((await other.get()) === true, 'after release the lock is free again');
+        await other.release();
+      },
+    });
+    cases.push({
+      name: `${name}: a lock runs and releases a callback on acquire`,
+      async run() {
+        const store = makeStore(options, 'lock-cb');
+        const lock = store.lock('cb', 10_000);
+        let ran = Boolean(false);
+        const result = await lock.get(() => {
+          ran = true;
+          return 42;
+        });
+        assert(result === 42, 'the callback result is returned');
+        assert(ran, 'the callback ran');
+        // The callback path releases automatically: a fresh owner can acquire.
+        const next = store.lock('cb', 10_000);
+        assert((await next.get()) === true, 'the callback path released the lock');
+        await next.release();
+      },
+    });
+    cases.push({
+      name: `${name}: forceRelease clears the lock regardless of owner`,
+      async run() {
+        const store = makeStore(options, 'lock-force');
+        const holder = store.lock('force', 10_000);
+        assert((await holder.get()) === true, 'the holder acquires');
+        const intruder = store.lock('force', 10_000);
+        // forceRelease is the recovery hatch: it removes the lock even though `intruder` is not the owner.
+        await intruder.forceRelease();
+        assert((await intruder.get()) === true, 'after forceRelease the lock is free');
+        await intruder.release();
+      },
+    });
+  } else {
+    cases.push({
+      name: `${name}: locks are refused when the backend cannot acquire and release atomically`,
+      async run() {
+        const store = makeStore(options, 'lock');
+        let threw = false;
+        try {
+          store.lock('x');
+        } catch {
+          threw = true;
+        }
+        assert(threw, 'lock() must throw when capabilities.locks is false');
+      },
+    });
+  }
+
   return cases;
 }

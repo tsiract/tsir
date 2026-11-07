@@ -46,8 +46,8 @@
 | `CFG-011` | Clock/Random injection points wired into config consumers                      | `[x]`  | CFG-001 | Tests can fix time                                                                                                                                                                                                                                  |
 | `CFG-012` | `tsir.js` loader (resolution order, ESM, sync requirement)                     | `[x]`  | CFG-001 | Ambiguous files → `CFG_AMBIGUOUS_CONFIG_FILE`                                                                                                                                                                                                       |
 | `CFG-013` | `{ fromEnv, default, secret }` reference resolution                            | `[x]`  | CFG-012 | Env wins over file; missing → issue with path                                                                                                                                                                                                       |
-| `CFG-014` | Presets (`minimal`, `standard`, `api`, `worker`, `edge`, `serverless`, `full`) | `[x]`  | CFG-012 | Each preset produces a valid config for a sample app — delivered as `CFG-102` in [`08-dx.md`](./08-dx.md); seven presets boot a fixture to `ready`                                                                                                                                                                                                |
-| `CFG-015` | Managed regions parser + atomic writer                                         | `[x]`  | CFG-012 | Malformed markers → `CFG_MANAGED_REGION_INVALID` — delivered as `CFG-104` in [`08-dx.md`](./08-dx.md); two runs are byte-identical                                                                                                                                                                                                    |
+| `CFG-014` | Presets (`minimal`, `standard`, `api`, `worker`, `edge`, `serverless`, `full`) | `[x]`  | CFG-012 | Each preset produces a valid config for a sample app — delivered as `CFG-102` in [`08-dx.md`](./08-dx.md); seven presets boot a fixture to `ready`                                                                                                  |
+| `CFG-015` | Managed regions parser + atomic writer                                         | `[x]`  | CFG-012 | Malformed markers → `CFG_MANAGED_REGION_INVALID` — delivered as `CFG-104` in [`08-dx.md`](./08-dx.md); two runs are byte-identical                                                                                                                  |
 | `CFG-016` | Inlined-secret detector (`CFG_SECRET_INLINED`)                                 | `[x]`  | CFG-012 | 32-byte base64 in `database.url` → error with remediation — Detector in `secrets.ts`: a 32-byte base64 key or a URL with a literal password is refused at load (`CFG_SECRET_INLINED`), and the value is never printed. Tested in `secrets.test.ts`. |
 
 ---
@@ -92,7 +92,7 @@ Task ids `CFG-101`…`CFG-120` live in [`08-dx.md`](./08-dx.md) because they are
 
 ## Gate P1 checklist
 
-- [x] `tsir dev` boots a sample app with validated config and a resolved graph (`src/apps/examples/minimal`).
+- [x] `tsir dev` boots a sample app with validated config and a resolved graph (`src/apps/minimal`).
 - [x] Missing provider / cycle / invalid env each produce distinct codes + hints (`CTN_NO_PROVIDER` / `CTN_CYCLE` / `CFG_INVALID`, all asserted).
 - [x] Container and config coverage thresholds met — `make coverage`: container 91.16 %, config 99.57 % lines; core 95.42 %, validate 100 %.
       Enforced per package by `src/tools/coverage-gate.ts` (a single global threshold would hide a poorly covered package).

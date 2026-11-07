@@ -89,7 +89,7 @@ describe('full-actions example · events (§ 4.5)', () => {
       amount: 99,
     });
     expect(report.queued.length).toBeGreaterThan(0);
-    expect(report.queued[0].listener).toBe('notify-warehouse');
+    expect(report.queued[0]?.listener).toBe('notify-warehouse');
 
     const worker = queues.worker();
     const ran = await worker.drainOnce();

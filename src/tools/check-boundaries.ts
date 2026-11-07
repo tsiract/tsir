@@ -73,8 +73,44 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   link: ['container', 'core', 'config', 'validate', 'vault'],
   // `schedule` is there for one call: a cron trigger is parsed by the same parser the tasks use,
   // so `deploy.units` cannot smuggle in an expression the runtime would read differently.
-  deploy: ['container', 'core', 'config', 'http', 'link', 'vault', 'schedule'],
+  deploy: [
+    'container',
+    'core',
+    'config',
+    'http',
+    'link',
+    'vault',
+    'schedule',
+    'validate',
+    'router',
+  ],
   testing: ['container', 'core', 'config', 'validate', 'http', 'router', 'database'],
+  // `scout` is a feature-flag / rollout engine: a port, an in-memory engine, and a
+  // bootstrap. Leaf on `container` like `policy`.
+  scout: ['container'],
+  // `nightwatch` is the observability backend (tracing/spans): a port, an in-memory
+  // backend, and a bootstrap. Leaf on `container`.
+  nightwatch: ['container'],
+  // `telemetry` is the structured logging/metrics bootstrap. Leaf on `container`.
+  telemetry: ['container'],
+  // `broadcast` is the realtime channel port: a port, an in-memory broadcaster, and a
+  // bootstrap. Leaf on `container`.
+  broadcast: ['container'],
+  // `socialize` is the OAuth social-login port: providers use `fetch` and the state
+  // token uses Web Crypto, so it stays runtime-neutral.
+  socialize: ['container'],
+  // `media` is the image/video port: adapters (sharp, ffmpeg, cloudinary, cloudflare,
+  // imagekit) live in `adapters/` where runtime imports are allowed; the core is Web
+  // standard.
+  media: ['container'],
+  // `forge` is the deployment engine: a port, a local provider, and a bootstrap.
+  forge: ['container'],
+  // `cashier` is the payment (Stripe) port: providers use `fetch`, but webhook
+  // signature verification uses `node:crypto`, so it is NOT runtime-neutral.
+  cashier: ['container'],
+  // `pennant` is the feature-flag engine: a port, an in-memory store, and a
+  // bootstrap. Leaf on `container`.
+  pennant: ['container'],
   // `testing` appears because the CLI *generates* test files that import it;
   // it is a code-generation reference, not a runtime import (see ALLOWED_NOTE).
   console: [
@@ -143,6 +179,18 @@ const RUNTIME_NEUTRAL = new Set([
   'http',
   'vault',
   'testing',
+  // The port-plus-bootstrap packages: core is Web standard, runtime access lives
+  // in adapters/ (media/ffmpeg, media/sharp) or not at all.
+  'scout',
+  'nightwatch',
+  'telemetry',
+  'broadcast',
+  'socialize',
+  'media',
+  'pennant',
+  // `forge` is intentionally NOT runtime-neutral: its `localProvider` runs
+  // commands via `node:child_process`. Server provisioning is a Node/VPS
+  // concern, not a Workers one.
 ]);
 
 /** Files allowed to touch runtime built-ins inside a runtime-neutral package. */
@@ -235,7 +283,11 @@ async function listSourceFiles(dir: string): Promise<readonly string[]> {
   for (const entry of entries) {
     if (!entry.isFile()) continue;
     if (!entry.name.endsWith('.ts')) continue;
+    // Test files and shared conformance suites are test infrastructure, not
+    // runtime source: they may import `bun:test`/`node:test` and runtime
+    // built-ins without violating the runtime-neutral rule.
     if (entry.name.endsWith('.test.ts')) continue;
+    if (entry.name.startsWith('conformance')) continue;
     const parent = entry.parentPath;
     files.push(join(parent, entry.name));
   }

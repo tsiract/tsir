@@ -31,7 +31,10 @@ export type DatabaseErrorCode =
   | 'DB_RAW_UNSUPPORTED'
   | 'DB_BATCH_UNSUPPORTED'
   | 'DB_ROTATION_TARGET_MISMATCH'
-  | 'DB_ROTATION_INVALID_IDENTIFIER';
+  | 'DB_ROTATION_INVALID_IDENTIFIER'
+  | 'DB_D1_NO_BINDING'
+  | 'DB_POSTGRES_BOOTSTRAP_UNWIRED'
+  | 'DB_TX_STATEMENT_UNSUPPORTED';
 
 /**
  * The configured engine cannot run on this target.

@@ -1,0 +1,49 @@
+{
+  "name": "@tsir/admin",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The Tsir administration application: users, RBAC, i18n, mail, and a Svelte 5 console.",
+  "scripts": {
+    "build:client": "bun client/build.ts",
+    "route:list": "tsir route:list",
+    "route:compile": "tsir route:compile",
+    "test": "bun test --path-ignore-patterns=e2e",
+    "e2e": "playwright test",
+    "e2e:install": "playwright install chromium",
+    "serve": "bun serve.ts"
+  },
+  "dependencies": {
+    "@tsir/auth": "workspace:*",
+    "@tsir/cache": "workspace:*",
+    "@tsir/config": "workspace:*",
+    "@tsir/container": "workspace:*",
+    "@tsir/core": "workspace:*",
+    "@tsir/database": "workspace:*",
+    "@tsir/events": "workspace:*",
+    "@tsir/http": "workspace:*",
+    "@tsir/link": "workspace:*",
+    "@tsir/mail": "workspace:*",
+    "@tsir/migrate": "workspace:*",
+    "@tsir/notify": "workspace:*",
+    "@tsir/policy": "workspace:*",
+    "@tsir/pulse": "workspace:*",
+    "@tsir/queue": "workspace:*",
+    "@tsir/router": "workspace:*",
+    "@tsir/schedule": "workspace:*",
+    "@tsir/seed": "workspace:*",
+    "@tsir/socialize": "workspace:*",
+    "@tsir/storage": "workspace:*",
+    "@tsir/validate": "workspace:*",
+    "@tsir/vault": "workspace:*",
+    "drizzle-orm": "0.45.4",
+    "postgres": "3.4.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@tsir/console": "workspace:*",
+    "@tsir/testing": "workspace:*",
+    "svelte": "5.57.3"
+  }
+}

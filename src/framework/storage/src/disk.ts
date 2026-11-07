@@ -33,6 +33,7 @@ import type {
   StorageDriver,
   StoredBody,
   StoredObject,
+  Visibility,
 } from './port.ts';
 
 /** S3's own limit, and a sane one for the rest: 1024 bytes of key. */
@@ -153,6 +154,43 @@ export function createDisk(input: {
         throw new TypeError(`disk "${name}".list({ limit }) must be a positive integer`);
       }
       return driver.list(options);
+    },
+
+    async directories(prefix = ''): Promise<readonly string[]> {
+      if (prefix !== '' && (prefix.includes('..') || prefix.startsWith('/'))) {
+        throw invalidKey(prefix, 'a directory prefix is relative and cannot contain `..`', name);
+      }
+      return driver.directories(prefix);
+    },
+
+    async setVisibility(rawKey: string, visibility: Visibility): Promise<StoredObject> {
+      if (visibility !== 'public' && visibility !== 'private') {
+        throw new TypeError(`disk "${name}".setVisibility needs "public" or "private"`);
+      }
+      return driver.setVisibility(key(rawKey), visibility);
+    },
+
+    async copy(rawSource: string, rawDestination: string): Promise<StoredObject> {
+      return driver.copy(key(rawSource), key(rawDestination));
+    },
+
+    async move(rawSource: string, rawDestination: string): Promise<StoredObject> {
+      return driver.move(key(rawSource), key(rawDestination));
+    },
+
+    async stream(
+      rawKey: string,
+      options: GetOptions = {},
+    ): Promise<ReadableStream<Uint8Array> | undefined> {
+      const path = key(rawKey);
+      if (options.range !== undefined) {
+        refuseUnless(
+          capabilities.rangeReads,
+          'range reads',
+          'this driver returns the whole object; read it and slice, or use a driver with range support',
+        );
+      }
+      return driver.stream(path, options);
     },
 
     url(rawKey: string): string {

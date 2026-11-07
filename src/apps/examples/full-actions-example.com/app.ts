@@ -2,18 +2,12 @@ import { defineApp } from '@tsir/core';
 import { defineConfig, env } from '@tsir/config';
 import { createFetchHandler } from '@tsir/http';
 import { createEvents, type ListenerDefinition } from '@tsir/events';
-import {
-  createJobRegistry,
-  createQueue,
-  createWorker,
-  type Queues,
-} from '@tsir/queue';
+import { createJobRegistry, createQueue, createWorker, type Queues } from '@tsir/queue';
 import { memoryQueueDriver } from '@tsir/queue/memory';
 
 import { orders } from './orders/index.ts';
 import { routes } from './routes.gen.ts';
 import { SendReceiptJob } from './orders/queues/send-receipt.job.ts';
-import { OrderPlacedEvent } from './orders/events/order-placed.event.ts';
 import { NotifyWarehouseListener } from './orders/listeners/notify-warehouse.listener.ts';
 
 export const spec = defineConfig({

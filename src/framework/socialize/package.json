@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/socialize",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "social OAuth authentication (Google, GitHub, and custom providers)",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./google": {
+      "types": "./src/providers/google.ts",
+      "default": "./src/providers/google.ts"
+    },
+    "./github": {
+      "types": "./src/providers/github.ts",
+      "default": "./src/providers/github.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

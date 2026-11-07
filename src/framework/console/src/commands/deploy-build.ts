@@ -275,12 +275,20 @@ interface LambdaTargetConfig {
   readonly architecture?: 'x86_64' | 'arm64' | undefined;
   readonly region?: string | undefined;
   readonly vars?: Readonly<Record<string, string>> | undefined;
+  /** Custom domain this unit serves (e.g. `admin.product.com`). Emitted in `template.*.yaml`. */
+  readonly domain?: string | undefined;
+  /** Route 53 hosted zone name (e.g. `product.com`). Defaults to the last two labels of `domain`. */
+  readonly zone?: string | undefined;
 }
 
 interface CloudflareTargetConfig {
   readonly compatibilityDate?: string | undefined;
   readonly compatibilityFlags?: readonly string[] | undefined;
   readonly vars?: Readonly<Record<string, string>> | undefined;
+  /** Domain the Worker serves (e.g. `admin.product.com`). Emits a `routes` entry. */
+  readonly domain?: string | undefined;
+  /** Cloudflare zone name (e.g. `product.com`). Defaults to the last two labels of `domain`. */
+  readonly zone?: string | undefined;
 }
 
 /** What a `--target` name may be. Kept explicit so the message can list them. */
@@ -524,6 +532,13 @@ async function emitUnit(resolved: ResolvedBuild, job: EmitJob): Promise<Artifact
     target: RUNTIME_TARGET[target],
     format: 'esm',
     minify: resolved.minify,
+    // Cloudflare Workers use the `workerd` export condition so packages like
+    // `postgres` ship their edge-compatible entry (no `tls`/`net` builtins).
+    ...(target === 'cloudflare'
+      ? {
+          conditions: ['workerd', 'browser', 'default'],
+        }
+      : {}),
   });
 
   const file = join(directory, naming);
@@ -619,6 +634,8 @@ export async function emitArtifacts(resolved: ResolvedBuild): Promise<BuildResul
             ? {}
             : { architecture: resolved.lambda.architecture }),
           ...(resolved.lambda?.vars === undefined ? {} : { vars: resolved.lambda.vars }),
+          ...(resolved.lambda?.domain === undefined ? {} : { domain: resolved.lambda.domain }),
+          ...(resolved.lambda?.zone === undefined ? {} : { zone: resolved.lambda.zone }),
         }),
       );
       continue;
@@ -632,6 +649,10 @@ export async function emitArtifacts(resolved: ResolvedBuild): Promise<BuildResul
           ? {}
           : { compatibilityFlags: resolved.cloudflare.compatibilityFlags }),
         ...(resolved.cloudflare?.vars === undefined ? {} : { vars: resolved.cloudflare.vars }),
+        ...(resolved.cloudflare?.domain === undefined
+          ? {}
+          : { domain: resolved.cloudflare.domain }),
+        ...(resolved.cloudflare?.zone === undefined ? {} : { zone: resolved.cloudflare.zone }),
         resources: resourcesOf(job.unit),
       }),
     );

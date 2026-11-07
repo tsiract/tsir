@@ -17,6 +17,7 @@
   },
   "sideEffects": false,
   "dependencies": {
+    "@tsir/container": "workspace:*",
     "@tsir/core": "workspace:*"
   }
 }

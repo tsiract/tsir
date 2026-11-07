@@ -59,6 +59,14 @@ export interface WranglerOptions {
   readonly resources?: Readonly<Record<string, BindingResource>> | undefined;
   /** Migration tag for Durable Object classes. Bumped only when a class is added. */
   readonly migrationTag?: string | undefined;
+  /**
+   * Domain this Worker serves (e.g. `admin.product.com`). When set, a `routes`
+   * entry is emitted so `wrangler deploy` binds the Worker to that hostname
+   * instead of a `*.workers.dev` URL. Pair with `zone` for the zone name.
+   */
+  readonly domain?: string | undefined;
+  /** Cloudflare zone name (e.g. `product.com`). Required when `domain` is set. */
+  readonly zone?: string | undefined;
 }
 
 const ORDER: readonly BindingKind[] = ['hyperdrive', 'd1', 'kv', 'r2', 'queue', 'durable-object'];
@@ -183,6 +191,18 @@ export function wranglerToml(unit: Unit, appName: string, options: WranglerOptio
     // changes behaviour without a diff.
     `compatibility_date = ${tomlString(options.compatibilityDate)}`,
   ];
+
+  // Bind the Worker to a custom domain instead of a *.workers.dev URL. When both
+  // `domain` and `zone` are set, emit a `routes` entry; the operator then runs
+  // `wrangler deploy` and Cloudflare routes traffic for that hostname here.
+  if (options.domain !== undefined) {
+    const zone = options.zone ?? options.domain.split('.').slice(-2).join('.');
+    lines.push(
+      'routes = [',
+      `  { pattern = ${tomlString(`${options.domain}/*`)}, zone_name = ${tomlString(zone)} },`,
+      ']',
+    );
+  }
 
   if (unit.private) {
     // `DPL-022`: `workers_dev = false` is the mechanism Cloudflare actually honours — no

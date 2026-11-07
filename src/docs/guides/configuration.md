@@ -12,8 +12,8 @@ Tsir splits configuration into two layers, and neither one magically creates run
 
 The rule: **declaring a resource in `tsir.js` does not instantiate it.** If you declare a D1
 connection named `primary`, you still bind the actual D1 binding in `app.ts` and pass it to
-`createDatabase`. This is the same separation Laravel uses: `config/database.php` declares
-connections, but your service provider still hands the resolved PDO instance to your code.
+`createDatabase`. Declaration and resolution are kept separate so the same `tsir.js` can target
+multiple runtimes without changing your application code.
 
 ```ts verify
 import { defineConfig, env, loadConfig } from '@tsir/config';

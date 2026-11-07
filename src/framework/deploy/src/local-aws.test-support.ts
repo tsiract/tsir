@@ -34,7 +34,9 @@ interface SqsQueue {
   /** Messages waiting to be delivered. */
   readonly messages: { id: string; body: string }[];
   /** Lambda consumer of this queue. */
-  consumer?: (records: unknown[]) => Promise<{ batchItemFailures?: readonly { itemIdentifier: string }[] }>;
+  consumer?: (
+    records: unknown[],
+  ) => Promise<{ batchItemFailures?: readonly { itemIdentifier: string }[] }>;
 }
 
 function uuid(): string {
@@ -97,7 +99,9 @@ export class LocalAws {
   /** Register the Lambda that consumes a queue. */
   setQueueConsumer(
     queueName: string,
-    consumer: (records: unknown[]) => Promise<{ batchItemFailures?: readonly { itemIdentifier: string }[] }>,
+    consumer: (
+      records: unknown[],
+    ) => Promise<{ batchItemFailures?: readonly { itemIdentifier: string }[] }>,
   ): void {
     const queue = this.queues.get(queueName);
     if (queue === undefined)

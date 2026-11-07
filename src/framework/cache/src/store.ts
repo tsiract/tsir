@@ -18,7 +18,7 @@
 
 import { guardCodec } from './codec.ts';
 import { unsupportedOperation } from './errors.ts';
-import type { Cache, CacheBackend, CacheEntryOptions, Codec } from './port.ts';
+import type { Cache, CacheBackend, CacheEntryOptions, CacheLock, Codec } from './port.ts';
 
 export interface StoreOptions<T> {
   readonly name: string;
@@ -182,7 +182,89 @@ export function createCache<T>(options: StoreOptions<T>): Cache<T> {
       }
       await backend.clear();
     },
+
+    lock(lockName: string, ttlMs = 0, owner?: string): CacheLock {
+      if (!capabilities.locks) {
+        throw unsupportedOperation(
+          name,
+          backend.name,
+          'locks',
+          'this backend cannot acquire and release a lock atomically',
+        );
+      }
+      // Namespace locks under the store so a lock named `x` never collides with a cached key
+      // named `x`. The backend sees `lock:x`; application code sees `x`.
+      const key = `lock:${lockName}`;
+      const lockOwner = owner ?? randomOwner();
+      // `ttlMs === 0` means "no expiry" for locks (the caller releases), unlike cache entries
+      // where zero TTL means "already expired". Only a positive TTL becomes an absolute deadline.
+      const expiresAt = ttlMs > 0 ? now() + ttlMs : undefined;
+
+      const acquire = (): Promise<boolean> => backend.acquireLock(key, lockOwner, expiresAt);
+
+      return {
+        name: lockName,
+        owner: lockOwner,
+
+        async get<R = unknown>(callback?: () => Promise<R> | R): Promise<R | boolean> {
+          const acquired = await acquire();
+          if (!acquired) return false;
+          if (callback === undefined) return true;
+          try {
+            return await callback();
+          } finally {
+            await backend.releaseLock(key, lockOwner);
+          }
+        },
+
+        async block<R = unknown>(
+          seconds: number,
+          callback?: () => Promise<R> | R,
+        ): Promise<R | boolean> {
+          const deadline = now() + seconds * 1000;
+          // Poll with a short sleep; 50 ms is the same order as a slow cache read, so a lock
+          // that becomes free is picked up quickly without spinning.
+          while (now() < deadline) {
+            const acquired = await acquire();
+            if (acquired) {
+              if (callback === undefined) return true;
+              try {
+                return await callback();
+              } finally {
+                await backend.releaseLock(key, lockOwner);
+              }
+            }
+            await sleep(50);
+          }
+          return false;
+        },
+
+        release(): Promise<boolean> {
+          return backend.releaseLock(key, lockOwner);
+        },
+
+        async forceRelease(): Promise<void> {
+          await backend.remove(key);
+        },
+      };
+    },
   };
 
   return cache;
+}
+
+/**
+ * An opaque owner token. 16 random bytes hex-encoded is enough to make two concurrent
+ * `lock()` calls effectively never collide, and short enough to store as a cache value.
+ */
+function randomOwner(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  let hex = '';
+  for (const byte of bytes) hex += byte.toString(16).padStart(2, '0');
+  return hex;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }

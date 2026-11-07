@@ -363,10 +363,7 @@ export function publishUnknown(input: { readonly topic: string }): TsirError {
  * The invoke would land on a function with no matching task name, which fails after a round trip
  * instead of at the call site.
  */
-export function invokeUnknown(input: {
-  readonly unit: string;
-  readonly task: string;
-}): TsirError {
+export function invokeUnknown(input: { readonly unit: string; readonly task: string }): TsirError {
   return deployError(
     'DPL_INVOKE_UNKNOWN',
     `no @OnStepTask listener for task "${input.task}" in unit "${input.unit}"`,

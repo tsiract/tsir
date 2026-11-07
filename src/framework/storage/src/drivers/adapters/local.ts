@@ -20,7 +20,12 @@ import { TsirError } from '@tsir/container';
 import { dirname, join, resolve, sep } from 'node:path';
 import type * as FsPromises from 'node:fs/promises';
 
-import { alreadyExists, filesystemUnavailable, unsupportedOperation } from '../../errors.ts';
+import {
+  alreadyExists,
+  filesystemUnavailable,
+  notFound,
+  unsupportedOperation,
+} from '../../errors.ts';
 import { sha256Hex } from '../../sigv4.ts';
 import type {
   DiskCapabilities,
@@ -31,6 +36,7 @@ import type {
   StorageDriver,
   StoredBody,
   StoredObject,
+  Visibility,
 } from '../../port.ts';
 
 const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
@@ -70,6 +76,7 @@ async function fsModule(disk: string): Promise<typeof FsPromises> {
 interface Sidecar {
   readonly contentType: string;
   readonly metadata?: Readonly<Record<string, string>> | undefined;
+  readonly visibility?: Visibility | undefined;
 }
 
 export interface LocalDriverOptions {
@@ -120,12 +127,16 @@ export function localDriver(options: LocalDriverOptions): StorageDriver {
       // is the only guarantee an `etag` makes. Signed through WebCrypto, like the `s3` driver's
       // signatures — `node:crypto` is one builtin fewer in a bundle that only declared a dev disk.
       const digest = await sha256Hex(await fs.readFile(absolute(key)));
+      // Public read bit on the group/other triplet is the closest filesystem analogue of a
+      // public ACL: anyone who can reach the file can read it.
+      const visibility: Visibility = (info.mode & 0o004) !== 0 ? 'public' : 'private';
       return {
         key,
         size: info.size,
         contentType: sidecar?.contentType ?? DEFAULT_CONTENT_TYPE,
         etag: `"${digest}"`,
         lastModified: Math.round(info.mtimeMs),
+        visibility: sidecar?.visibility ?? visibility,
         ...(sidecar?.metadata === undefined ? {} : { metadata: sidecar.metadata }),
       };
     } catch {
@@ -152,8 +163,13 @@ export function localDriver(options: LocalDriverOptions): StorageDriver {
       await fs.writeFile(temporary, body);
       await fs.rename(temporary, target);
 
+      const visibility = putOptions.visibility ?? 'private';
+      // `0o644` = owner rw, group/other r (public); `0o600` = owner rw only (private).
+      await fs.chmod(target, visibility === 'public' ? 0o644 : 0o600);
+
       const sidecar: Sidecar = {
         contentType: putOptions.contentType ?? DEFAULT_CONTENT_TYPE,
+        visibility,
         ...(putOptions.metadata === undefined ? {} : { metadata: putOptions.metadata }),
       };
       await fs.writeFile(sidecarOf(key), JSON.stringify(sidecar), 'utf8');
@@ -241,6 +257,94 @@ export function localDriver(options: LocalDriverOptions): StorageDriver {
         objects,
         ...(from + page.length < all.length && last !== undefined ? { cursor: last } : {}),
       };
+    },
+
+    async directories(prefix = ''): Promise<readonly string[]> {
+      const fs = await fsModule(disk);
+      const normalized = prefix.replace(/\/+$/u, '');
+      const base = normalized === '' ? root : absolute(normalized);
+      let entries;
+      try {
+        entries = await fs.readdir(base, { withFileTypes: true });
+      } catch {
+        return [];
+      }
+      const dirs: string[] = [];
+      const leading = normalized === '' ? '' : `${normalized}/`;
+      for (const entry of entries) {
+        if (!entry.isDirectory()) continue;
+        dirs.push(`${leading}${entry.name}/`);
+      }
+      return dirs.sort();
+    },
+
+    async setVisibility(key: string, visibility: Visibility): Promise<StoredObject> {
+      const fs = await fsModule(disk);
+      const existing = await statOf(key);
+      if (existing === undefined) throw notFound(key, disk);
+      await fs.chmod(absolute(key), visibility === 'public' ? 0o644 : 0o600);
+      const sidecar = (await readSidecar(key)) ?? { contentType: existing.contentType };
+      const updated: Sidecar = { ...sidecar, visibility };
+      await fs.writeFile(sidecarOf(key), JSON.stringify(updated), 'utf8');
+      const stat = await statOf(key);
+      if (stat === undefined) throw notFound(key, disk);
+      return stat;
+    },
+
+    async copy(source: string, destination: string): Promise<StoredObject> {
+      const fs = await fsModule(disk);
+      const existing = await statOf(source);
+      if (existing === undefined) throw notFound(source, disk);
+      const target = absolute(destination);
+      await fs.mkdir(dirname(target), { recursive: true });
+      await fs.copyFile(absolute(source), target);
+      // Mirror the source's sidecar and mode, so the copy has the same content type and ACL.
+      const sidecar = await readSidecar(source);
+      if (sidecar !== undefined) {
+        await fs.writeFile(sidecarOf(destination), JSON.stringify(sidecar), 'utf8');
+      }
+      await fs.chmod(target, (existing.visibility ?? 'private') === 'public' ? 0o644 : 0o600);
+      const stat = await statOf(destination);
+      if (stat === undefined) throw notFound(destination, disk);
+      return stat;
+    },
+
+    async move(source: string, destination: string): Promise<StoredObject> {
+      const fs = await fsModule(disk);
+      const existing = await statOf(source);
+      if (existing === undefined) throw notFound(source, disk);
+      const target = absolute(destination);
+      await fs.mkdir(dirname(target), { recursive: true });
+      await fs.rename(absolute(source), target);
+      // Move the sidecar too, if one exists; otherwise the new object loses its content type.
+      try {
+        await fs.rename(sidecarOf(source), sidecarOf(destination));
+      } catch {
+        // No sidecar is the normal case for hand-copied files.
+      }
+      const stat = await statOf(destination);
+      if (stat === undefined) throw notFound(destination, disk);
+      return stat;
+    },
+
+    async stream(
+      key: string,
+      getOptions: GetOptions,
+    ): Promise<ReadableStream<Uint8Array> | undefined> {
+      const existing = await statOf(key);
+      if (existing === undefined) return undefined;
+      // The local driver reads the whole file into memory and wraps it. A true streaming
+      // implementation would pipe `fs.createReadStream`, but that pulls `node:stream` into the
+      // Worker bundle graph. For the contract a `ReadableStream` is what callers consume, and
+      // `get` already proves the bytes fit in memory on this driver.
+      const body = await this.get(key, getOptions);
+      if (body === undefined) return undefined;
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(body.body);
+          controller.close();
+        },
+      });
     },
 
     /**

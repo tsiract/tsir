@@ -5,10 +5,10 @@ After [installation](../installation.md), add the package to your app with
 
 ## Why jobs exist
 
-A job is a unit of work that should happen *outside* the HTTP request/response cycle. Sending a
+A job is a unit of work that should happen _outside_ the HTTP request/response cycle. Sending a
 receipt email, processing an uploaded image, or syncing data to a third party — none of these
-should make the user wait for a response. In Laravel you would dispatch a `Job` to a queue; in
-Tsir you do the same.
+should make the user wait for a response. In Tsir you dispatch a job to a queue and let a worker
+handle it asynchronously.
 
 The pieces are:
 

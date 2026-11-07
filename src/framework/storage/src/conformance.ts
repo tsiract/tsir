@@ -206,5 +206,119 @@ export function diskConformance(options: DiskConformanceOptions): readonly Confo
         }
       },
     },
+
+    {
+      name: 'copy duplicates an object under a new key and leaves the source intact',
+      async run() {
+        const source = keyFor('copy-source');
+        const dest = keyFor('copy-dest');
+        await put(source, 'copy me', 'text/plain');
+        const copied = await disk.copy(source, dest);
+        assert(copied.key === dest, `copy() returned key "${copied.key}" not "${dest}"`);
+        const sourceBody = await disk.get(source);
+        assert(sourceBody !== undefined, 'copy() deleted the source');
+        const destBody = await disk.get(dest);
+        assert(destBody !== undefined, 'copy() did not create the destination');
+        assert(
+          new TextDecoder().decode(destBody.body) === 'copy me',
+          'the copied bytes differ from the source',
+        );
+        await disk.delete(source);
+        await disk.delete(dest);
+      },
+    },
+
+    {
+      name: 'move relocates an object: the destination has the bytes and the source is gone',
+      async run() {
+        const source = keyFor('move-source');
+        const dest = keyFor('move-dest');
+        await put(source, 'move me', 'text/plain');
+        const moved = await disk.move(source, dest);
+        assert(moved.key === dest, `move() returned key "${moved.key}" not "${dest}"`);
+        const destBody = await disk.get(dest);
+        assert(destBody !== undefined, 'move() did not create the destination');
+        assert(
+          new TextDecoder().decode(destBody.body) === 'move me',
+          'the moved bytes differ from the source',
+        );
+        assert((await disk.get(source)) === undefined, 'move() left the source in place');
+        await disk.delete(dest);
+      },
+    },
+
+    {
+      name: 'setVisibility changes the ACL in place and reports it back',
+      async run() {
+        const key = keyFor('visibility');
+        await put(key, 'visible', 'text/plain');
+        const published = await disk.setVisibility(key, 'public');
+        assert(
+          published.visibility === 'public',
+          `setVisibility(public) reported "${String(published.visibility)}"`,
+        );
+        const privated = await disk.setVisibility(key, 'private');
+        assert(
+          privated.visibility === 'private',
+          `setVisibility(private) reported "${String(privated.visibility)}"`,
+        );
+        await disk.delete(key);
+      },
+    },
+
+    {
+      name: 'directories lists immediate subdirectories under a prefix',
+      async run() {
+        const scope = keyFor('dirs');
+        await put(`${scope}/a/one.txt`, '1');
+        await put(`${scope}/a/two.txt`, '2');
+        await put(`${scope}/b/three.txt`, '3');
+        await put(`${scope}/a/nested/deep.txt`, '4');
+        const dirs = await disk.directories(`${scope}/`);
+        assert(
+          dirs.includes(`${scope}/a/`) && dirs.includes(`${scope}/b/`),
+          `directories() did not list a/ and b/: got ${dirs.join(', ')}`,
+        );
+        assert(
+          !dirs.some((dir) => dir.endsWith('nested/')),
+          'directories() listed a nested directory, not just immediate children',
+        );
+        await disk.delete(`${scope}/a/one.txt`);
+        await disk.delete(`${scope}/a/two.txt`);
+        await disk.delete(`${scope}/b/three.txt`);
+        await disk.delete(`${scope}/a/nested/deep.txt`);
+      },
+    },
+
+    {
+      name: 'stream yields the same bytes as get',
+      async run() {
+        const key = keyFor('stream');
+        const body = 'stream these bytes';
+        await put(key, body, 'text/plain');
+        const stream = await disk.stream(key);
+        assert(stream !== undefined, 'stream() returned undefined for a key that exists');
+        const reader = stream.getReader();
+        const chunks: Uint8Array[] = [];
+        let total = 0;
+        for (;;) {
+          const result = await reader.read();
+          if (result.done) break;
+          chunks.push(result.value);
+          total += result.value.length;
+        }
+        const reassembled = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          reassembled.set(chunk, offset);
+          offset += chunk.length;
+        }
+        assert(
+          new TextDecoder().decode(reassembled) === body,
+          'streamed bytes do not match what was written',
+        );
+        await disk.delete(key);
+      },
+    },
   ];
 }

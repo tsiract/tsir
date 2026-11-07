@@ -6,8 +6,8 @@ After [installation](../installation.md), add the package to your app with
 ## Why and how caching works
 
 A cache stores the result of an expensive operation (a database query, an API call, a computed
-value) so the next request can skip the work. Laravel calls this `Cache::remember()`; Tsir calls
-it `cache.remember()`. The idea is identical.
+value) so the next request can skip the work. Tsir calls this `cache.remember()`: provide a key,
+a TTL, and the work to do only on a miss.
 
 Tsir's cache has three moving parts:
 

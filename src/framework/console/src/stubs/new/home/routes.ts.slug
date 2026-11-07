@@ -1,0 +1,24 @@
+import { routeModule as _routeModule } from '@tsir/router';
+import { classProvider, token, valueProvider } from '@tsir/container';
+
+import { dbProvider, drizzleProvider } from '../database.ts';
+import { HomeController, homeControllerToken } from './http/home.controller.ts';
+import { registry } from './registry.ts';
+
+// The app name is injected into controllers that need it (e.g. the home
+// endpoint returns "Welcome to <name> app!").
+export const appNameToken = token<string>('appName');
+
+export const providers = [
+  dbProvider,
+  drizzleProvider,
+  valueProvider(appNameToken, '{{name}}'),
+  classProvider(homeControllerToken, HomeController, [appNameToken], { lifetime: 'scoped' }),
+];
+
+export const home = _routeModule({
+  name: 'home',
+  registry,
+  unit: 'http',
+  providers,
+});

@@ -1,0 +1,11 @@
+import { defineCommand } from '@tsir/console';
+
+export default defineCommand({
+  name: '{{name}}',
+  summary: 'TODO: describe {{name}} in one line',
+  async run(argv: readonly string[]): Promise<number> {
+    process.stdout.write(`{{name}} ran with ${String(argv.length)} argument(s)\n`);
+    process.stdout.write('next: list "{{name}}" in console.commands in tsir.js, then run: bun ract {{name}}\n');
+    return 0;
+  },
+});

@@ -51,6 +51,7 @@ export const CLOUDFLARE_KV_CAPABILITIES = {
   increment: false,
   ttl: true,
   clearAll: false,
+  locks: false,
   ttlFloorMs: KV_TTL_FLOOR_MS,
 } as const;
 
@@ -130,6 +131,28 @@ export function cloudflareKvDriver(options: CloudflareKvDriverOptions): CacheDri
             'emptying a namespace means listing the whole keyspace — delete the namespace in wrangler instead',
           );
         },
+
+        // KV is eventually consistent: a "set if absent" cannot be atomic across regions, and a
+        // compare-and-delete is impossible without a transaction. Refusing is the only honest answer.
+        acquireLock: (): Promise<boolean> =>
+          Promise.reject(
+            unsupportedOperation(
+              'cloudflare-kv',
+              'cloudflare-kv',
+              'locks',
+              'KV is eventually consistent and cannot acquire or release a lock atomically',
+            ),
+          ),
+
+        releaseLock: (): Promise<boolean> =>
+          Promise.reject(
+            unsupportedOperation(
+              'cloudflare-kv',
+              'cloudflare-kv',
+              'locks',
+              'KV is eventually consistent and cannot acquire or release a lock atomically',
+            ),
+          ),
       };
     },
   };

@@ -271,6 +271,96 @@ export const packages: readonly PackageCard[] = [
     description:
       'Redacted structured logs, bounded metrics, sampled spans and honest readiness signals.',
   },
+  {
+    name: 'socialize',
+    title: 'Social authentication',
+    group: 'capabilities',
+    phase: 8,
+    status: 'implemented',
+    icon: 'link',
+    description: 'OAuth providers (Google, GitHub) with signed CSRF state.',
+  },
+  {
+    name: 'media',
+    title: 'Image & video',
+    group: 'capabilities',
+    phase: 8,
+    status: 'partial',
+    icon: 'layers',
+    description:
+      'Upload, transform and deliver via Cloudinary, Cloudflare, ImageKit, sharp, ffmpeg.',
+    caveat: 'Adapters tested against stubs; real vendor integration tests pending.',
+  },
+  {
+    name: 'cashier',
+    title: 'Payments',
+    group: 'capabilities',
+    phase: 8,
+    status: 'partial',
+    icon: 'key',
+    description: 'Stripe API client and webhook signature verification.',
+    caveat: 'Stripe client and webhook verification tested; more providers not wired.',
+  },
+  {
+    name: 'broadcast',
+    title: 'Realtime channels',
+    group: 'capabilities',
+    phase: 8,
+    status: 'partial',
+    icon: 'broadcast',
+    description: 'In-process pub/sub, WebSockets and presence channels.',
+    caveat: 'Memory broadcaster and WebSocket handler ship; Redis backend still open.',
+  },
+  {
+    name: 'pennant',
+    title: 'Feature flags',
+    group: 'capabilities',
+    phase: 8,
+    status: 'partial',
+    icon: 'sliders',
+    description: 'Boolean and percentage rollouts with memory, database and null stores.',
+    caveat: 'Stores and evaluation implemented; a remote flag sync driver is not available.',
+  },
+  {
+    name: 'scout',
+    title: 'Full-text search',
+    group: 'capabilities',
+    phase: 8,
+    status: 'partial',
+    icon: 'search',
+    description: 'Index and search via memory, SQLite and Postgres engines.',
+    caveat: 'Memory and SQLite drivers tested; Postgres full-text needs coverage.',
+  },
+  {
+    name: 'nightwatch',
+    title: 'End-to-end testing',
+    group: 'operations',
+    phase: 8,
+    status: 'partial',
+    icon: 'flask',
+    description: 'Browser-backend port with in-memory and Playwright backends.',
+    caveat: 'In-memory backend runs; Playwright needs a browser binary in CI.',
+  },
+  {
+    name: 'telemetry',
+    title: 'Request & queue telemetry',
+    group: 'operations',
+    phase: 8,
+    status: 'partial',
+    icon: 'pulse',
+    description: 'Request logging and queue-state monitoring in Drizzle tables.',
+    caveat: 'Loggers and monitors implemented; aggregation dashboards not shipped.',
+  },
+  {
+    name: 'forge',
+    title: 'Server management',
+    group: 'connect',
+    phase: 8,
+    status: 'partial',
+    icon: 'cloud',
+    description: 'Provision servers, run commands and execute deploy steps.',
+    caveat: 'SSH runner and step model in place; cloud provisioning not wired.',
+  },
 ];
 
 const escape = (value: string): string =>
@@ -284,9 +374,9 @@ export function renderPackages(): string {
   return packages
     .map((pkg) => {
       const source = `src/framework/${pkg.name}`;
-      const searchable = escape(
-        `@tsir/${pkg.name} ${pkg.title} ${pkg.description} ${pkg.group}`.toLowerCase(),
-      );
+      // `data-search` holds name + title + group; the description is visible text
+      // and is searched via `textContent` in the client filter.
+      const searchable = escape(`@tsir/${pkg.name} ${pkg.title} ${pkg.group}`.toLowerCase());
       return `<article class="package-card card" data-status="${pkg.status}" data-phase="${pkg.phase}" data-src="${source}" data-group="${pkg.group}" data-search="${searchable}">
       <div class="package-top"><span class="package-icon icon-${pkg.group}"><svg width="22" height="22" aria-hidden="true"><use href="#i-${pkg.icon}"/></svg></span><span class="badge status-badge status-${pkg.status}">${pkg.status === 'implemented' ? 'Implemented' : 'Partial'}</span></div>
       <h3><span class="pkg">@tsir/${pkg.name}</span></h3><p class="package-title">${escape(pkg.title)}</p><p class="package-description">${escape(pkg.description)}</p>

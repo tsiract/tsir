@@ -34,7 +34,7 @@ export type AppMode = 'development' | 'production' | 'test';
 export type ModuleFactory<TConfig> =
   readonly ModuleDefinition[] | ((config: LoadedConfig<TConfig>) => readonly ModuleDefinition[]);
 
-export interface DefineAppOptions<S extends ConfigSpec = {}> {
+export interface DefineAppOptions<S extends ConfigSpec = Record<string, never>> {
   readonly name: string;
   /** Application config spec. Optional — defaults to an empty spec (`{}`) when omitted.
    *
@@ -77,7 +77,7 @@ export interface CreateAppOptions {
  * than `unknown`. Erasing it to `unknown` here would push a cast into every
  * caller — which is the one place a cast is least affordable.
  */
-export interface TsirApp<S extends ConfigSpec = {}> {
+export interface TsirApp<S extends ConfigSpec = Record<string, never>> {
   readonly name: string;
   readonly configSpec: S;
   /** Loads and validates configuration without booting the application. */
@@ -90,7 +90,9 @@ export interface TsirApp<S extends ConfigSpec = {}> {
   manifest(options?: Pick<CreateAppOptions, 'env'>): AppManifest;
 }
 
-export function defineApp<S extends ConfigSpec = {}>(options: DefineAppOptions<S>): TsirApp<S> {
+export function defineApp<S extends ConfigSpec = Record<string, never>>(
+  options: DefineAppOptions<S>,
+): TsirApp<S> {
   const spec = (options.config ?? defineConfig({})) as S;
   const loadFor = (input?: { env?: EnvRecord; mode?: AppMode }): LoadedConfig<InferConfig<S>> => {
     const mode = input?.mode ?? 'development';

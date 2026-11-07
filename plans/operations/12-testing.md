@@ -13,7 +13,7 @@
 | HTTP integration     | `@tsir/testing` in-process harness      | `src/framework/http/test/*.test.ts`               | Every PR                                  |
 | Database integration | Ephemeral Postgres (Docker)             | `src/framework/database/test`, `migrate`, `vault` | Every PR (service container)              |
 | Deploy conformance   | Shared suite against each adapter       | `src/framework/deploy/test`                       | Every PR (mock adapters) + nightly (real) |
-| End-to-end           | Example apps via built artifacts        | `src/apps/examples/*/e2e`                         | `main` only                               |
+| End-to-end           | Example apps via built artifacts        | `src/apps/*/e2e`                                  | `main` only                               |
 | Security negative    | Explicit matrices                       | `src/framework/vault`, `auth`, `link/soap`        | Every PR                                  |
 | Performance          | `bun` microbench + budget assertions    | `src/bench/`                                      | Nightly, with committed baselines         |
 

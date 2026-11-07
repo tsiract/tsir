@@ -28,7 +28,7 @@ import { lockNotShared, taskFailed, taskTimeout, unknownTask } from './errors.ts
 import type { LockProvider } from './lock.ts';
 import { createTaskRegistry, type TaskDefinition, type TaskRegistry } from './task.ts';
 
-export type RunStatus = 'ran' | 'failed' | 'timeout' | 'busy';
+export type RunStatus = 'ran' | 'failed' | 'timeout' | 'busy' | 'skipped';
 
 export interface TaskOutcome {
   readonly task: string;
@@ -46,6 +46,7 @@ export interface TaskStatus {
   readonly name: string;
   readonly cron: string;
   readonly utcOffsetMinutes: number;
+  readonly timezone?: string | undefined;
   readonly overlap: 'skip' | 'allow';
   readonly nextRunAt: number | undefined;
   readonly lockedBy: string | undefined;
@@ -70,6 +71,12 @@ export interface CreateSchedulerOptions {
   readonly production?: boolean | undefined;
   /** Added to a task's timeout to get its lock TTL. Default 60 000 ms. */
   readonly graceMs?: number | undefined;
+  /**
+   * When it returns true, cron-triggered tasks are skipped unless they declare
+   * `evenInMaintenanceMode: true`. Manual runs always run. A task skipped this way is reported
+   * as `status: 'skipped'` so an observer can tell "did not run" from "ran" and "failed".
+   */
+  readonly isMaintenanceMode?: (() => boolean | Promise<boolean>) | undefined;
 }
 
 export interface Scheduler {
@@ -138,6 +145,19 @@ export function createScheduler(options: CreateSchedulerOptions): Scheduler {
       trigger: run.trigger,
       durationMs: 0,
     } as const;
+
+    // Maintenance mode only gates cron ticks: an operator running `schedule:run` explicitly
+    // asked for the task, so it runs regardless. A skipped tick is reported, not swallowed —
+    // "did not run because the app is down for maintenance" is a different page from "failed".
+    if (run.trigger === 'cron' && !task.evenInMaintenanceMode) {
+      const down =
+        options.isMaintenanceMode === undefined ? false : await options.isMaintenanceMode();
+      if (down) {
+        log(`  ${task.name}: skipped — maintenance mode is on`);
+        return { ...base, status: 'skipped', durationMs: 0 };
+      }
+    }
+
     const owner = newOwner();
 
     // `allow` tasks take no lock at all: taking one and releasing it immediately would only hide
@@ -159,6 +179,51 @@ export function createScheduler(options: CreateSchedulerOptions): Scheduler {
       }
     }
 
+    // A background run holds the lock until the handler finishes, but `runDue` does not wait
+    // for it: the next tick sees the lock and skips, which is the whole point. Errors are still
+    // reported to the observer, just asynchronously.
+    if (task.runInBackground) {
+      void executeTask(task, run, { startedAt, owner, handle }).catch((error: unknown) => {
+        // `executeTask` reports its own errors through `onError`; a rejection here would be a
+        // bug in the error-reporting path itself, so surface it rather than silently drop it.
+        const detail = error instanceof Error ? error.message : String(error);
+        log(`  ${task.name}: background run error-reporting failed — ${detail}`);
+      });
+      return { ...base, status: 'ran', durationMs: 0 };
+    }
+
+    return executeTask(task, run, { startedAt, owner, handle });
+  }
+
+  /**
+   * The body of a run: hooks, the handler, the timeout, and the lock release.
+   *
+   * Shared by the foreground and background paths so a background run has exactly the same
+   * semantics as a foreground one — same timeout, same hooks, same lock release — the only
+   * difference is that the caller does not `await` it.
+   */
+  async function executeTask(
+    task: TaskDefinition,
+    run: {
+      readonly at: number;
+      readonly trigger: 'cron' | 'manual';
+      readonly force: boolean;
+      readonly signal?: AbortSignal | undefined;
+    },
+    state: {
+      readonly startedAt: number;
+      readonly owner: string;
+      readonly handle: { readonly expiresAt: number } | undefined;
+    },
+  ): Promise<TaskOutcome> {
+    const { startedAt, owner, handle } = state;
+    const base = {
+      task: task.name,
+      scheduledFor: run.at,
+      trigger: run.trigger,
+      durationMs: 0,
+    } as const;
+
     const controller = new AbortController();
     const abortFromCaller = (): void => {
       controller.abort(run.signal?.reason);
@@ -175,26 +240,31 @@ export function createScheduler(options: CreateSchedulerOptions): Scheduler {
       (timer as { unref?: () => void }).unref?.();
     });
 
+    const context = {
+      name: task.name,
+      scheduledFor: run.at,
+      startedAt,
+      trigger: run.trigger,
+      signal: controller.signal,
+      log: (message: string) => {
+        log(`  ${task.name}: ${message}`);
+      },
+    };
+
+    let outcome: TaskOutcome;
     try {
+      // `before` runs first and can refuse the run by throwing: a precondition hook that fails
+      // means the handler must not start, and the run is a failure carrying that error.
+      await task.before?.(context);
+
       const result = await Promise.race([
-        Promise.resolve(
-          task.handle({
-            name: task.name,
-            scheduledFor: run.at,
-            startedAt,
-            trigger: run.trigger,
-            signal: controller.signal,
-            log: (message) => {
-              log(`  ${task.name}: ${message}`);
-            },
-          }),
-        ).then(() => 'done' as const),
+        Promise.resolve(task.handle(context)).then(() => 'done' as const),
         timeout,
       ]);
 
       const durationMs = now() - startedAt;
       if (result === 'timeout') {
-        const outcome: TaskOutcome = {
+        outcome = {
           ...base,
           status: 'timeout',
           durationMs,
@@ -202,29 +272,58 @@ export function createScheduler(options: CreateSchedulerOptions): Scheduler {
         };
         log(`  ${task.name}: timed out after ${String(task.timeoutMs)} ms`);
         options.onError?.(taskTimeout(task.name, task.timeoutMs), outcome);
-        return outcome;
+        await runHook(task.onFailure, context, taskTimeout(task.name, task.timeoutMs));
+      } else {
+        outcome = { ...base, status: 'ran', durationMs };
+        log(`  ${task.name}: ran in ${String(durationMs)} ms (${run.trigger})`);
+        await runHook(task.onSuccess, context);
       }
-
-      log(`  ${task.name}: ran in ${String(durationMs)} ms (${run.trigger})`);
-      return { ...base, status: 'ran', durationMs };
     } catch (error: unknown) {
       const detail = error instanceof Error ? error.message : String(error);
       const durationMs = now() - startedAt;
-      const outcome: TaskOutcome = { ...base, status: 'failed', durationMs, error: detail };
+      outcome = { ...base, status: 'failed', durationMs, error: detail };
       log(`  ${task.name}: failed after ${String(durationMs)} ms — ${detail}`);
       options.onError?.(
         taskFailed(task.name, detail, { scheduledFor: run.at, durationMs }),
         outcome,
       );
-      return outcome;
+      await runHook(task.onFailure, context, error);
     } finally {
       if (timer !== undefined) clearTimeout(timer);
       run.signal?.removeEventListener('abort', abortFromCaller);
+      // `after` runs on every path — success, failure, timeout — after the success/failure hook.
+      // It is for cleanup that must happen whether the run worked or not.
+      await runHook(task.after, context);
       // Released on every path, including failure and timeout: the lock exists to stop *overlap*,
       // not to stop the next tick. A crash skips this and the TTL covers it.
       if (handle !== undefined) {
         await options.lock.release({ name: task.name, owner, now: now() });
       }
+    }
+
+    return outcome;
+  }
+
+  /**
+   * Run a lifecycle hook, swallowing and reporting its errors.
+   *
+   * A hook must not change the task's outcome: a flaky `after` must not turn a successful run
+   * into a failed one (and a flaky `onSuccess` must not hide a real failure). Hook errors go
+   * to the observer and the log, and the run continues with whatever outcome it already had.
+   */
+  async function runHook(
+    hook: ((...args: never[]) => void | Promise<void>) | undefined,
+    context: { readonly name: string },
+    ...args: unknown[]
+  ): Promise<void> {
+    if (hook === undefined) return;
+    try {
+      // `context` is always the first hook argument; `args` carries the rest (e.g. the error
+      // for `onFailure`). Hooks are typed to accept `(context)` or `(context, error)`.
+      await hook(context as never, ...(args as never[]));
+    } catch (error: unknown) {
+      const detail = error instanceof Error ? error.message : String(error);
+      log(`  ${context.name}: hook failed — ${detail}`);
     }
   }
 
@@ -286,6 +385,7 @@ export function createScheduler(options: CreateSchedulerOptions): Scheduler {
           name: task.name,
           cron: task.cron,
           utcOffsetMinutes: task.utcOffsetMinutes,
+          ...(task.timezone === undefined ? {} : { timezone: task.timezone }),
           overlap: task.overlap,
           nextRunAt: nextRunAt(task.spec, at),
           lockedBy: lock?.owner,

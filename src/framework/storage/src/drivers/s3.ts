@@ -23,7 +23,7 @@
  */
 
 import { TsirError } from '@tsir/container';
-import { alreadyExists, requestFailed } from '../errors.ts';
+import { alreadyExists, notFound, requestFailed } from '../errors.ts';
 import { parseListObjectsV2 } from '../list-xml.ts';
 import { parseCount } from '../numbers.ts';
 import type {
@@ -35,6 +35,7 @@ import type {
   StorageDriver,
   StoredBody,
   StoredObject,
+  Visibility,
 } from '../port.ts';
 import {
   MAX_PRESIGN_SECONDS,
@@ -182,6 +183,9 @@ export function s3Driver(options: S3DriverOptions): StorageDriver {
         // One round trip, not a read-then-write: S3 and R2 both honour `If-None-Match: *`.
         headers['if-none-match'] = '*';
       }
+      if (putOptions.visibility !== undefined) {
+        headers['x-amz-acl'] = putOptions.visibility === 'public' ? 'public-read' : 'private';
+      }
 
       const response = await signed('PUT', objectUrl(key), headers, body);
       // Not a lazy import: `errors.ts` is imported at the top of every driver, and an `await` here
@@ -195,6 +199,7 @@ export function s3Driver(options: S3DriverOptions): StorageDriver {
         contentType: headers['content-type'] ?? DEFAULT_CONTENT_TYPE,
         etag: response.headers.get('etag') ?? `"${await sha256Hex(body)}"`,
         lastModified: now(),
+        ...(putOptions.visibility === undefined ? {} : { visibility: putOptions.visibility }),
         ...(putOptions.metadata === undefined ? {} : { metadata: putOptions.metadata }),
       };
     },
@@ -267,6 +272,85 @@ export function s3Driver(options: S3DriverOptions): StorageDriver {
         })),
         ...(parsed.cursor === undefined ? {} : { cursor: parsed.cursor }),
       };
+    },
+
+    async directories(prefix = ''): Promise<readonly string[]> {
+      const query: Record<string, string> = {
+        'list-type': '2',
+        delimiter: '/',
+        'max-keys': '1000',
+      };
+      if (prefix !== '') query['prefix'] = prefix;
+      const response = await signed('GET', bucketUrl(query), {}, undefined);
+      if (!response.ok) throw await failure('list', response);
+      const text = await response.text();
+      // `CommonPrefixes` entries look like `<CommonPrefixes><Prefix>uploads/</Prefix></CommonPrefixes>`.
+      const dirs: string[] = [];
+      // Only `<Prefix>` inside `<CommonPrefixes>` are directories; the top-level `<Prefix>` is
+      // the listing's filter, not a result.
+      const re = /<CommonPrefixes>\s*<Prefix>([^<]+)<\/Prefix>\s*<\/CommonPrefixes>/gu;
+      let match: RegExpExecArray | null;
+      while ((match = re.exec(text)) !== null) {
+        const name = match[1];
+        if (name !== undefined && name !== '') dirs.push(name);
+      }
+      return dirs.sort();
+    },
+
+    async setVisibility(key: string, visibility: Visibility): Promise<StoredObject> {
+      const headers: Record<string, string> = {
+        'x-amz-acl': visibility === 'public' ? 'public-read' : 'private',
+      };
+      const response = await signed('PUT', `${objectUrl(key)}?acl`, headers, new Uint8Array(0));
+      if (response.status === 404) throw notFound(key, disk);
+      if (!response.ok) throw await failure('setVisibility', response);
+      const head = await this.head(key);
+      if (head === undefined) throw notFound(key, disk);
+      return { ...head, visibility };
+    },
+
+    async copy(source: string, destination: string): Promise<StoredObject> {
+      // S3's `x-amz-copy-source` is `/<bucket>/<key>` (url-encoded key).
+      const sourcePath = `/${encodeURIComponent(options.bucket)}/${source
+        .split('/')
+        .map((segment) => encodeURIComponent(segment))
+        .join('/')}`;
+      const headers: Record<string, string> = {
+        'x-amz-copy-source': sourcePath,
+      };
+      const response = await signed('PUT', objectUrl(destination), headers, new Uint8Array(0));
+      if (response.status === 404) throw notFound(source, disk);
+      if (!response.ok) throw await failure('copy', response);
+      const head = await this.head(destination);
+      if (head === undefined) throw notFound(destination, disk);
+      return head;
+    },
+
+    async move(source: string, destination: string): Promise<StoredObject> {
+      const result = await this.copy(source, destination);
+      await this.delete(source);
+      return result;
+    },
+
+    async stream(
+      key: string,
+      getOptions: GetOptions,
+    ): Promise<ReadableStream<Uint8Array> | undefined> {
+      const headers: Record<string, string> = {};
+      if (getOptions.range !== undefined) {
+        headers['range'] =
+          getOptions.range.end === undefined
+            ? `bytes=${String(getOptions.range.start)}-`
+            : `bytes=${String(getOptions.range.start)}-${String(getOptions.range.end)}`;
+      }
+      const response = await signed('GET', objectUrl(key), headers, undefined);
+      if (response.status === 404) return undefined;
+      if (!response.ok) throw await failure('stream', response);
+      // `Response.body` is a `ReadableStream<Uint8Array>` on every runtime this package targets,
+      // and the whole point of `stream` is that the caller controls backpressure instead of
+      // buffering the whole object.
+      if (response.body === null) return undefined;
+      return response.body as ReadableStream<Uint8Array>;
     },
 
     url(key) {

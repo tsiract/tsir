@@ -40,7 +40,7 @@ import { type CliRun, runCliSubprocess } from '../../test-support/in-process.ts'
 
 const FIXTURE = join(import.meta.dir, 'fixtures', 'deploy-app');
 const BUDGET_FIXTURE = join(import.meta.dir, 'fixtures', 'budget-app');
-const HTTP_EXAMPLE = join(import.meta.dir, '..', '..', '..', '..', 'apps', 'examples', 'http');
+const HTTP_EXAMPLE = join(import.meta.dir, 'fixtures', 'http-app');
 
 const cleanup: string[] = [];
 

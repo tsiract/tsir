@@ -38,7 +38,8 @@ export const UNIT_KINDS: readonly UnitKind[] = [
 ];
 
 /** How a unit is reached. A unit may have more than one (an HTTP unit with a cron warm-up). */
-export type TriggerKind = 'http' | 'websocket' | 'queue' | 'cron' | 'sns' | 'eventbridge' | 'manual';
+export type TriggerKind =
+  'http' | 'websocket' | 'queue' | 'cron' | 'sns' | 'eventbridge' | 'manual';
 
 export interface UnitTrigger {
   readonly kind: TriggerKind;
@@ -55,7 +56,8 @@ export interface UnitTrigger {
  * serialization into `unit-graph.json` — a reason you cannot commit is a comment.
  */
 export interface UnitReason {
-  readonly source: 'routes' | 'sockets' | 'queues' | 'schedules' | 'listeners' | 'connections' | 'override';
+  readonly source:
+    'routes' | 'sockets' | 'queues' | 'schedules' | 'listeners' | 'connections' | 'override';
   readonly from: string;
 }
 

@@ -2,7 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-10-30
-- **Affects:** the root `package.json`, `src/apps/docs/`, `Makefile` (`docs-site`)
+- **Affects:** the root `package.json`, `src/tools/docs-router/`, `Makefile` (`docs-site`)
 - **Related:** [ADR-0012](./0012-dependency-policy.md) (dependency policy), [ADR-0002](./0002-web-standard-http.md) (no library where the platform already has the feature)
 
 ---

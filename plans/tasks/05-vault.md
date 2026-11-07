@@ -47,11 +47,13 @@
 
 ## Blast-radius / extras
 
-| ID        | Title                                                | Status | Depends | Acceptance criteria (summary)                       |
-| --------- | ---------------------------------------------------- | ------ | ------- | --------------------------------------------------- |
-| `VLT-025` | Blind index (`HMAC-SHA256`) with caveats documented  | `[x]`  | VLT-002 | Equality lookup works; docs state frequency leakage |
-| `VLT-026` | `VaultKeyProvider` seam for KMS/HSM (no vendor code) | `[x]`  | VLT-006 | Interface stable; default provider is the keyring   |
-| `VLT-027` | Log-capture test: no key material or plaintext       | `[x]`  | VLT-002 | Zero matches across the full suite                  |
+| ID        | Title                                                 | Status | Depends          | Acceptance criteria (summary)                                                                                                                                                                            |
+| --------- | ----------------------------------------------------- | ------ | ---------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VLT-025` | Blind index (`HMAC-SHA256`) with caveats documented   | `[x]`  | VLT-002          | Equality lookup works; docs state frequency leakage                                                                                                                                                      |
+| `VLT-026` | `VaultKeyProvider` seam for KMS/HSM (no vendor code)  | `[x]`  | VLT-006          | Interface stable; default provider is the keyring                                                                                                                                                        |
+| `VLT-027` | Log-capture test: no key material or plaintext        | `[x]`  | VLT-002          | Zero matches across the full suite                                                                                                                                                                       |
+| `VLT-028` | Signed URLs (HMAC-MAC + expiry + allowed params)      | `[ ]`  | VLT-002          | `signUrl(url, { expiresIn? })` appends `signature` + `expires`; `verifySignedUrl` checks MAC + expiry and rejects tampered URLs; query params outside the signed set are dropped                         |
+| `VLT-029` | Encrypted cookies (`encryptCookie` / `decryptCookie`) | `[ ]`  | VLT-002, VLT-008 | `encryptCookie(name, value)` returns an encrypted envelope suitable for `Set-Cookie`; `decryptCookie` reverses; a tampered value fails auth; `HttpOnly`/`Secure`/`SameSite` are caller-set, not baked in |
 
 ### Notes on the ticked rows
 

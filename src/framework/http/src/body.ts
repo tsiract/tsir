@@ -90,7 +90,9 @@ export type ReadResult =
 export function streamBody(
   request: Request,
   maxBytes: number,
-): { readonly kind: 'ok'; readonly stream: ReadableStream<Uint8Array> } | { readonly kind: 'too-large'; readonly bytes: number } {
+):
+  | { readonly kind: 'ok'; readonly stream: ReadableStream<Uint8Array> }
+  | { readonly kind: 'too-large'; readonly bytes: number } {
   const declared = request.headers.get('content-length');
   if (declared !== null) {
     // coercion-ok: a framework header, only used to reject early; the counting

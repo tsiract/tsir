@@ -88,9 +88,7 @@ describe('make:policy', () => {
 
   test('the rule grants what the role grants, and denies everything else (fail closed)', async () => {
     await makePolicyCommand(['Post', 'update']);
-    const mod = (await import(
-      join(dir, 'policies', 'post-update.policy.ts')
-    )) as PolicyModule;
+    const mod = (await import(join(dir, 'policies', 'post-update.policy.ts'))) as PolicyModule;
 
     const principal = { subject: 'user-1' };
     const granted = mod.postUpdateRule({

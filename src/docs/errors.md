@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-256 codes across 23 packages.
+279 codes across 27 packages.
 
 ## `@tsir/auth`
 
@@ -35,6 +35,16 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `CAP_UNKNOWN_STORE`           |
 | `CAP_UNSUPPORTED_OPERATION`   |
 
+## `@tsir/cashier`
+
+| Code                           |
+| ------------------------------ |
+| `STRIPE_REQUEST_FAILED`        |
+| `STRIPE_WEBHOOK_BAD_HEADER`    |
+| `STRIPE_WEBHOOK_BAD_SIGNATURE` |
+| `STRIPE_WEBHOOK_BAD_TIMESTAMP` |
+| `STRIPE_WEBHOOK_TOO_OLD`       |
+
 ## `@tsir/config`
 
 | Code                         |
@@ -54,9 +64,10 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 ## `@tsir/console`
 
-| Code               |
-| ------------------ |
-| `CLI_WSDL_INVALID` |
+| Code                   |
+| ---------------------- |
+| `CLI_STUB_MISSING_VAR` |
+| `CLI_WSDL_INVALID`     |
 
 ## `@tsir/container`
 
@@ -102,9 +113,11 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DB_CODEC_INVALID_NAME`          |
 | `DB_CODEC_UNDEFINED_VALUE`       |
 | `DB_CONNECTION_PIN_UNSUPPORTED`  |
+| `DB_D1_NO_BINDING`               |
 | `DB_DRIVER_UNAVAILABLE`          |
 | `DB_HEALTH_FAILED`               |
 | `DB_NO_CONNECTIONS`              |
+| `DB_POSTGRES_BOOTSTRAP_UNWIRED`  |
 | `DB_RAW_UNSUPPORTED`             |
 | `DB_REQUIRES_INTERACTIVE_TX`     |
 | `DB_REQUIRES_TX_CONNECTION`      |
@@ -113,6 +126,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DB_TX_DEPTH_EXCEEDED`           |
 | `DB_TX_INTERACTIVE_UNSUPPORTED`  |
 | `DB_TX_OPTION_UNSUPPORTED`       |
+| `DB_TX_STATEMENT_UNSUPPORTED`    |
 | `DB_UNKNOWN_CONNECTION`          |
 | `DB_UNKNOWN_DEFAULT`             |
 
@@ -151,6 +165,12 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `CAP_EVENT_FAILED`         |
 | `CAP_OUTBOX_WRITE_FAILED`  |
 | `CAP_UNKNOWN_EVENT`        |
+
+## `@tsir/forge`
+
+| Code                  |
+| --------------------- |
+| `FORGE_DEPLOY_FAILED` |
 
 ## `@tsir/http`
 
@@ -228,6 +248,19 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `MAIL_UNKNOWN_MAILER`          |
 | `MAIL_UNKNOWN_TEMPLATE`        |
 | `MAIL_UNSUPPORTED_OPERATION`   |
+
+## `@tsir/media`
+
+| Code                         |
+| ---------------------------- |
+| `CLOUDFLARE_DELIVERY_FAILED` |
+| `CLOUDFLARE_UPLOAD_FAILED`   |
+| `CLOUDINARY_DELIVERY_FAILED` |
+| `CLOUDINARY_UPLOAD_FAILED`   |
+| `FFMPEG_FAILED`              |
+| `IMAGEKIT_DELIVERY_FAILED`   |
+| `IMAGEKIT_UPLOAD_FAILED`     |
+| `MEDIA_NO_ADAPTER`           |
 
 ## `@tsir/migrate`
 
@@ -334,6 +367,16 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `SED_PRODUCTION_REFUSED`    |
 | `SED_UNDECLARED_CONNECTION` |
 | `SED_UNKNOWN_CLASS`         |
+
+## `@tsir/socialize`
+
+| Code                         |
+| ---------------------------- |
+| `GITHUB_TOKEN_FAILED`        |
+| `GITHUB_USER_FAILED`         |
+| `GOOGLE_TOKEN_FAILED`        |
+| `GOOGLE_USERINFO_FAILED`     |
+| `SOCIALIZE_UNKNOWN_PROVIDER` |
 
 ## `@tsir/storage`
 

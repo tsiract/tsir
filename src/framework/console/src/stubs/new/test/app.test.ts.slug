@@ -1,0 +1,23 @@
+import { describe, expect, test } from 'bun:test';
+import { createTestApp } from '@tsir/testing';
+
+import app from '../app.ts';
+import { appNameToken } from '../home/routes.ts';
+
+describe('{{name}}', () => {
+  test('boots through the production path', async () => {
+    const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
+    expect(harness.app.state.kind).toBe('ready');
+    await harness.dispose();
+    expect(harness.app.state.kind).toBe('stopped');
+  });
+
+  test('serves the welcome message with the app name', async () => {
+    const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
+    try {
+      expect(harness.get(appNameToken)).toBe('{{name}}');
+    } finally {
+      await harness.dispose();
+    }
+  });
+});

@@ -153,12 +153,7 @@ export interface LambdaUnit {
    * Direct invoke — Step Functions tasks and any other synchronous call that does not
    * arrive through an AWS event envelope. The `event` is whatever the caller passed.
    */
-  readonly invoke?:
-    | ((
-        event: unknown,
-        context: LambdaContextLike,
-      ) => Promise<unknown>)
-    | undefined;
+  readonly invoke?: ((event: unknown, context: LambdaContextLike) => Promise<unknown>) | undefined;
 }
 
 export interface LambdaOptions {

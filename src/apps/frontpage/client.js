@@ -8,7 +8,7 @@
   const readSaved = () => {
     try {
       const value = localStorage.getItem('tsir-theme');
-      return value === 'nord' || value === 'abyss' ? value : null;
+      return value === 'silk' || value === 'abyss' ? value : null;
     } catch {
       return null;
     }
@@ -17,17 +17,17 @@
     const dark = root.dataset.theme === 'abyss';
     themeButton?.setAttribute(
       'aria-label',
-      `Switch to ${dark ? 'Nord light' : 'Abyss dark'} theme`,
+      `Switch to ${dark ? 'Silk light' : 'Abyss dark'} theme`,
     );
-    themeButton?.setAttribute('title', `${dark ? 'Abyss dark' : 'Nord light'} — click to switch`);
+    themeButton?.setAttribute('title', `${dark ? 'Abyss dark' : 'Silk light'} — click to switch`);
     themeButton?.setAttribute('aria-pressed', String(dark));
-    themeMeta?.setAttribute('content', dark ? '#001e26' : '#eceff4');
+    themeMeta?.setAttribute('content', dark ? '#001e26' : '#f8f5ef');
   };
   paintTheme();
   if (themeButton) {
     themeButton.hidden = false;
     themeButton.addEventListener('click', () => {
-      const theme = root.dataset.theme === 'abyss' ? 'nord' : 'abyss';
+      const theme = root.dataset.theme === 'abyss' ? 'silk' : 'abyss';
       root.dataset.theme = theme;
       try {
         localStorage.setItem('tsir-theme', theme);
@@ -39,12 +39,12 @@
   }
   preference.addEventListener('change', (event) => {
     if (readSaved() !== null) return;
-    root.dataset.theme = event.matches ? 'abyss' : 'nord';
+    root.dataset.theme = event.matches ? 'abyss' : 'silk';
     paintTheme();
   });
   window.addEventListener('storage', (event) => {
     if (event.key !== 'tsir-theme') return;
-    root.dataset.theme = readSaved() ?? (preference.matches ? 'abyss' : 'nord');
+    root.dataset.theme = readSaved() ?? (preference.matches ? 'abyss' : 'silk');
     paintTheme();
   });
 
@@ -159,7 +159,9 @@
       cards.forEach((card) => {
         const matches =
           (category === 'all' || card.dataset.group === category) &&
-          (card.dataset.search ?? '').includes(query);
+          ((card.dataset.search ?? '') + ' ' + (card.textContent ?? ''))
+            .toLowerCase()
+            .includes(query);
         card.hidden = !matches;
         if (matches) visible += 1;
       });

@@ -5,6 +5,7 @@ import { commitWrites, displayPath, type GeneratedFile } from '../generator.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
 import { requireModule, scopedName, splitAppModule } from './naming.ts';
 import { pendingTestFile } from './pending-test.ts';
+import { renderStub } from '../stub.ts';
 
 export async function makeModelCommand(argv: readonly string[]): Promise<number> {
   if (argv.length === 1 && (argv[0] === '--help' || argv[0] === '-h')) {
@@ -33,16 +34,7 @@ export async function makeModelCommand(argv: readonly string[]): Promise<number>
   const table = `${module.name}_${stem}`.replace(/-/g, '_');
   const tableFunction = dialect === 'sqlite' ? 'sqliteTable' : 'pgTable';
   const core = dialect === 'sqlite' ? 'sqlite-core' : 'pg-core';
-  const contents = `import { ${tableFunction} as _table, text as _text } from 'drizzle-orm/${core}';
-
-// Define columns for your application. Creating a schema does not create a database table.
-export const ${camel} = _table('${table}', {
-  id: _text('id').primaryKey(),
-});
-
-export type ${pascal} = typeof ${camel}.$inferSelect;
-export type New${pascal} = typeof ${camel}.$inferInsert;
-`;
+  const contents = renderStub('model.ts', { tableFunction, core, camel, table, pascal });
   const path = join(module.dir, 'models', `${stem}.model.ts`);
   const generated: GeneratedFile[] = [{ path, contents }, pendingTestFile(path, `${pascal} model`)];
   const dryRun = boolFlag(args, '--dry-run');

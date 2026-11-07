@@ -186,7 +186,8 @@ export function compileListeners(
       ? async (event: unknown, context: LambdaContextLike): Promise<unknown> => {
           const onlyEntry = tasksByName.size === 1 ? tasksByName.values().next().value : undefined;
           const taskName = taskNameFrom(event, onlyEntry !== undefined);
-          const entry = tasksByName.get(taskName) ?? (taskName === '__single__' ? onlyEntry : undefined);
+          const entry =
+            tasksByName.get(taskName) ?? (taskName === '__single__' ? onlyEntry : undefined);
           if (entry === undefined) {
             const known = [...tasksByName.keys()].sort().join(', ');
             throw listenerNotFound({

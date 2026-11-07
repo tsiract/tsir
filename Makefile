@@ -27,17 +27,20 @@ BUN_INSTALL_CACHE_DIR ?= $(CURDIR)/.cache/bun
 export BUN_INSTALL_CACHE_DIR
 
 BUN   ?= bun
-HTTP_EXAMPLE := src/apps/examples/http
+HTTP_EXAMPLE := src/apps/frontpage
+ADMIN_APP    := src/apps/admin.product.com
 BASH  ?= bash
 TSIR  ?= $(BUN) src/framework/console/src/cli.ts
 PORT  ?= 3000
+ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor tsir example check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package dist verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules test test-watch test-integration build start clean clean-cache \
         db-up db-down migrate migrate-status seed \
-        deploy-plan deploy-diff deploy-build deploy-validate route-list route-compile codegen-check openapi
+        deploy-plan deploy-diff deploy-build deploy-validate route-list route-compile codegen-check openapi \
+        make-%
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -48,7 +51,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake kill\033[0m            stop processes started by `make dev`\n'
 	@printf '  \033[36mmake doctor\033[0m          diagnose env, config, ports, versions\n'
 	@printf '  \033[36mmake tsir ARGS="…"\033[0m run the tsir CLI (e.g. ARGS="config:dump")\n'
-	@printf '  \033[36mmake example\033[0m         boot the minimal example app (Phase 1)\n'
+	@printf '  \033[36mmake example\033[0m         boot the frontpage app and report its lifecycle\n'
 	@printf '  \033[36mmake boundaries\033[0m      enforce the package dependency graph\n'
 	@printf '  \033[36mmake frontpage\033[0m       fail if the marketing page overstates what exists\n'
 	@printf '  \033[36mmake license\033[0m         verify MIT across every manifest\n'
@@ -88,8 +91,8 @@ install: ## Install workspace dependencies
 dev: ## Cleanup, then start the dev environment
 	@printf '  \033[2m→ make kill-owned\033[0m\n'
 	@$(MAKE) --no-print-directory kill-owned
-	@printf '  \033[2m→ bun src/tools/dev.ts --port $(PORT) --host $(HOST)\033[0m\n'
-	@$(BUN) src/tools/dev.ts --port $(PORT) --host $(HOST)
+	@printf '  \033[2m→ bun src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)\033[0m\n'
+	@$(BUN) src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)
 
 kill: kill-owned kill-ports ## Stop what we started, then free every unprotected listening port
 	@printf '  \033[32m✓\033[0m kill complete\n'
@@ -109,8 +112,8 @@ doctor: ## Diagnose the local environment
 tsir: ## Run the tsir CLI: make tsir ARGS="config:dump"
 	@$(TSIR) $(ARGS)
 
-example: ## Boot the minimal example app and report its lifecycle (exits after boot)
-	@cd src/apps/examples/minimal && $(BUN) ../../../framework/console/src/cli.ts doctor
+example: ## Boot the frontpage app and report its lifecycle (exits after boot)
+	@cd src/apps/frontpage && $(BUN) ../../framework/console/src/cli.ts doctor
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
@@ -317,31 +320,50 @@ seed: ## Run the application's seeders for APP_ENV (APP=path, ARGS=--class X)
 	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" db:seed $(ARGS)
 
 deploy-plan: ## Resolve and print the deploy unit graph (ARGS=--explain|--json|--write)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:plan $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:plan $(ARGS)
 
 deploy-diff: ## Compare the unit graph to the committed snapshot (ARGS=--json)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:diff $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:diff $(ARGS)
 
 deploy-build: ## Emit Workers/Lambda artifacts (ARGS=--target cloudflare,lambda --minify)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:build $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:build $(ARGS)
 
 deploy-validate: ## Gate a release: budgets, secret scan, capabilities (ARGS=--json)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:validate $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:validate $(ARGS)
 
 route-list: ## List compiled routes (APP=path, ARGS=--json for machine output)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" route:list $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" route:list $(ARGS)
 
 route-compile: ## Generate routes.gen.ts (ARGS=--check to fail on drift)
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts route:compile $(ARGS)
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) ../../framework/console/src/cli.ts route:compile $(ARGS)
 
 codegen-check: ## Fail if a committed generated artefact is stale (part of `make check`)
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts route:compile --check
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:plan --check
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
-	@cd $(HTTP_EXAMPLE) && $(BUN) ../../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
+	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
+	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
+	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
+	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
 	@rm -rf "$(CURDIR)/.verify/deploy"; rmdir "$(CURDIR)/.verify" 2>/dev/null || true
 	@$(TSIR) link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
 openapi: ## Generate the OpenAPI 3.1 document of an app (APP=path, ARGS="--out openapi.json")
 	@test -n "$(APP)" || { echo "  · set APP=<application path>"; exit 1; }
 	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" openapi:generate $(ARGS)
+
+# ─── Code generators (`tsir make:*`) ──────────────────────────────────────────
+#
+# Scaffold modules, controllers, models, services, and every other artefact
+# through the framework's own generators. Never hand-write a file that
+# `tsir make:*` can produce — the generated shape is what the rest of the
+# framework (routes, DI, deploy graph) expects.
+#
+#   make make-module     ARGS="shop"
+#   make make-controller ARGS="order shop"
+#   make make-model      ARGS="order shop"
+#   make make-migration  ARGS="create-orders shop"
+#   make make-seeder     ARGS="shop"
+#
+# Run from the app directory (APP=path) or from the workspace root; the CLI
+# resolves the nearest `tsir.js`.
+
+make-%: ## Run `tsir make:<name>` — e.g. `make make-controller ARGS="order shop"`
+	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" make:$* $(ARGS)

@@ -1,0 +1,8 @@
+import { defineConfig, env } from '@tsir/config';
+
+export const spec = defineConfig({
+  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'development' }),
+  APP_NAME: env.string({ default: '{{name}}' }),
+});
+
+export type AppConfig = typeof spec;

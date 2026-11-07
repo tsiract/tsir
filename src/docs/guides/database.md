@@ -12,8 +12,7 @@ Tsir is two things:
 1. A **Drizzle schema** — the typed table definition (columns, types, constraints).
 2. **Application-owned query functions** — plain functions that take a `Database` and run queries.
 
-This is closer to how Laravel uses Eloquent *scopes* and *repositories* than to Active Record:
-your schema describes the table, and you write explicit functions for the queries your app needs.
+Your schema describes the table, and you write explicit functions for the queries your app needs.
 The benefit is that queries are testable (pass a mock `Database`), traceable (no hidden static
 state), and never silently pick up the wrong connection.
 
@@ -79,6 +78,48 @@ Bind in the composition root with `createDatabase({ driver: createD1Driver({ bin
 service/controller through explicit providers. Close the database on shutdown. Parameterize SQL;
 never concatenate untrusted strings. Query-builder results use schema column names; raw proxy SQL
 returns positional rows.
+
+## Bootstrap from config
+
+For most apps, declare connections in `config/database.ts` and let the framework build the
+registry — no manual driver wiring. `createConnectionsFromConfig` reads the declared
+driver and binding name, validates the config, and defers the D1 driver until the binding is
+available (it arrives in `env` at request time):
+
+```ts verify
+import { createConnectionsFromConfig, createDrizzle, databaseConfigSchema } from '@tsir/database';
+
+// In a real app this is `config/database.ts`'s default export.
+const rawConfig = {
+  default: 'primary',
+  connections: {
+    primary: { driver: 'd1', binding: 'DB' },
+  },
+};
+
+const config = databaseConfigSchema.parse(rawConfig);
+
+// `runtimeBindings` is populated by the handler from `env`; the deferred D1
+// driver reads `DB` from there on first query.
+export const runtimeBindings: Record<string, unknown> = {};
+
+export const databases = createConnectionsFromConfig(config, () => runtimeBindings);
+export const db = databases.defaultDatabase;
+export const drizzle = createDrizzle(db);
+```
+
+In the handler, copy the platform bindings into `runtimeBindings` before routing:
+
+```ts
+export const handler = async (request: Request, env?: Record<string, unknown>) => {
+  if (env) Object.assign(runtimeBindings, env);
+  // …route the request…
+};
+```
+
+Export `databases` from the app entry so `tsir migrate` and `tsir db:seed` find it. The
+low-level `createDatabase`/`createD1Driver` API remains available for apps that need full
+control over driver construction.
 
 ## PostgreSQL and transactions
 

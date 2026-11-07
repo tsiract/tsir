@@ -3,7 +3,7 @@
  *
  * Type-aware ESLint keeps every project it loads in memory, so a single `eslint .` over all of
  * `src/framework` exhausts a 2 GB machine. Each framework package is linted in its own process, and
- * `src/tools` and `src/apps` get one each. Together they cover the files `eslint .` covered; the
+ * `src/tools`, `src/apps` and `src/apps/frontpage` get one each. Together they cover the files `eslint .` covered; the
  * ignores in `eslint.config.mjs` still apply. `make lint` and `tsir lint` both run this script, so
  * the two cannot drift (CLI-008).
  *
@@ -20,7 +20,7 @@ export function lintChunks(root: string = ROOT): string[] {
     .filter((entry) => entry.isDirectory())
     .map((entry) => `src/framework/${entry.name}`)
     .sort();
-  return [...packages, 'src/tools', 'src/apps'];
+  return [...packages, 'src/tools', 'src/apps', 'src/apps/frontpage'];
 }
 
 function main(): number {

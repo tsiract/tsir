@@ -1,0 +1,19 @@
+{
+  "name": "@tsir/telemetry",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Telescope-style request logging and Horizon-style queue monitoring for any Tsir app.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "drizzle-orm": "0.45.4"
+  }
+}

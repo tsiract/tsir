@@ -16,33 +16,38 @@
 
 ## 2. Index
 
-### Core phases (0–6)
+The files below are ordered by **execution sequence**. Each phase depends on the phases
+before it; do not start a later phase while an earlier one still has open `[ ]` or `[~]`
+items that block it. The dependency arrows note the hard gates.
 
-| File                                                 | Covers                                                     | Task range                               |
-| ---------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------------- |
-| [`01-foundation.md`](./01-foundation.md)             | Repo, tooling, CI, Makefile, dev server                    | `FND-001`…`FND-024`, `DXS-001`…`DXS-008` |
-| [`02-core.md`](./02-core.md)                         | Container, config, lifecycle, errors, `tsir.js` loader     | `CTN-*`, `CFG-*`, `APP-*`, `ERR-*`       |
-| [`03-http.md`](./03-http.md)                         | Router, HTTP pipeline, validation, OpenAPI                 | `RTR-*`, `HTP-*`, `VLD-*`                |
-| [`04-database.md`](./04-database.md)                 | Drizzle integration, migrations, seeders                   | `DB-*`, `MIG-*`, `SED-*`                 |
-| [`05-vault.md`](./05-vault.md)                       | Envelope, keyring, codec, rotation                         | `VLT-*`                                  |
-| [`06-link.md`](./06-link.md)                         | REST, gRPC, SOAP, WebSocket                                | `LNK-*`                                  |
-| [`07-deploy.md`](./07-deploy.md)                     | Unit graph, Workers, Lambda, `tsir.js` deploy automation   | `DPL-*`                                  |
-| [`08-dx.md`](./08-dx.md)                             | CLI, generators, Makefile evolution, bootstrap             | `CLI-*`, `DXS-*`, `CFG-1xx`              |
-| [`09-frontpage.md`](./09-frontpage.md)               | Frontpage, docs site, naming checks                        | `DOC-*`                                  |
-| [`10-testing.md`](./10-testing.md)                   | Test harness, matrices, concurrency                        | `TST-*`                                  |
-| [`11-observability.md`](./11-observability.md)       | Logging, metrics, tracing, health                          | `OBS-*`                                  |
-| [`12-security.md`](./12-security.md)                 | Threat model, review, secrets                              | `SEC-*`                                  |
-| [`13-modularity.md`](./13-modularity.md)             | Module ownership, boundaries, DX                           | `MOD-*`                                  |
-| [`manual-verification.md`](./manual-verification.md) | Handoff: cloud checks, Windows check, maintainer decisions | `C1`…`C8` (from 07), `CLI-018`           |
+### Phase 1–2 — Foundation & core
 
-[`07-deploy-cloud-checks.md`](./07-deploy-cloud-checks.md) holds the Phase 6 criteria that
-**cannot** be met in this repository — they need a Cloudflare or AWS account, or a wall clock.
-They are tracked separately so the main table never has to lie about what is proven.
+| File                                     | Covers                                                  | Task range                               |
+| ---------------------------------------- | ------------------------------------------------------- | ---------------------------------------- |
+| [`01-foundation.md`](./01-foundation.md) | Repo, tooling, CI, Makefile, dev server                 | `FND-001`…`FND-024`, `DXS-001`…`DXS-008` |
+| [`02-core.md`](./02-core.md)             | Container, config, lifecycle, errors, `tsir.js` loader  | `CTN-*`, `CFG-*`, `APP-*`, `ERR-*`       |
 
-### Phase 7 — capabilities
+### Phase 3–6 — Infrastructure
+
+| File                                 | Covers                                                  | Task range                |
+| ------------------------------------ | ------------------------------------------------------- | ------------------------- |
+| [`03-http.md`](./03-http.md)         | Router, HTTP pipeline, validation, OpenAPI              | `RTR-*`, `HTP-*`, `VLD-*` |
+| [`04-database.md`](./04-database.md) | Drizzle integration, migrations, seeders                | `DB-*`, `MIG-*`, `SED-*`  |
+| [`05-vault.md`](./05-vault.md)       | Envelope, keyring, codec, rotation                      | `VLT-*`                   |
+| [`06-link.md`](./06-link.md)         | REST, gRPC, SOAP, WebSocket                             | `LNK-*`                   |
+| [`07-deploy.md`](./07-deploy.md)     | Unit graph, Workers, Lambda, `tsir.js` deploy automation| `DPL-*`                   |
+
+`07-deploy.md` has a sidecar: [`07-deploy-cloud-checks.md`](./07-deploy-cloud-checks.md)
+holds the Phase 6 criteria that **cannot** be met in this repository — they need a
+Cloudflare or AWS account, or a wall clock. They are tracked separately so the main
+table never has to lie about what is proven. [`manual-verification.md`](./manual-verification.md)
+is the handoff list for those checks plus the Windows run and maintainer decisions.
+
+### Phase 7 — Capabilities
 
 One file per module, grouped because they ship together and share the mechanism in
-[ADR-0027](../decisions/0027-capability-drivers.md).
+[ADR-0027](../decisions/0027-capability-drivers.md). The phase foundation is
+[`07-capabilities.md`](./07-capabilities.md); every per-module file builds on `CAP-001`…`CAP-005`.
 
 | File                                         | Covers                                                 | Task range         |
 | -------------------------------------------- | ------------------------------------------------------ | ------------------ |
@@ -54,11 +59,59 @@ One file per module, grouped because they ship together and share the mechanism 
 | [`mail.md`](./mail.md)                       | Mailers, transports, templates, MIME, `mail:*`         | `MAIL-*`           |
 | [`notify.md`](./notify.md)                   | Channels, notifications, queued delivery, `notify:*`   | `NOTIFY-*`         |
 | [`policy.md`](./policy.md)                   | Roles, permissions, policies, `authorize`/`require`    | `POL-*`            |
-| [`auth.md`](./auth.md)                       | Passwords, sessions, tokens, API keys, guards          | `AUTH-*`           |
+| [`auth.md`](./auth.md)                       | Passwords, sessions, tokens, API keys, guards, CSRF    | `AUTH-*`           |
 | [`pulse.md`](./pulse.md)                     | Logging, redaction, metrics, tracing, health           | `PULSE-*`, `OBS-*` |
 
 [`_capabilities.md`](./_capabilities.md) is **superseded** (2026-10-28) and kept only as the
 record of the module map and the scope guard. Read `07-capabilities.md` instead.
+
+### Phase 8 — Cross-cutting
+
+| File                                     | Covers                                              | Task range   |
+| ---------------------------------------- | --------------------------------------------------- | ------------ |
+| [`08-dx.md`](./08-dx.md)                 | CLI, generators, Makefile evolution, bootstrap      | `CLI-*`, `DXS-*`, `CFG-1xx` |
+| [`09-frontpage.md`](./09-frontpage.md)   | Frontpage, docs site, naming checks                 | `DOC-*`      |
+| [`10-testing.md`](./10-testing.md)       | Test harness, matrices, concurrency                 | `TST-*`      |
+| [`11-observability.md`](./11-observability.md) | Logging, metrics, tracing, health              | `OBS-*`      |
+| [`12-security.md`](./12-security.md)     | Threat model, review, secrets                       | `SEC-*`      |
+| [`13-modularity.md`](./13-modularity.md) | Module ownership, boundaries, DX                    | `MOD-*`      |
+
+### Phase 9 — Rebranding (depends on Phase 8 closing)
+
+| File                                                 | Covers                                                  | Task range |
+| ---------------------------------------------------- | ------------------------------------------------------- | ---------- |
+| [`14-laravel-decoupling.md`](./14-laravel-decoupling.md) | Laravel-ecosystem package & terminology renames    | `RBR-*`    |
+
+### Phase 10 — Feature parity (depends on Phase 9 rebranding)
+
+| File                                             | Covers                                                  | Task range   |
+| ------------------------------------------------ | ------------------------------------------------------- | ------------ |
+| [`15-feature-parity.md`](./15-feature-parity.md) | 1:1 feature mapping vs Laravel ecosystem                | `PARITY-*`   |
+
+The per-module Phase 10 files track the post-rebrand packages (see `14-laravel-decoupling.md`
+for the rename map):
+
+| File                                 | Covers (← legacy name)              | Task range |
+| ------------------------------------ | ----------------------------------- | ---------- |
+| [`search.md`](./search.md)           | Search engine port, drivers, queue sync (← scout) | `SRCH-*` |
+| [`telemetry.md`](./telemetry.md)     | Request/queue logs, exception + cache/DB/mail tracking (← telemetry) | `TEL-*` |
+| [`billing.md`](./billing.md)         | Billing provider port, Stripe + Paddle (← cashier) | `BILL-*` |
+| [`servers.md`](./servers.md)         | Server management, SSH/local/cloud providers (← forge) | `SRV-*` |
+| [`oauth.md`](./oauth.md)             | Social login providers, OAuth 1.0a, stateless auth (← socialize) | `OAUTH-*` |
+| [`browser.md`](./browser.md)         | Browser automation, assertions, page objects (← nightwatch) | `BROW-*` |
+
+[`15-feature-parity-audit.md`](./15-feature-parity-audit.md) is the source-verification audit
+for the parity doc. It found the parity doc **under-reports** implementation status for six
+packages (cache tags/increment/remember, scout in-memory engine, cashier subscriptions/invoices,
+mail attachments, queue delayed/unique jobs, deploy custom domains). The audit is the evidence
+record; the parity doc's statuses should be updated from `[ ]`/`[~]` to `[x]`/`[~]` per its
+recommendations.
+
+### Admin app
+
+| File                                         | Covers                                                    | Task range          |
+| -------------------------------------------- | --------------------------------------------------------- | ------------------- |
+| [`admin-followups.md`](./admin-followups.md) | Remaining edge-case verifications for `admin.product.com` | `ADM-001`…`ADM-009` |
 
 ---
 

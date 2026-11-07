@@ -8,9 +8,9 @@
  *
  * Layout it assumes:
  *
- *   src/apps/<app>/<module>/               one module = one directory at the app root
- *   src/apps/<app>/<module>/index.ts       its public surface
- *   src/apps/<app>/shared/                 code with no owner
+ *   src/apps/<app>/modules/<module>/               one module = one directory under modules/
+ *   src/apps/<app>/modules/<module>/index.ts       its public surface
+ *   src/apps/<app>/shared/                         code with no owner
  *
  * Rules:
  *   1. A module may import another module **only** through its `index.ts`.
@@ -65,9 +65,11 @@ export function moduleOf(
   const rootRel = relative(appRoot, path);
   if (rootRel.startsWith('..') || rootRel.startsWith(sep)) return undefined;
   const parts = rootRel.split(sep);
-  const name = parts[0];
+  // Modules live under `modules/`; skip that directory segment.
+  if (parts[0] !== 'modules') return undefined;
+  const name = parts[1];
   if (name === undefined || !moduleNames.includes(name)) return undefined;
-  const rest = parts.slice(1).join(sep);
+  const rest = parts.slice(2).join(sep);
   return { name, rest };
 }
 
@@ -186,9 +188,9 @@ function collectSpecifiers(source: string): readonly string[] {
 /**
  * App roots that declare modules — an app with none is simply skipped.
  *
- * A module is a direct child of the app root that exports a public surface
- * (`index.ts`). Discovery is by `tsir.js`, the canonical project marker: every
- * app the CLI recognises declares one, and its directory is the app root.
+ * A module lives under `modules/` and exports a public surface (`index.ts`).
+ * Discovery is by `tsir.js`, the canonical project marker: every app the CLI
+ * recognises declares one, and its directory is the app root.
  */
 export async function findAppsWithModules(): Promise<readonly string[]> {
   const entries = await readdir(APPS_DIR, { withFileTypes: true, recursive: true }).catch(() => []);
@@ -196,9 +198,10 @@ export async function findAppsWithModules(): Promise<readonly string[]> {
   for (const entry of entries) {
     if (!entry.isFile() || entry.name !== 'tsir.js') continue;
     const appRoot = entry.parentPath;
-    const children = await readdir(appRoot, { withFileTypes: true }).catch(() => []);
+    const modulesDir = join(appRoot, 'modules');
+    const children = await readdir(modulesDir, { withFileTypes: true }).catch(() => []);
     const hasModule = children.some(
-      (child) => child.isDirectory() && existsSync(join(appRoot, child.name, 'index.ts')),
+      (child) => child.isDirectory() && existsSync(join(modulesDir, child.name, 'index.ts')),
     );
     if (hasModule && !apps.includes(appRoot)) apps.push(appRoot);
   }
@@ -209,16 +212,14 @@ async function checkApp(
   appRoot: string,
   violations: ModuleViolation[],
 ): Promise<readonly string[]> {
-  const children = await readdir(appRoot, { withFileTypes: true });
+  const modulesDir = join(appRoot, 'modules');
+  const children = await readdir(modulesDir, { withFileTypes: true }).catch(() => []);
   const moduleNames = children
-    .filter((entry) => entry.isDirectory() && existsSync(join(appRoot, entry.name, 'index.ts')))
+    .filter((entry) => entry.isDirectory() && existsSync(join(modulesDir, entry.name, 'index.ts')))
     .map((entry) => entry.name)
     .sort();
 
-  const dirs = [
-    ...moduleNames.map((name) => join(appRoot, name)),
-    join(appRoot, 'shared'),
-  ];
+  const dirs = [...moduleNames.map((name) => join(modulesDir, name)), join(appRoot, 'shared')];
 
   for (const dir of dirs) {
     for (const file of await listSourceFiles(dir)) {

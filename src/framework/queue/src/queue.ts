@@ -89,9 +89,7 @@ export function createQueue(options: CreateQueueOptions): Queue {
       ...(dispatchOptions.idempotencyKey === undefined
         ? {}
         : { idempotencyKey: dispatchOptions.idempotencyKey }),
-      ...(dispatchOptions.requestId === undefined
-        ? {}
-        : { requestId: dispatchOptions.requestId }),
+      ...(dispatchOptions.requestId === undefined ? {} : { requestId: dispatchOptions.requestId }),
     };
   };
 

@@ -1,0 +1,11 @@
+import { Controller, Get } from '@tsir/router';
+
+import { registry } from '../routes.ts';
+
+@Controller(registry, '{{prefix}}')
+export class {{base}}Controller {
+  @Get('/')
+  list(): unknown {
+    return { items: [] };
+  }
+}

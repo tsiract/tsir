@@ -90,7 +90,13 @@ export function loadConfig<S extends ConfigSpec>(
     const raw = override ?? env[key];
     const fromBase = raw === undefined && !field.hasDefault && base !== undefined;
     const source =
-      override !== undefined ? 'override' : raw !== undefined ? 'env' : fromBase ? 'base-default' : 'default';
+      override !== undefined
+        ? 'override'
+        : raw !== undefined
+          ? 'env'
+          : fromBase
+            ? 'base-default'
+            : 'default';
 
     const hasValue = raw !== undefined || field.hasDefault || base !== undefined;
 
@@ -116,13 +122,20 @@ export function loadConfig<S extends ConfigSpec>(
     // Base defaults come from the project file (typed JS values) while env
     // schemas parse from strings, so non-string base defaults are stringified
     // to match the input form the schema expects.
-    const input = raw !== undefined
-      ? raw
-      : field.hasDefault
-        ? field.defaultInput
-        : typeof base === 'string' || base === null
-          ? base
-          : String(base);
+    let baseInput: unknown;
+    if (base === null || typeof base === 'string') {
+      baseInput = base;
+    } else if (typeof base === 'number' || typeof base === 'boolean') {
+      baseInput = String(base);
+    } else if (typeof base === 'object') {
+      baseInput = JSON.stringify(base);
+    } else {
+      // symbol, bigint, undefined, or function — none use Object's default
+      // toString, so String() is safe. The typed local satisfies no-base-to-string.
+      const nonObjectBase = base as symbol | bigint | undefined | ((...args: never[]) => unknown);
+      baseInput = String(nonObjectBase);
+    }
+    const input = raw !== undefined ? raw : field.hasDefault ? field.defaultInput : baseInput;
 
     // `validateSync` throws `VLD_ASYNC_SCHEMA` for async validators: boot must
     // never continue on a value nobody awaited.

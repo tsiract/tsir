@@ -248,14 +248,14 @@ Package tsconfigs extend the base, set `composite: true`, `declaration: true`, a
 
 ## 6. Bun-native tooling
 
-| Need        | Tool                                                                              | Notes                                                                          |
-| ----------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| Workspaces  | `bun install --frozen-lockfile`                                                   | `workspaces: ["src/framework/*", "src/apps/frontpage", "src/apps/examples/*"]` |
-| Test runner | `bun test`                                                                        | JUnit XML + coverage thresholds per package                                    |
-| Packaging   | `tsc -p tsconfig.dist.json` + `src/tools/dist.ts`                                 | The `dist/` tree (ADR-0011); per-file ESM, not a bundle                        |
-| Bundling    | `bun build`                                                                       | Deploy emitters (Phase 6) and the `verify-dist` probes                         |
-| Dev server  | `Bun.serve` in `src/tools/dev.ts`                                                 | Single port for frontpage; Phase 2 adds API proxy                              |
-| SQL         | D1 binding on Workers (default); `Bun.sql` + `postgres.js` on the Postgres driver | ADR-0016 (D1 default); ADR-0009 covers the Postgres path only                  |
+| Need        | Tool                                                                              | Notes                                                                 |
+| ----------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Workspaces  | `bun install --frozen-lockfile`                                                   | `workspaces: ["src/framework/*", "src/apps/frontpage", "src/apps/*"]` |
+| Test runner | `bun test`                                                                        | JUnit XML + coverage thresholds per package                           |
+| Packaging   | `tsc -p tsconfig.dist.json` + `src/tools/dist.ts`                                 | The `dist/` tree (ADR-0011); per-file ESM, not a bundle               |
+| Bundling    | `bun build`                                                                       | Deploy emitters (Phase 6) and the `verify-dist` probes                |
+| Dev server  | `Bun.serve` in `src/tools/dev.ts`                                                 | Single port for frontpage; Phase 2 adds API proxy                     |
+| SQL         | D1 binding on Workers (default); `Bun.sql` + `postgres.js` on the Postgres driver | ADR-0016 (D1 default); ADR-0009 covers the Postgres path only         |
 
 No task runner beyond `make` (developer entry) and `tsir` (framework operations). No `turbo`, `nx`, or `lerna`.
 
@@ -290,8 +290,8 @@ install (frozen lockfile)
   ├── integration      docker services: postgres; runs @tsir/database tests
   ├── dist             src/tools/dist.ts + src/tools/verify-dist.ts
   │                    (boots from dist/ only, DCE probes, Workers/Lambda budgets)
-  ├── docs             src/apps/docs build + frontpage link check
-  └── e2e (main only)  src/apps/examples/minimal smoke against dist/ artifacts
+  ├── docs             src/tools/docs-site.ts build + frontpage link check
+  └── e2e (main only)  src/apps/minimal smoke against dist/ artifacts
 scheduled (nightly)
   └── deploy smoke     wrangler deploy --dry-run; lambda package + invoke in sandbox
 ```

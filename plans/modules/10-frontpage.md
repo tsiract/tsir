@@ -63,16 +63,18 @@ claims. The dev server builds the Markdown docs at startup and serves them under
 
 ## 4. Visual language
 
-- **Light:** authentic DaisyUI **Nord** theme definitions.
+- **Light:** authentic DaisyUI **Silk** theme definitions.
 - **Dark:** authentic DaisyUI **Abyss** theme definitions.
 - Initial theme follows the OS. The explicit toggle persists `tsir-theme` in local storage;
-  the preference is shared with docs. Storage failure is non-fatal; no-JS fallback is Nord.
+  the preference is shared with docs. Storage failure is non-fatal; no-JS fallback is Silk.
 - Semantic text/border aliases are derived from the active theme. Code windows retain a
   readable dark treatment in both modes. Small labels use a stronger contrast mix.
 - System sans for prose, system monospace for code. No downloaded fonts.
 - Spacious centered hero, alternating product sections, three-column package grid on desktop,
   two on tablet and one on mobile. Inline SVG diagrams illustrate actual framework boundaries.
 - Motion is limited to short hover/focus feedback and is disabled by `prefers-reduced-motion`.
+- **SEO:** canonical URL, Open Graph, Twitter Card and `WebSite` JSON-LD are embedded in the
+  template `<head>` so the page is shareable and indexable without external analytics.
 
 DaisyUI, Tailwind and its CLI are pinned root **development** dependencies, classified under
 ADR-0012. Their MIT notices are embedded in the generated HTML. No framework source imports

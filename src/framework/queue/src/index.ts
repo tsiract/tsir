@@ -48,3 +48,6 @@ export { createQueues, QUEUE_DRIVERS } from './config.ts';
 export { queueTableDdl } from './drivers/database.ts';
 export type { BuildQueuesOptions, ConfiguredConnection, QueueBindings, Queues } from './config.ts';
 export type { QueueErrorCode } from './errors.ts';
+
+export { createQueueBootstrap } from './bootstrap.ts';
+export type { QueueBootstrap, QueueBootstrapOptions } from './bootstrap.ts';

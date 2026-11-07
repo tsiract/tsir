@@ -186,7 +186,7 @@ a file matching `paths.controllers` (default `**/*.controller.ts`).
 
 **The generated file is committed.** It is imported by application code, so it
 must exist for `tsc`, and committing it makes staleness visible: `tsir route:compile
---check` is part of `make check`, and `src/apps/examples/http/test/app.test.ts`
+--check` is part of `make check`, and `src/apps/http/test/app.test.ts`
 asserts the generated table still equals a fresh `compileRoutes()` of the
 registry. A generator that is only ever run locally drifts silently; this one
 cannot.
@@ -414,13 +414,13 @@ They live on `@Controller` classes alongside routes:
 ```ts
 @Controller()
 class OrdersController {
-  @OnSns({ topic: 'orders.created' })             // → unit 'sns'
+  @OnSns({ topic: 'orders.created' }) // → unit 'sns'
   onOrderCreated(message: unknown) {}
 
-  @OnEventBridge({ detailType: 'OrderShipped' })  // → unit 'schedule'
+  @OnEventBridge({ detailType: 'OrderShipped' }) // → unit 'schedule'
   onOrderShipped(detail: unknown) {}
 
-  @OnStepTask({ name: 'process-refund' })         // → unit 'admin'
+  @OnStepTask({ name: 'process-refund' }) // → unit 'admin'
   processRefund(input: unknown) {}
 }
 ```

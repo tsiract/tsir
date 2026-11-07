@@ -5,13 +5,13 @@
 @source '../../tools/docs-site.ts';
 @plugin 'daisyui' {
   themes:
-    nord --default,
+    silk --default,
     abyss --prefersdark;
   include: button, badge, card, input;
   exclude: rootscrollgutter;
 }
 
-/* The two theme palettes above are DaisyUI's unmodified Nord and Abyss.
+/* The two theme palettes above are DaisyUI's unmodified Silk and Abyss.
    Layout and readable semantic aliases stay independent of either palette. */
 @theme {
   --font-sans: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -292,9 +292,9 @@
     --btn-fg: var(--color-neutral-content);
     border-radius: 8px;
   }
-  [data-theme='nord'] .btn-neutral {
-    --btn-color: #2e3440;
-    --btn-fg: #eceff4;
+  [data-theme='silk'] .btn-neutral {
+    --btn-color: #2a2a2a;
+    --btn-fg: #f5f0e6;
   }
   .btn-outline {
     --btn-color: var(--color-base-content);

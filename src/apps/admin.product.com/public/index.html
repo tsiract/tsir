@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Tsir Admin</title>
+    <link rel="icon" type="image/svg+xml" href="__BASE_PATH__/favicon.svg" />
+    <!-- Apply the saved (or OS) theme before paint to avoid a flash. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('tsir-admin-theme');
+          var theme =
+            saved === 'abyss' || saved === 'silk'
+              ? saved
+              : matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'abyss'
+                : 'silk';
+          document.documentElement.setAttribute('data-theme', theme);
+        } catch (e) {
+          document.documentElement.setAttribute('data-theme', 'silk');
+        }
+      })();
+    </script>
+    <!-- Tailwind CSS v4 (browser build) — generates layout utility classes -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- DaisyUI v5 — component classes. The theme palettes live in a
+         separate themes.css so both abyss (dark) and silk (light) are
+         available here too. -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@5/daisyui.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+    <link
+      href="https://cdn.jsdelivr.net/npm/daisyui@5/themes.css"
+      rel="stylesheet"
+      type="text/css"
+    />
+  </head>
+  <body class="min-h-screen bg-base-100 text-base-content">
+    <div id="app"></div>
+    <script>
+      window.__TSIR_BASE_PATH__ = '__BASE_PATH__';
+    </script>
+    <script type="module" src="__BASE_PATH__/app.js"></script>
+  </body>
+</html>

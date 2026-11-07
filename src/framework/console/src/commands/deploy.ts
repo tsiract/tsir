@@ -103,7 +103,10 @@ export function deploymentOf(project: LoadedProject): DeploymentInput {
       return {
         kind: listener.meta.kind,
         name:
-          listener.meta.topic ?? listener.meta.eventBus ?? listener.meta.name ?? entry.controller.name,
+          listener.meta.topic ??
+          listener.meta.eventBus ??
+          listener.meta.name ??
+          entry.controller.name,
         ...(listener.meta.detailType === undefined ? {} : { detailType: listener.meta.detailType }),
         unit: listener.meta.unit,
         ...(module === undefined ? {} : { module }),

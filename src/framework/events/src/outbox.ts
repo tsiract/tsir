@@ -119,9 +119,7 @@ export function createOutbox(options: OutboxOptions): Outbox {
           ...(typeof row['idempotency_key'] === 'string'
             ? { idempotencyKey: row['idempotency_key'] }
             : {}),
-          ...(typeof row['request_id'] === 'string'
-            ? { requestId: row['request_id'] }
-            : {}),
+          ...(typeof row['request_id'] === 'string' ? { requestId: row['request_id'] } : {}),
         },
       }));
     },

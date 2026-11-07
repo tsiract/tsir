@@ -121,10 +121,9 @@ describe('compileListeners (DPL-026)', () => {
 
     const [entry] = registry.entries();
     const customInstance = { onOrder: () => {} };
-    const unit = compileListeners(
-      [{ controller: Orders, listeners: entry?.listeners ?? [] }],
-      { resolveController: () => customInstance },
-    );
+    const unit = compileListeners([{ controller: Orders, listeners: entry?.listeners ?? [] }], {
+      resolveController: () => customInstance,
+    });
 
     await unit.sns!(
       { id: '1', topicArn: 'arn:aws:sns:us-east-1:1:orders', body: null, record: {} as never },
@@ -204,8 +203,8 @@ describe('compileListeners · Step Functions tasks (DPL-029)', () => {
       { controller: Tasks, listeners: entry?.listeners ?? [] },
     ] satisfies readonly ListenerController[]);
 
-    return expect(
-      unit.invoke!({ task: 'nonexistent' }, fakeContext),
-    ).rejects.toThrow(/known: process-refund, send-invoice/);
+    return expect(unit.invoke!({ task: 'nonexistent' }, fakeContext)).rejects.toThrow(
+      /known: process-refund, send-invoice/,
+    );
   });
 });

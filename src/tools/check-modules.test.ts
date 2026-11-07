@@ -3,8 +3,8 @@ import { join } from 'node:path';
 
 import { checkModuleSpecifier, moduleOf } from './check-modules.ts';
 
-/** `src/apps/examples/shop` — a shape no test file has to exist for. */
-const APP = '/repo/src/apps/examples/shop';
+/** `src/apps/shop` — a shape no test file has to exist for. */
+const APP = '/repo/src/apps/shop';
 const MODULES = ['users', 'invoices'] as const;
 
 function context(file: string): {
@@ -12,7 +12,7 @@ function context(file: string): {
   appRoot: string;
   moduleNames: readonly string[];
 } {
-  return { file: join(APP, file), appRoot: APP, moduleNames: MODULES };
+  return { file: join(APP, 'modules', file), appRoot: APP, moduleNames: MODULES };
 }
 
 describe('checkModuleSpecifier', () => {
@@ -20,9 +20,7 @@ describe('checkModuleSpecifier', () => {
     expect(
       checkModuleSpecifier('../invoices/index.ts', context('users/service.ts')),
     ).toBeUndefined();
-    expect(
-      checkModuleSpecifier('../invoices', context('users/service.ts')),
-    ).toBeUndefined();
+    expect(checkModuleSpecifier('../invoices', context('users/service.ts'))).toBeUndefined();
   });
 
   test('rejects a module importing another module’s internals', () => {
@@ -44,9 +42,7 @@ describe('checkModuleSpecifier', () => {
   });
 
   test('allows a module importing its own files with ./', () => {
-    expect(
-      checkModuleSpecifier('./repository.ts', context('users/service.ts')),
-    ).toBeUndefined();
+    expect(checkModuleSpecifier('./repository.ts', context('users/service.ts'))).toBeUndefined();
   });
 
   test('rejects a module re-entering itself through ..', () => {
@@ -58,20 +54,28 @@ describe('checkModuleSpecifier', () => {
   });
 
   test('rejects shared/ importing a module', () => {
-    const violation = checkModuleSpecifier('../users/index.ts', context('shared/money.ts'));
+    const violation = checkModuleSpecifier('../modules/users/index.ts', {
+      file: join(APP, 'shared', 'money.ts'),
+      appRoot: APP,
+      moduleNames: MODULES,
+    });
     expect(violation?.rule).toBe('shared-depends-on-module');
     expect(violation?.detail).toContain('"users"');
   });
 
   test('allows shared/ importing shared/', () => {
-    expect(checkModuleSpecifier('./money.ts', context('shared/pricing.ts'))).toBeUndefined();
+    expect(
+      checkModuleSpecifier('./money.ts', {
+        file: join(APP, 'shared', 'pricing.ts'),
+        appRoot: APP,
+        moduleNames: MODULES,
+      }),
+    ).toBeUndefined();
   });
 
   test('ignores bare package specifiers and framework imports', () => {
     expect(checkModuleSpecifier('@tsir/http', context('users/service.ts'))).toBeUndefined();
-    expect(
-      checkModuleSpecifier('drizzle-orm', context('users/service.ts')),
-    ).toBeUndefined();
+    expect(checkModuleSpecifier('drizzle-orm', context('users/service.ts'))).toBeUndefined();
   });
 
   test('ignores paths that leave the application', () => {
@@ -83,7 +87,7 @@ describe('checkModuleSpecifier', () => {
 
 describe('moduleOf', () => {
   test('splits a module path into name and remainder', () => {
-    expect(moduleOf(`${APP}/users/http/controller.ts`, APP, MODULES)).toEqual({
+    expect(moduleOf(`${APP}/modules/users/http/controller.ts`, APP, MODULES)).toEqual({
       name: 'users',
       rest: 'http/controller.ts',
     });
@@ -94,10 +98,10 @@ describe('moduleOf', () => {
   });
 
   test('works for a directory entry with no remainder', () => {
-    expect(moduleOf(`${APP}/users`, APP, MODULES)).toEqual({ name: 'users', rest: '' });
+    expect(moduleOf(`${APP}/modules/users`, APP, MODULES)).toEqual({ name: 'users', rest: '' });
   });
 
   test('returns undefined for an unknown module name', () => {
-    expect(moduleOf(`${APP}/billing/service.ts`, APP, MODULES)).toBeUndefined();
+    expect(moduleOf(`${APP}/modules/billing/service.ts`, APP, MODULES)).toBeUndefined();
   });
 });

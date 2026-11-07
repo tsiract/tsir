@@ -1,0 +1,10 @@
+import { RouteRegistry, routeModule as _routeModule } from '@tsir/router';
+
+/** This module's route table. Only its own controllers add to it. */
+export const registry = new RouteRegistry();
+
+export const {{camel}} = _routeModule({
+  name: '{{kebab}}',
+  registry,
+  unit: 'http',
+});

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
 import { registry } from '../routes.ts';
-import { TaskStore, type TaskStatus } from '../services/task-store.service.ts';
+import { TaskStore } from '../services/task-store.service.ts';
 
 const store = new TaskStore();
 const PUBLIC_DIR = join(dirname(import.meta.dir), 'public');
@@ -41,18 +41,22 @@ export class TasksController {
 
   @Post('/', { body: CreateTask, status: 201, tags: ['tasks'] })
   create({ body }: { body: z.infer<typeof CreateTask> }): unknown {
-    return store.create(body);
+    // exactOptionalPropertyTypes: the schema's optional fields may be `undefined`,
+    // but the store's input type treats `?:` as "absent or T", never `undefined`.
+    // Strip `undefined` so only present keys are forwarded.
+    return store.create({
+      title: body.title,
+      ...(body.status !== undefined ? { status: body.status } : {}),
+    });
   }
 
   @Patch('/:id', { params: TaskIdParams, body: UpdateTask, tags: ['tasks'] })
-  update({
-    params,
-    body,
-  }: {
-    params: { id: string };
-    body: z.infer<typeof UpdateTask>;
-  }): unknown {
-    const task = store.update(params.id, body);
+  update({ params, body }: { params: { id: string }; body: z.infer<typeof UpdateTask> }): unknown {
+    const task = store.update(params.id, {
+      ...(body.title !== undefined ? { title: body.title } : {}),
+      ...(body.status !== undefined ? { status: body.status } : {}),
+      ...(body.order !== undefined ? { order: body.order } : {}),
+    });
     if (task === undefined) {
       return new Response(null, { status: 404 });
     }

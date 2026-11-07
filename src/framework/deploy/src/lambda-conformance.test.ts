@@ -4,7 +4,13 @@
  * API Gateway v2 event envelope, so the assertions must pass identically.
  */
 
-import { toLambdaHandler, decodeBase64, encodeBase64, type ApiGatewayV2Event, type LambdaContextLike } from './lambda.ts';
+import {
+  toLambdaHandler,
+  decodeBase64,
+  encodeBase64,
+  type ApiGatewayV2Event,
+  type LambdaContextLike,
+} from './lambda.ts';
 import { createConformanceApp, runHttpConformance } from '../../http/src/conformance-suite.ts';
 
 const app = createConformanceApp();

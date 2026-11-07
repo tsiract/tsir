@@ -288,3 +288,82 @@ describe('URLs', () => {
     expect(capped.searchParams.get('X-Amz-Expires')).toBe(String(7 * 24 * 60 * 60));
   });
 });
+
+describe('visibility, copy, directories and stream', () => {
+  test('setVisibility sends the canned ACL to the acl subresource', async () => {
+    const { fetch, requests } = r2({
+      'PUT *': () => new Response(null, { status: 200 }),
+      'HEAD *': () =>
+        new Response(null, {
+          status: 200,
+          headers: { 'content-length': '5', 'content-type': 'text/plain', etag: '"abc"' },
+        }),
+    });
+    const driver = s3Driver({ ...baseOptions, fetch });
+
+    await driver.setVisibility('a.txt', 'public');
+    expect(requests[0]?.url).toContain('?acl');
+    expect(requests[0]?.headers['x-amz-acl']).toBe('public-read');
+
+    await driver.setVisibility('a.txt', 'private');
+    expect(requests[2]?.headers['x-amz-acl']).toBe('private');
+  });
+
+  test('copy puts with x-amz-copy-source pointing at the source', async () => {
+    const { fetch, requests } = r2({
+      'PUT *': () => new Response('<CopyObjectResult></CopyObjectResult>', { status: 200 }),
+      'HEAD *': () =>
+        new Response(null, {
+          status: 200,
+          headers: { 'content-length': '5', 'content-type': 'text/plain', etag: '"abc"' },
+        }),
+    });
+    const driver = s3Driver({ ...baseOptions, fetch });
+
+    await driver.copy('source.txt', 'dest.txt');
+    expect(requests[0]?.headers['x-amz-copy-source']).toBe('/tsir-assets/source.txt');
+  });
+
+  test('directories reads CommonPrefixes from a delimiter listing', async () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<ListBucketResult>
+  <Prefix>uploads/</Prefix>
+  <CommonPrefixes><Prefix>uploads/2026/</Prefix></CommonPrefixes>
+  <CommonPrefixes><Prefix>uploads/2025/</Prefix></CommonPrefixes>
+</ListBucketResult>`;
+    const { fetch, requests } = r2({ 'GET *': () => new Response(xml, { status: 200 }) });
+    const driver = s3Driver({ ...baseOptions, fetch });
+
+    const dirs = await driver.directories('uploads/');
+    expect(dirs).toEqual(['uploads/2025/', 'uploads/2026/']);
+    const url = new URL(requests[0]?.url ?? '');
+    expect(url.searchParams.get('delimiter')).toBe('/');
+  });
+
+  test('stream returns the response body as a ReadableStream', async () => {
+    const body = utf8('streamed content');
+    const { fetch } = r2({
+      'GET *': () => new Response(body, { status: 200, headers: { 'content-type': 'text/plain' } }),
+    });
+    const driver = s3Driver({ ...baseOptions, fetch });
+
+    const stream = await driver.stream('a.txt', {});
+    expect(stream).not.toBeUndefined();
+    if (stream === undefined) throw new Error('stream was undefined');
+    const reader = stream.getReader();
+    const chunks: Uint8Array[] = [];
+    for (;;) {
+      const result = await reader.read();
+      if (result.done) break;
+      chunks.push(result.value);
+    }
+    const total = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    const reassembled = new Uint8Array(total);
+    let offset = 0;
+    for (const chunk of chunks) {
+      reassembled.set(chunk, offset);
+      offset += chunk.length;
+    }
+    expect(new TextDecoder().decode(reassembled)).toBe('streamed content');
+  });
+});

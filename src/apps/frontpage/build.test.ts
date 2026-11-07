@@ -8,7 +8,7 @@ const ROOT = process.cwd();
 
 describe('frontpage build (DOC-001, DOC-006, DOC-007)', () => {
   test('every framework package appears once, with a real source and reference', async () => {
-    expect(new Set(packages.map((pkg) => pkg.name)).size).toBe(24);
+    expect(new Set(packages.map((pkg) => pkg.name)).size).toBe(33);
     const html = renderPackages();
     for (const pkg of packages) {
       expect(html.match(new RegExp(`class="pkg">@tsir/${pkg.name}</span>`, 'gu'))).toHaveLength(1);
@@ -44,10 +44,13 @@ describe('frontpage build (DOC-001, DOC-006, DOC-007)', () => {
     const committed = await readFile(join(ROOT, 'src/apps/frontpage/public/index.html'), 'utf8');
     expect(html).toBe(committed);
     expect(new TextEncoder().encode(html).byteLength).toBeLessThanOrEqual(128 * 1024);
-    expect(html).toContain('data-theme="nord"');
+    expect(html).toContain('data-theme="silk"');
     expect(html).toContain('[data-theme=abyss]');
     expect(html).toContain('prefers-reduced-motion');
-    expect(html).not.toMatch(/<(?:script|img|link)[^>]+(?:src|href)="https?:/u);
+    expect(html).not.toMatch(/<(?:script|img)[^>]+(?:src|href)="https?:/u);
+    // External link tags are only allowed for canonical/SEO metadata, not stylesheets or assets.
+    expect(html).not.toMatch(/<link[^>]+rel="stylesheet"[^>]*>/u);
+    expect(html).toMatch(/<link[^>]+rel="canonical"[^>]*>/u);
     expect(html).not.toMatch(/__PACKAGES__|__PACKAGE_COUNT__|__SITE_CSS__|__SITE_JS__/u);
     // Runtime metadata is deliberately injected later by dev.ts or dist.ts.
     expect(html).toContain('__TSIR_VERSION__');

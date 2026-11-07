@@ -499,10 +499,7 @@ describe('module-local migration journals', () => {
     ).toBe(2);
     expect(
       await quiet(() =>
-        makeMigrationCommand(
-          ['add-orders', 'shop', '--schema', 'shop/does-not-exist.ts'],
-          runner,
-        ),
+        makeMigrationCommand(['add-orders', 'shop', '--schema', 'shop/does-not-exist.ts'], runner),
       ),
     ).toBe(1);
     expect(await quiet(() => makeMigrationCommand(['add-orders', 'missing'], runner))).toBe(1);

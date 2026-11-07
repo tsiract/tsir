@@ -23,16 +23,16 @@
 
 ## Hardening
 
-| ID        | Title                                                  | Status | Depends          | Acceptance criteria (summary)                                                              |
-| --------- | ------------------------------------------------------ | ------ | ---------------- | ------------------------------------------------------------------------------------------ |
-| `SEC-011` | Input DoS limits (body, depth, XML, WS frames)         | `[x]`  | HTP-017, LNK-018 | Every limit has a negative test                                                            |
-| `SEC-012` | Prototype-pollution audit of all parsers               | `[x]`  | VLD-001          | `__proto__`/`constructor` rejected                                                         |
-| `SEC-013` | Log/telemetry exfiltration tests                       | `[x]`  | OBS-007          | Zero secrets in captured logs — the leak test in `pulse/src/logger.test.ts` scans the line |
-| `SEC-014` | Deploy artifact secret scan                            | `[x]`  | DPL-020          | CI gate — closed by `DPL-020`: `deploy:validate` scans every emitted file for secret shapes and the project's own secret names (`DPL_SECRET_LEAK`); `make check` runs it                                         |
-| `SEC-015` | Rate limiting primitives (HTTP + link)                 | `[ ]`  | HTP-009          | Per-principal and per-target policies                                                      |
-| `SEC-016` | Error-message leakage audit (no stacks/causes in prod) | `[x]`  | ERR-005          | Snapshot tests per boundary                                                                |
-| `SEC-017` | Supply-chain: lockfile, provenance, signed tags        | `[ ]`  | FND-021          | Verification procedure documented                                                          |
-| `SEC-018` | External review + findings triage + `SECURITY.md`      | `[ ]`  | SEC-001…017      | Critical/high fixed before `v1.0.0`                                                        |
+| ID        | Title                                                  | Status | Depends          | Acceptance criteria (summary)                                                                                                                                            |
+| --------- | ------------------------------------------------------ | ------ | ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `SEC-011` | Input DoS limits (body, depth, XML, WS frames)         | `[x]`  | HTP-017, LNK-018 | Every limit has a negative test                                                                                                                                          |
+| `SEC-012` | Prototype-pollution audit of all parsers               | `[x]`  | VLD-001          | `__proto__`/`constructor` rejected                                                                                                                                       |
+| `SEC-013` | Log/telemetry exfiltration tests                       | `[x]`  | OBS-007          | Zero secrets in captured logs — the leak test in `pulse/src/logger.test.ts` scans the line                                                                               |
+| `SEC-014` | Deploy artifact secret scan                            | `[x]`  | DPL-020          | CI gate — closed by `DPL-020`: `deploy:validate` scans every emitted file for secret shapes and the project's own secret names (`DPL_SECRET_LEAK`); `make check` runs it |
+| `SEC-015` | Rate limiting primitives (HTTP + link)                 | `[ ]`  | HTP-009          | Per-principal and per-target policies                                                                                                                                    |
+| `SEC-016` | Error-message leakage audit (no stacks/causes in prod) | `[x]`  | ERR-005          | Snapshot tests per boundary                                                                                                                                              |
+| `SEC-017` | Supply-chain: lockfile, provenance, signed tags        | `[ ]`  | FND-021          | Verification procedure documented                                                                                                                                        |
+| `SEC-018` | External review + findings triage + `SECURITY.md`      | `[ ]`  | SEC-001…017      | Critical/high fixed before `v1.0.0`                                                                                                                                      |
 
 ---
 

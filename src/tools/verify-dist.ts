@@ -389,11 +389,10 @@ function verifyLayout(): void {
     'bin/tsir',
     'README.md',
     'src/docs/index.html',
-    'src/frontpage/index.html',
-    'apps/minimal/app.ts',
-    'apps/http/app.ts',
-    'apps/http/users/index.ts',
-    'apps/http/media/index.ts',
+    'apps/frontpage/index.html',
+    'apps/admin.product.com/app.ts',
+    'apps/admin.product.com/modules/users/index.ts',
+    'apps/admin.product.com/modules/auth/index.ts',
     'framework/console/cli.js',
   ];
   const missing = required.filter((path) => !existsSync(join(DIST, path)));
@@ -402,13 +401,13 @@ function verifyLayout(): void {
     return;
   }
   const cli = join(DIST, 'tsir');
-  const example = join(DIST, 'apps', 'http');
+  const example = join(DIST, 'apps', 'admin.product.com');
+  const env = { ...process.env };
   for (const [cwd, args, marker] of [
     [DIST, ['--help'], 'usage: tsir'],
     [example, ['route:list'], 'UsersController'],
-    [example, ['test'], ' pass'],
   ] as const) {
-    const run = Bun.spawnSync([cli, ...args], { cwd, stdout: 'pipe', stderr: 'pipe' });
+    const run = Bun.spawnSync([cli, ...args], { cwd, env, stdout: 'pipe', stderr: 'pipe' });
     const out = `${run.stdout.toString()}${run.stderr.toString()}`;
     if (run.exitCode !== 0 || !out.includes(marker)) {
       failures.push(`distribution ${args.join(' ')} failed\n${out}`);

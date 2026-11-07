@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/core`**
 
-`App`, `AppDiagnosticEvent`, `AppManifest`, `AppMode`, `AppStage`, `AppState`, `BootstrapOptions`, `Capability`, `CapabilityRequirement`, `Clock`, `Container`, `CreateAppOptions`, `DefineAppOptions`, `DeployTarget`, `ErrorKind`, `MANIFEST_FORMAT_VERSION`, `ManifestDrift`, `ModuleContext`, `ModuleDefinition`, `ModuleFactory`, `Provider`, `Random`, `RuntimeCapabilities`, `Scope`, `ShutdownReason`, `Token`, `TsirApp`, `TsirError`, `TsirErrorInit`, `assertCapabilities`, `bootstrap`, `contract`, `createManifest`, `defineApp`, `defineModule`, `describeToken`, `diffManifest`, `hashModules`, `isManifestStale`, `isTsirError`, `normalizeError`, `probeCapabilities`, `systemClock`, `systemRandom`, `targetCapabilities`, `token`, `validateModules`
+`App`, `AppDiagnosticEvent`, `AppManifest`, `AppMode`, `AppStage`, `AppState`, `BootstrapOptions`, `Capability`, `CapabilityRequirement`, `Clock`, `ConfigSpec`, `Container`, `CreateAppOptions`, `DefineAppOptions`, `DeployTarget`, `ErrorKind`, `InferConfig`, `MANIFEST_FORMAT_VERSION`, `ManifestDrift`, `ModuleContext`, `ModuleDefinition`, `ModuleFactory`, `Provider`, `Random`, `RuntimeCapabilities`, `Scope`, `ShutdownReason`, `Token`, `TsirApp`, `TsirError`, `TsirErrorInit`, `assertCapabilities`, `bootstrap`, `contract`, `createManifest`, `defineApp`, `defineModule`, `describeToken`, `diffManifest`, `hashModules`, `isManifestStale`, `isTsirError`, `normalizeError`, `probeCapabilities`, `systemClock`, `systemRandom`, `targetCapabilities`, `token`, `validateModules`
 
 ## Error codes
 

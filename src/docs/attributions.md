@@ -5,12 +5,12 @@
 > ship, and the licenses their code is under. Build-time (dev) dependencies are
 > not shipped and are not listed here.
 
-| Package | Version | License |
-| ------- | ------- | ------- |
-| `zod` | ^4.6.7 | MIT |
-| `drizzle-orm` | 0.45.4 | Apache-2.0 |
-| `@bufbuild/protobuf` | 2.16.0 | Apache-2.0 AND BSD-3-Clause |
-| `@grpc/grpc-js` | 1.14.6 | Apache-2.0 |
+| Package              | Version | License                     |
+| -------------------- | ------- | --------------------------- |
+| `zod`                | ^4.6.7  | MIT                         |
+| `drizzle-orm`        | 0.45.4  | Apache-2.0                  |
+| `@bufbuild/protobuf` | 2.16.0  | Apache-2.0 AND BSD-3-Clause |
+| `@grpc/grpc-js`      | 1.14.6  | Apache-2.0                  |
 
 ## License texts
 

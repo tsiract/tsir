@@ -23,13 +23,13 @@
 
 So the next reader does not have to reconstruct it from the diff:
 
-| Task      | Evidence                                                                                                                          |
-| --------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| `MOD-002` | `src/framework/router/src/module.ts`; `route:list`/`route:compile` read `collectRouteEntries()`; module `unit` applied centrally  |
-| `MOD-003` | `src/tools/check-modules.ts` + `make modules` inside `make check`; 12 tests over the pure rule function                           |
-| `MOD-004` | `createTestApp` snapshots controllers before boot; `dispose()` throws `TEST_ROUTE_LEAK` naming the late ones                      |
-| `MOD-006` | `createTestApp(app, { only })` filters what the app declares; `harness.routes('users')` returns one module's table                |
-| `MOD-007` | `src/apps/examples/http/src/modules/{users,media}` — `media` carries `unit: 'media'`, visible in `route:list` and `routes.gen.ts` |
+| Task      | Evidence                                                                                                                         |
+| --------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `MOD-002` | `src/framework/router/src/module.ts`; `route:list`/`route:compile` read `collectRouteEntries()`; module `unit` applied centrally |
+| `MOD-003` | `src/tools/check-modules.ts` + `make modules` inside `make check`; 12 tests over the pure rule function                          |
+| `MOD-004` | `createTestApp` snapshots controllers before boot; `dispose()` throws `TEST_ROUTE_LEAK` naming the late ones                     |
+| `MOD-006` | `createTestApp(app, { only })` filters what the app declares; `harness.routes('users')` returns one module's table               |
+| `MOD-007` | `src/apps/http/src/modules/{users,media}` — `media` carries `unit: 'media'`, visible in `route:list` and `routes.gen.ts`         |
 
 Notes:
 

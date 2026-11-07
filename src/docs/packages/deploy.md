@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/deploy`**
 
-`BindingKind`, `BindingRef`, `BuildGraphResult`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `logicalName`, `parseGraph`, `privateExposed`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
+`BindingKind`, `BindingRef`, `BuildGraphResult`, `CompileListenersOptions`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `InternalTransport`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ListenerContext`, `ListenerController`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `compileListeners`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `invokeUnit`, `listenerNotFound`, `logicalName`, `parseGraph`, `privateExposed`, `publish`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `setInternalTransport`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
 
 **`@tsir/deploy/cloudflare`**
 
@@ -24,7 +24,7 @@ The packages are not yet published to npm.
 
 **`@tsir/deploy/lambda`**
 
-`ApiGatewayV2Event`, `EventBridgeEvent`, `LambdaContextLike`, `LambdaHandler`, `LambdaOptions`, `LambdaResponse`, `LambdaUnit`, `SqsEvent`, `SqsRecord`, `deadlineSignal`, `decodeBase64`, `encodeBase64`, `isRetryable`, `requestFromApiGatewayV2`, `responseToApiGatewayV2`, `toLambdaHandler`
+`ApiGatewayV2Event`, `EventBridgeEvent`, `LambdaContextLike`, `LambdaHandler`, `LambdaOptions`, `LambdaResponse`, `LambdaUnit`, `SnsEvent`, `SnsRecord`, `SqsEvent`, `SqsRecord`, `deadlineSignal`, `decodeBase64`, `encodeBase64`, `isRetryable`, `requestFromApiGatewayV2`, `responseToApiGatewayV2`, `toLambdaHandler`
 
 **`@tsir/deploy/sam`**
 
@@ -36,7 +36,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (18). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (21). Each one is described in the [error-code reference](../errors.md).
 
 - `DPL_BINDING_MISSING`
 - `DPL_CAPABILITY_MISSING`
@@ -49,7 +49,10 @@ Owned by this package (18). Each one is described in the [error-code reference](
 - `DPL_EVENTS_OUTBOX_MISSING`
 - `DPL_EVENT_UNRECOGNISED`
 - `DPL_GRAPH_DRIFT`
+- `DPL_INVOKE_UNKNOWN`
+- `DPL_LISTENER_NOT_FOUND`
 - `DPL_PRIVATE_EXPOSED`
+- `DPL_PUBLISH_UNKNOWN`
 - `DPL_QUEUE_OUTBOX_MISSING`
 - `DPL_QUEUE_TRIGGER_MISSING`
 - `DPL_SECRET_LEAK`

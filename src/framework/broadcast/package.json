@@ -1,0 +1,19 @@
+{
+  "name": "@tsir/broadcast",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Real-time broadcasting: WebSocket server + client channels (Echo/Reverb equivalent).",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*",
+    "@tsir/events": "workspace:*"
+  }
+}

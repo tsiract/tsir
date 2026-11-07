@@ -34,7 +34,8 @@ output has another, and only the first is version-controlled.
 
 ```text
 src/framework/   the product (@tsir/*) — what gets published
-src/apps/        consumers: frontpage, docs, examples
+src/apps/    runnable example apps
+src/apps/frontpage/   the marketing site
 src/tools/       repo scripts: dev server, guards, dist builder
 dist/            generated: root tsir CLI, apps/ (runable examples including modules),
                  static sites, framework package trees, and manifest.json

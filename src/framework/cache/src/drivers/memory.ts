@@ -33,6 +33,7 @@ export const MEMORY_CAPABILITIES = {
   increment: true,
   ttl: true,
   clearAll: true,
+  locks: true,
 } as const;
 
 /**
@@ -130,6 +131,30 @@ export function memoryDriver(options: MemoryDriverOptions = {}): CacheDriver<nev
 
         async clear(): Promise<void> {
           entries.clear();
+        },
+
+        /**
+         * In-process, so "atomic" means "no await between the check and the set". The lock
+         * value is the owner token stored as the entry's `raw`; expiry is the same
+         * `expiresAt` field the rest of the driver uses, so an expired lock is a free lock.
+         */
+        async acquireLock(
+          key: string,
+          owner: string,
+          expiresAt: number | undefined,
+        ): Promise<boolean> {
+          const existing = readEntry(key);
+          if (existing !== undefined) return false;
+          entries.set(key, { raw: owner, expiresAt, tags: [] });
+          evict();
+          return true;
+        },
+
+        async releaseLock(key: string, owner: string): Promise<boolean> {
+          const entry = readEntry(key);
+          if (entry === undefined || entry.raw !== owner) return false;
+          entries.delete(key);
+          return true;
         },
       };
 

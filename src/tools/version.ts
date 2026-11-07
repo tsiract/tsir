@@ -71,13 +71,13 @@ function changesetFiles(dir: string): readonly string[] {
 
 function manifests(): readonly string[] {
   const paths: string[] = ['package.json'];
-  for (const group of ['src/framework', 'src/apps']) {
+  for (const group of ['src/framework', 'src/apps/frontpage', 'src/apps']) {
     if (!existsSync(group)) continue;
     for (const entry of readdirSync(group, { withFileTypes: true })) {
       if (!entry.isDirectory()) continue;
       const direct = join(group, entry.name, 'package.json');
       if (existsSync(direct)) paths.push(direct);
-      // `src/apps/examples/<name>/package.json` — examples sit one level deeper.
+      // `src/apps/<name>/package.json` — examples sit one level deeper.
       for (const inner of readdirSync(join(group, entry.name), { withFileTypes: true })) {
         if (!inner.isDirectory()) continue;
         const nested = join(group, entry.name, inner.name, 'package.json');

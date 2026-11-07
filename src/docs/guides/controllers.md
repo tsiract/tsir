@@ -39,8 +39,7 @@ you want its `/shop` route.
 Tsir does **not** scan your filesystem for controllers. There is no auto-discovery, no glob
 import, and no convention-based auto-loader. You import each controller in `app.ts` yourself.
 
-This is deliberate, and it is the same reason Laravel registers routes in `routes/web.php`
-instead of scanning controller files: **the route table is a contract, not a side effect of which files happen to exist**.
+This is deliberate: **the route table is a contract, not a side effect of which files happen to exist**.
 The imports that run at startup determine exactly which routes register. When you restart the server, the same set of routes always
 registers, in the same order, regardless of which files were created or renamed. There is no "my route vanished" because a file was moved or a glob pattern didn't match.
 

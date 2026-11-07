@@ -24,6 +24,7 @@ export type {
   StorageDriver,
   StoredBody,
   StoredObject,
+  Visibility,
 } from './port.ts';
 
 /* ── the disk wrapper and the registry ────────────────────────────────────── */
@@ -73,3 +74,7 @@ export {
 
 /* ── errors ───────────────────────────────────────────────────────────────── */
 export type { StorageErrorCode } from './errors.ts';
+
+/* ── bootstrap ────────────────────────────────────────────────────────────── */
+export { createStorageBootstrap } from './bootstrap.ts';
+export type { StorageBootstrap, StorageBootstrapOptions } from './bootstrap.ts';

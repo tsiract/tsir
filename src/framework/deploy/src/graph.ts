@@ -371,9 +371,7 @@ export function buildGraph(input: DeploymentInput, options: GraphOptions = {}): 
           ...options,
           topology,
           ...(events === undefined ? {} : { events }),
-          ...(input.deploy?.publishes === undefined
-            ? {}
-            : { publishes: input.deploy.publishes }),
+          ...(input.deploy?.publishes === undefined ? {} : { publishes: input.deploy.publishes }),
           ...(input.deploy?.invokes === undefined ? {} : { invokes: input.deploy.invokes }),
         },
         input.queue ?? options.queue ?? [],

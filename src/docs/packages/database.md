@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/database`**
 
-`CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createD1Driver`, `createDatabase`, `createDrizzle`, `createRotationStore`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
+`BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDrizzle`, `createRotationStore`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
 
 **`@tsir/database/postgres`**
 
@@ -28,7 +28,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (22). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (25). Each one is described in the [error-code reference](../errors.md).
 
 - `DB_BATCH_EMPTY`
 - `DB_BATCH_UNSUPPORTED`
@@ -39,9 +39,11 @@ Owned by this package (22). Each one is described in the [error-code reference](
 - `DB_CODEC_INVALID_NAME`
 - `DB_CODEC_UNDEFINED_VALUE`
 - `DB_CONNECTION_PIN_UNSUPPORTED`
+- `DB_D1_NO_BINDING`
 - `DB_DRIVER_UNAVAILABLE`
 - `DB_HEALTH_FAILED`
 - `DB_NO_CONNECTIONS`
+- `DB_POSTGRES_BOOTSTRAP_UNWIRED`
 - `DB_RAW_UNSUPPORTED`
 - `DB_REQUIRES_INTERACTIVE_TX`
 - `DB_REQUIRES_TX_CONNECTION`
@@ -50,6 +52,7 @@ Owned by this package (22). Each one is described in the [error-code reference](
 - `DB_TX_DEPTH_EXCEEDED`
 - `DB_TX_INTERACTIVE_UNSUPPORTED`
 - `DB_TX_OPTION_UNSUPPORTED`
+- `DB_TX_STATEMENT_UNSUPPORTED`
 - `DB_UNKNOWN_CONNECTION`
 - `DB_UNKNOWN_DEFAULT`
 

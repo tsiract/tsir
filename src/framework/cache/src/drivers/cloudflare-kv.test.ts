@@ -85,6 +85,7 @@ describe('what KV can honestly claim', () => {
       increment: false,
       ttl: true,
       clearAll: false,
+      locks: false,
       ttlFloorMs: 60_000,
     });
   });

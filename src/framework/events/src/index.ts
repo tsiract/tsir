@@ -48,3 +48,6 @@ export { createOutbox } from './outbox.ts';
 export type { Outbox, OutboxEntry, OutboxOptions } from './outbox.ts';
 
 export type { EventsErrorCode } from './errors.ts';
+
+export { createEventsBootstrap } from './bootstrap.ts';
+export type { EventsBootstrap, EventsBootstrapOptions } from './bootstrap.ts';

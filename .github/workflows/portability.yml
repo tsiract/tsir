@@ -1,3 +1,33 @@
+# Tsir portability gate — runs `make check` (typecheck + lint + boundaries + …)
+# and `make test` on both Linux and macOS.
+#
+# ─── Typecheck failure playbook (make check → tsc --noEmit) ──────────────────
+# The repo's tsconfig.base.json enforces strict flags that are a common source
+# of CI-only failures. When `make check` reds on typecheck, check these first:
+#
+#   • TS6133 (declared but never read) — noUnusedLocals / noUnusedParameters.
+#       Fix: remove the unused import or prefix with `_` for params.
+#
+#   • TS2379 (exactOptionalPropertyTypes) — `{ x?: T }` means "absent OR T",
+#       NOT "T | undefined". A value of `T | undefined` (e.g. from z.optional(),
+#       optional chaining, or a partial object) is NOT assignable.
+#       Fix: strip `undefined` keys before passing:
+#         { ...(value !== undefined ? { key: value } : {}) }
+#       or declare the property as `x?: T | undefined` if `undefined` is valid.
+#
+#   • TS2532 / TS2533 (object is possibly 'undefined') — noUncheckedIndexedAccess
+#       makes every array/map index `T | undefined`. A length check does NOT
+#       narrow the indexed element type.
+#       Fix: extract to a const and check, or use optional chaining:
+#         const last = arr[arr.length - 1];
+#         return last === undefined ? 0 : last.order + 1;
+#
+#   • TS7006 (implicitly any) — usually a cascading effect of a missing import
+#       (TS2307 "Cannot find module"). Fix the missing import first.
+#
+# The example apps under src/apps/examples/* use workspace:* dependencies; if
+# they show TS2307 locally but not in CI, run `bun install` (or symlink
+# node_modules/@tsir from admin.product.com) before diagnosing.
 name: macOS and Linux
 
 on:
@@ -50,7 +80,7 @@ jobs:
           tar -tzf tsir-*-dist.tar.gz > archive-contents.txt
           grep -q '^frontpage/docs/' archive-contents.txt
           grep -q '^tsir$' archive-contents.txt
-          grep -q '^src/examples/http/src/modules/users/' archive-contents.txt
-          grep -q '^src/examples/http/src/modules/media/' archive-contents.txt
+          grep -q '^src/apps/admin.product.com/modules/users/' archive-contents.txt
+          grep -q '^src/apps/admin.product.com/modules/auth/' archive-contents.txt
           if grep -q 'node_modules/' archive-contents.txt; then echo 'archive contains installed dependencies'; exit 1; fi
           rm archive-contents.txt

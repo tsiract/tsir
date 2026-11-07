@@ -13,7 +13,7 @@
  * optimisation to skip.
  */
 
-import { alreadyExists, unsupportedOperation } from '../errors.ts';
+import { alreadyExists, notFound, unsupportedOperation } from '../errors.ts';
 import type {
   DiskCapabilities,
   GetOptions,
@@ -23,6 +23,7 @@ import type {
   StorageDriver,
   StoredBody,
   StoredObject,
+  Visibility,
 } from '../port.ts';
 
 const DEFAULT_CONTENT_TYPE = 'application/octet-stream';
@@ -33,6 +34,7 @@ interface Entry {
   readonly etag: string;
   readonly lastModified: number;
   readonly metadata?: Readonly<Record<string, string>> | undefined;
+  readonly visibility: Visibility;
 }
 
 const CAPABILITIES: DiskCapabilities = {
@@ -69,6 +71,7 @@ function objectOf(key: string, entry: Entry): StoredObject {
     contentType: entry.contentType,
     etag: entry.etag,
     lastModified: entry.lastModified,
+    visibility: entry.visibility,
     ...(entry.metadata === undefined ? {} : { metadata: entry.metadata }),
   };
 }
@@ -88,6 +91,7 @@ export function memoryDriver(options: { readonly name?: string } = {}): StorageD
         contentType: putOptions.contentType ?? DEFAULT_CONTENT_TYPE,
         etag: etagOf(body),
         lastModified: Date.now(),
+        visibility: putOptions.visibility ?? 'private',
         ...(putOptions.metadata === undefined ? {} : { metadata: putOptions.metadata }),
       };
       objects.set(key, entry);
@@ -134,6 +138,74 @@ export function memoryDriver(options: { readonly name?: string } = {}): StorageD
         objects: page.map(([key, entry]) => objectOf(key, entry)),
         ...(start + page.length < matched.length && last !== undefined ? { cursor: last[0] } : {}),
       };
+    },
+
+    async directories(prefix = ''): Promise<readonly string[]> {
+      const normalized = prefix === '' ? '' : `${prefix.replace(/\/+$/u, '')}/`;
+      const seen = new Set<string>();
+      const out: string[] = [];
+      for (const [key] of objects) {
+        if (normalized !== '' && !key.startsWith(normalized)) continue;
+        const rest = key.slice(normalized.length);
+        const slash = rest.indexOf('/');
+        if (slash === -1) continue;
+        const dir = `${normalized}${rest.slice(0, slash + 1)}`;
+        if (!seen.has(dir)) {
+          seen.add(dir);
+          out.push(dir);
+        }
+      }
+      return out.sort();
+    },
+
+    async setVisibility(key: string, visibility: Visibility): Promise<StoredObject> {
+      const entry = objects.get(key);
+      if (entry === undefined) throw notFound(key, disk);
+      const updated: Entry = { ...entry, visibility, lastModified: Date.now() };
+      objects.set(key, updated);
+      return objectOf(key, updated);
+    },
+
+    async copy(source: string, destination: string): Promise<StoredObject> {
+      const entry = objects.get(source);
+      if (entry === undefined) throw notFound(source, disk);
+      const copied: Entry = {
+        ...entry,
+        body: new Uint8Array(entry.body),
+        etag: etagOf(entry.body),
+        lastModified: Date.now(),
+      };
+      objects.set(destination, copied);
+      return objectOf(destination, copied);
+    },
+
+    async move(source: string, destination: string): Promise<StoredObject> {
+      const result = await this.copy(source, destination);
+      objects.delete(source);
+      return result;
+    },
+
+    async stream(
+      key: string,
+      options: GetOptions,
+    ): Promise<ReadableStream<Uint8Array> | undefined> {
+      const entry = objects.get(key);
+      if (entry === undefined) return undefined;
+      const bytes =
+        options.range === undefined
+          ? new Uint8Array(entry.body)
+          : new Uint8Array(
+              entry.body.slice(
+                options.range.start,
+                options.range.end === undefined ? entry.body.length : options.range.end + 1,
+              ),
+            );
+      return new ReadableStream<Uint8Array>({
+        start(controller) {
+          controller.enqueue(bytes);
+          controller.close();
+        },
+      });
     },
 
     /**

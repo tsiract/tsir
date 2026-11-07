@@ -8,16 +8,16 @@
 
 A **unit** is the atom of deployment. It is derived from the application's declared capabilities, not from source-file layout.
 
-| Unit       | Contains                            | Cron/trigger        | Typical target mapping                |
-| ---------- | ----------------------------------- | ------------------- | ------------------------------------- |
-| `http`     | HTTP routes, middleware, guards     | HTTP requests       | Workers fetch / Lambda + API Gateway  |
-| `ws`       | WebSocket handlers                  | Upgrade requests    | Workers + Durable Objects / API GW WS |
-| `queue`    | Job handlers                        | Queue/stream events | Workers Queues / Lambda + SQS         |
-| `schedule` | Scheduled tasks                     | Cron                | Workers Cron Triggers / EventBridge   |
-| `sns`      | `@OnSns` topic subscribers          | SNS messages        | Lambda + SNS (raw SQS fan-out)        |
-| `eventbridge` | `@OnEventBridge` rules           | EventBridge events  | Lambda + EventBridge rule             |
-| `admin`    | `@OnStepTask` tasks, health, metrics | Direct invoke / HTTP | Separate worker/lambda recommended    |
-| `console`  | CLI-entered commands                | Manual              | Not deployed                          |
+| Unit          | Contains                             | Cron/trigger         | Typical target mapping                |
+| ------------- | ------------------------------------ | -------------------- | ------------------------------------- |
+| `http`        | HTTP routes, middleware, guards      | HTTP requests        | Workers fetch / Lambda + API Gateway  |
+| `ws`          | WebSocket handlers                   | Upgrade requests     | Workers + Durable Objects / API GW WS |
+| `queue`       | Job handlers                         | Queue/stream events  | Workers Queues / Lambda + SQS         |
+| `schedule`    | Scheduled tasks                      | Cron                 | Workers Cron Triggers / EventBridge   |
+| `sns`         | `@OnSns` topic subscribers           | SNS messages         | Lambda + SNS (raw SQS fan-out)        |
+| `eventbridge` | `@OnEventBridge` rules               | EventBridge events   | Lambda + EventBridge rule             |
+| `admin`       | `@OnStepTask` tasks, health, metrics | Direct invoke / HTTP | Separate worker/lambda recommended    |
+| `console`     | CLI-entered commands                 | Manual               | Not deployed                          |
 
 ### 1.1 Topology
 
@@ -57,15 +57,21 @@ import type { ListenerContext } from '@tsir/deploy';
 class OrdersController {
   // SNS topic subscriber — default unit 'sns'
   @OnSns({ topic: 'orders.created' })
-  onOrderCreated(message: unknown, ctx: ListenerContext): void { /* fan-out consumer */ }
+  onOrderCreated(message: unknown, ctx: ListenerContext): void {
+    /* fan-out consumer */
+  }
 
   // EventBridge rule — matches by detail-type; default unit 'schedule'
   @OnEventBridge({ detailType: 'OrderShipped' })
-  onOrderShipped(detail: unknown, ctx: ListenerContext): void { /* rule target */ }
+  onOrderShipped(detail: unknown, ctx: ListenerContext): void {
+    /* rule target */
+  }
 
   // Step Functions task — invoked synchronously; default unit 'admin'
   @OnStepTask({ name: 'process-refund' })
-  processRefund(input: unknown, ctx: ListenerContext): Promise<unknown> { /* task handler */ }
+  processRefund(input: unknown, ctx: ListenerContext): Promise<unknown> {
+    /* task handler */
+  }
 }
 ```
 
@@ -145,10 +151,10 @@ a single unit in `deploy.units`:
 ```js
 export default defineConfig({
   deploy: {
-    memoryMb: 512,        // shared default via Globals.Function
+    memoryMb: 512, // shared default via Globals.Function
     timeoutSeconds: 30,
     units: [
-      { name: 'admin', memoryMb: 2048, timeoutSeconds: 120 },   // heavy unit
+      { name: 'admin', memoryMb: 2048, timeoutSeconds: 120 }, // heavy unit
     ],
   },
 });
@@ -478,22 +484,22 @@ tsir deploy:invoke --unit http --event fixture.json   # local invocation against
 
 ## 7. Failure modes
 
-| Code                     | Cause                                                             | Behavior                                |
-| ------------------------ | ----------------------------------------------------------------- | --------------------------------------- |
-| `DPL_CAPABILITY_MISSING` | Unit requires raw sockets on Workers                              | Build fails with matrix row             |
-| `DPL_UNIT_EMPTY`         | Unit resolved with no handlers                                    | Warning; error in `--strict`            |
-| `DPL_DUPLICATE_ROUTE`    | Same route claimed by two units                                   | Build fails                             |
-| `DPL_BINDING_MISSING`    | Unit references a binding not declared in target config           | Build fails                             |
-| `DPL_SECRET_LEAK`        | Artifact contains a secret pattern                                | CI fails                                |
-| `DPL_SIZE_BUDGET`        | Unit exceeds budget                                               | Fails unless `--allow-size-regression`  |
-| `DPL_GRAPH_DRIFT`        | Unit graph differs from committed snapshot                        | Fails with diff                         |
-| `DPL_PRIVATE_EXPOSED`    | A private unit's artifact is publicly routable                    | `deploy:validate` fails, names the unit |
-| `DPL_CLASS_MISSING`      | A Durable Object binding names a class the bundle does not export | Build fails before bundling             |
-| `DPL_ENV_LIMIT`          | Lambda environment over 4 KB                                      | Build fails with the overage            |
-| `DPL_UNSUPPORTED_TARGET` | Target not configured                                             | Lists valid targets                     |
+| Code                     | Cause                                                                           | Behavior                                 |
+| ------------------------ | ------------------------------------------------------------------------------- | ---------------------------------------- |
+| `DPL_CAPABILITY_MISSING` | Unit requires raw sockets on Workers                                            | Build fails with matrix row              |
+| `DPL_UNIT_EMPTY`         | Unit resolved with no handlers                                                  | Warning; error in `--strict`             |
+| `DPL_DUPLICATE_ROUTE`    | Same route claimed by two units                                                 | Build fails                              |
+| `DPL_BINDING_MISSING`    | Unit references a binding not declared in target config                         | Build fails                              |
+| `DPL_SECRET_LEAK`        | Artifact contains a secret pattern                                              | CI fails                                 |
+| `DPL_SIZE_BUDGET`        | Unit exceeds budget                                                             | Fails unless `--allow-size-regression`   |
+| `DPL_GRAPH_DRIFT`        | Unit graph differs from committed snapshot                                      | Fails with diff                          |
+| `DPL_PRIVATE_EXPOSED`    | A private unit's artifact is publicly routable                                  | `deploy:validate` fails, names the unit  |
+| `DPL_CLASS_MISSING`      | A Durable Object binding names a class the bundle does not export               | Build fails before bundling              |
+| `DPL_ENV_LIMIT`          | Lambda environment over 4 KB                                                    | Build fails with the overage             |
+| `DPL_UNSUPPORTED_TARGET` | Target not configured                                                           | Lists valid targets                      |
 | `DPL_LISTENER_NOT_FOUND` | Event routed to a unit with no matching `@OnSns`/`@OnEventBridge`/`@OnStepTask` | Runtime throw (SNS retries on next poll) |
-| `DPL_PUBLISH_UNKNOWN`    | `publish(topic, …)` for a topic no `@OnSns` listener subscribes to | Build fails, names the topic           |
-| `DPL_INVOKE_UNKNOWN`     | `invokeUnit(unit, task, …)` for a task no `@OnStepTask` handles   | Build fails, names the unit and task    |
+| `DPL_PUBLISH_UNKNOWN`    | `publish(topic, …)` for a topic no `@OnSns` listener subscribes to              | Build fails, names the topic             |
+| `DPL_INVOKE_UNKNOWN`     | `invokeUnit(unit, task, …)` for a task no `@OnStepTask` handles                 | Build fails, names the unit and task     |
 
 ---
 

@@ -350,7 +350,11 @@ describe('the handler (DPL-013)', () => {
         Records: [
           {
             EventSource: 'aws:sns',
-            Sns: { TopicArn: 'arn:aws:sns:us-east-1:123:orders', MessageId: 'msg-2', Message: 'plain text' },
+            Sns: {
+              TopicArn: 'arn:aws:sns:us-east-1:123:orders',
+              MessageId: 'msg-2',
+              Message: 'plain text',
+            },
           },
         ],
       },
@@ -382,7 +386,11 @@ describe('the handler (DPL-013)', () => {
           Records: [
             {
               EventSource: 'aws:sns',
-              Sns: { TopicArn: 'arn:aws:sns:us-east-1:123:orders', MessageId: 'msg-3', Message: '{}' },
+              Sns: {
+                TopicArn: 'arn:aws:sns:us-east-1:123:orders',
+                MessageId: 'msg-3',
+                Message: '{}',
+              },
             },
           ],
         },

@@ -49,14 +49,10 @@ describe('explicit module generators', () => {
     expect(read('shop/http/shop.controller.ts')).toContain('class ShopController');
     expect(await runCli(['make:controller', 'order', 'shop'])).toBe(EXIT.ok);
     expect(read('shop/http/order.controller.ts')).toContain('class OrderController');
-    expect(read('shop/http/order.controller.ts')).toContain(
-      "@Controller(registry, '/api/order')",
-    );
+    expect(read('shop/http/order.controller.ts')).toContain("@Controller(registry, '/api/order')");
     expect(read('shop/http/order.controller.test.ts')).toContain('throw new Error');
     expect(await runCli(['make:controller', 'user-settings', 'shop'])).toBe(EXIT.ok);
-    expect(read('shop/http/user-settings.controller.ts')).toContain(
-      'class UserSettingsController',
-    );
+    expect(read('shop/http/user-settings.controller.ts')).toContain('class UserSettingsController');
     expect(await runCli(['make:model', 'order', 'shop'])).toBe(EXIT.ok);
     expect(read('shop/models/order.model.ts')).toContain("_table('shop_order'");
     expect(read('shop/models/order.model.ts')).toContain('export type Order');
@@ -67,9 +63,7 @@ describe('explicit module generators', () => {
     expect(await runCli(['make:model', 'user-settings', 'shop', '--dialect', 'postgres'])).toBe(
       EXIT.ok,
     );
-    expect(read('shop/models/user-settings.model.ts')).toContain(
-      "_table('shop_user_settings'",
-    );
+    expect(read('shop/models/user-settings.model.ts')).toContain("_table('shop_user_settings'");
     expect(read('shop/models/user-settings.model.ts')).toContain("from 'drizzle-orm/pg-core'");
     expect(read('shop/models/user-settings.model.ts')).toContain('export const userSettings');
   });
@@ -78,9 +72,7 @@ describe('explicit module generators', () => {
     expect(read('user-settings/index.ts')).toContain('userSettings');
     expect(await runCli(['make:module', 'route-module'])).toBe(EXIT.ok);
     expect(read('route-module/routes.ts')).toContain('routeModule as _routeModule');
-    expect(read('route-module/routes.ts')).toContain(
-      'export const routeModule = _routeModule',
-    );
+    expect(read('route-module/routes.ts')).toContain('export const routeModule = _routeModule');
     expect(await runCli(['make:module', 'test'])).toBe(EXIT.ok);
     expect(read('test/test.test.ts')).toContain('test as _module');
     expect(read('user-settings/http/user-settings.controller.ts')).toContain(
@@ -95,7 +87,9 @@ describe('explicit module generators', () => {
     expect(await runCli(['make:listener', 'notify-1', 'shop-2', '--event', 'order-1'])).toBe(
       EXIT.ok,
     );
-    expect(read('shop-2/listeners/notify-1.listener.ts')).toContain("from '../events/order-1.event.ts'");
+    expect(read('shop-2/listeners/notify-1.listener.ts')).toContain(
+      "from '../events/order-1.event.ts'",
+    );
     expect(existsSync(join(dir, 'shop-2/services/order-1.service.ts'))).toBe(true);
   });
   test('requires explicit existing module, never creates or modifies it', async () => {
@@ -164,7 +158,9 @@ describe('explicit module generators', () => {
     };
     for (const kind of ['service', 'middleware', 'guard', 'job', 'event']) {
       expect(await runCli([`make:${kind}`, 'user-settings', 'shop'])).toBe(EXIT.ok);
-      expect(existsSync(join(dir, `shop/${moduleFiles[kind]}/user-settings.${kind}.ts`))).toBe(true);
+      expect(existsSync(join(dir, `shop/${moduleFiles[kind]}/user-settings.${kind}.ts`))).toBe(
+        true,
+      );
     }
     expect(
       await runCli(['make:listener', 'send-receipt', 'shop', '--event', 'user-settings']),

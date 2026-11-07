@@ -13,20 +13,10 @@ import { commitWrites, displayPath, type GeneratedFile } from '../generator.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
 import { isIdentifier, toKebab } from './naming.ts';
 import { pendingTestFile } from './pending-test.ts';
+import { renderStub } from '../stub.ts';
 
 export function commandTemplate(name: string): string {
-  return `import { defineCommand } from '@tsir/console';
-
-export default defineCommand({
-  name: '${name}',
-  summary: 'TODO: describe ${name} in one line',
-  async run(argv: readonly string[]): Promise<number> {
-    process.stdout.write(\`${name} ran with \${String(argv.length)} argument(s)\\n\`);
-    process.stdout.write('next: list "${name}" in console.commands in tsir.js, then run: bun ract ${name}\\n');
-    return 0;
-  },
-});
-`;
+  return renderStub('command.ts', { name });
 }
 
 export async function makeCommandCommand(argv: readonly string[]): Promise<number> {

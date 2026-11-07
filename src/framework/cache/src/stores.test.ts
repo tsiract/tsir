@@ -110,6 +110,7 @@ describe('the registry', () => {
       increment: true,
       ttl: true,
       clearAll: true,
+      locks: true,
     });
     expect(caches.capabilities('off').increment).toBe(false);
   });

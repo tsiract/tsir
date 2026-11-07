@@ -89,8 +89,12 @@ if (/__PACKAGE_(?:COUNT|FILTERS)__|__PACKAGES__|__SITE_(?:CSS|JS)__/.test(html))
   problems.push(`${PAGE}: unresolved build placeholder`);
 if (new TextEncoder().encode(html).byteLength > 128 * 1024)
   problems.push(`${PAGE}: exceeds the 128 KiB single-file budget`);
-if (/<(?:script|img|link)[^>]+(?:src|href)="https?:/i.test(html))
-  problems.push(`${PAGE}: external runtime asset`);
+if (/<(?:script|img|link)[^>]+(?:src|href)="https?:/i.test(html)) {
+  // Allow <link rel="canonical" href="https://..."> — SEO metadata, not a runtime asset.
+  const external = html.match(/<(?:script|img|link)[^>]+(?:src|href)="https?:[^"]*"/gi) ?? [];
+  const nonCanonical = external.filter((tag) => !/rel="canonical"/i.test(tag));
+  if (nonCanonical.length > 0) problems.push(`${PAGE}: external runtime asset`);
+}
 
 for (const card of all) {
   const dir = directoryFor(card.pkg);

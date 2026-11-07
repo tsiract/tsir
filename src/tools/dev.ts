@@ -19,9 +19,148 @@
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { watch } from 'node:fs';
 import { arch, platform } from 'node:os';
+import { Database as Sqlite } from 'bun:sqlite';
+import { migrate } from '../framework/migrate/src/index.ts';
 import { buildDocs } from './docs-site.ts';
 import { renderFrontpage } from '../apps/frontpage/build.ts';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
+
+// The admin application handler, imported lazily so `make dev` still boots when
+// the admin is not yet configured. When present, the admin app is served on its
+// own port (--admin-port) at the URL root; otherwise every admin request
+// returns a 503 that tells the operator what is missing.
+//
+// In development the admin app's D1 binding is backed by a local SQLite file
+// (`.tsir/admin.db`), so `make dev` needs no Cloudflare account and no
+// `wrangler`. The binding is the same `D1Like` shape the production Worker
+// receives from `env.DB`.
+type AdminHandler = (request: Request, env?: Record<string, unknown>) => Promise<Response>;
+
+let adminHandler: AdminHandler | null = null;
+let adminBootError: string | null = null;
+let adminDb: Sqlite | null = null;
+
+/** A D1 prepared statement: the shape returned by `prepare`. */
+interface PreparedStatement {
+  bind(...values: readonly unknown[]): PreparedStatement;
+  all<T = Record<string, unknown>>(): Promise<{
+    readonly success: boolean;
+    readonly results: readonly T[];
+    readonly meta: { readonly changes: number };
+  }>;
+  run(): Promise<{ readonly success: boolean; readonly meta: { readonly changes: number } }>;
+}
+
+/**
+ * A D1 binding over `bun:sqlite`: the same three methods D1 exposes, backed by
+ * a real SQLite engine. This is what lets the admin app run locally without
+ * Cloudflare — the handler sees a `D1Like` and cannot tell the difference.
+ */
+function sqliteBinding(sqlite: Sqlite) {
+  const prepare = (sql: string, params: readonly unknown[] = []): PreparedStatement => ({
+    bind(...values: readonly unknown[]) {
+      return prepare(sql, [...params, ...values]);
+    },
+    async all<T = Record<string, unknown>>() {
+      const returnsRows = /^\s*(select|pragma|with)\b/i.test(sql) || /\breturning\b/i.test(sql);
+      if (!returnsRows) {
+        const run = sqlite.prepare(sql).run(...(params as never[]));
+        return { success: true, results: [] as readonly T[], meta: { changes: run.changes } };
+      }
+      const rows = sqlite.prepare(sql).all(...(params as never[])) as T[];
+      return { success: true, results: rows, meta: { changes: rows.length } };
+    },
+    async run() {
+      const run = sqlite.prepare(sql).run(...(params as never[]));
+      return { success: true, meta: { changes: run.changes } };
+    },
+  });
+
+  return {
+    prepare: (query: string) => prepare(query),
+    async batch(statements: readonly PreparedStatement[]): Promise<
+      readonly {
+        readonly success: boolean;
+        readonly results: readonly unknown[];
+        readonly meta: { readonly changes: number };
+      }[]
+    > {
+      const out: {
+        readonly success: boolean;
+        readonly results: readonly unknown[];
+        readonly meta: { readonly changes: number };
+      }[] = [];
+      sqlite.run('begin');
+      try {
+        for (const statement of statements) out.push(await statement.all());
+        sqlite.run('commit');
+        return out;
+      } catch (error: unknown) {
+        sqlite.run('rollback');
+        throw error;
+      }
+    },
+    async exec(query: string) {
+      sqlite.exec(query);
+      return { count: 0, duration: 0 };
+    },
+  };
+}
+
+async function loadAdminHandler(root: string): Promise<void> {
+  const entry = join(root, 'src', 'apps', 'admin.product.com', 'app.ts');
+  try {
+    // Open the local SQLite backing store. The file lives in `.tsir/` so it is
+    // gitignored and never shipped.
+    const dbDir = join(root, '.tsir');
+    await mkdir(dbDir, { recursive: true });
+    adminDb = new Sqlite(join(dbDir, 'admin.db'));
+
+    // Import the admin app so its exports (handler, runtimeBindings, databases,
+    // MIGRATIONS_DIR) are available. Importing is safe: the app does not touch
+    // the database at module-eval time, only at request time.
+    const mod = (await import(entry)) as {
+      handler?: unknown;
+      runtimeBindings?: { DB?: unknown };
+      databases?: { defaultDatabase?: unknown };
+      MIGRATIONS_DIR?: string;
+    };
+
+    if (typeof mod.handler !== 'function') {
+      adminBootError = 'admin app did not export a `handler`';
+      return;
+    }
+
+    // Make the D1-over-SQLite binding available to the deferred driver before
+    // migration runs, so `@tsir/migrate` uses the same connection the handler
+    // will use.
+    if (mod.runtimeBindings !== undefined) {
+      mod.runtimeBindings.DB = sqliteBinding(adminDb);
+    }
+
+    // Apply migrations through the framework's runner — never raw SQL. This is
+    // the same code path `tsir migrate` uses; the dev server just runs it
+    // in-process. The runner is idempotent, so a second `make dev` over an
+    // existing `.tsir/admin.db` is a no-op rather than a "table exists" error.
+    const defaultDatabase = mod.databases?.defaultDatabase;
+    if (
+      defaultDatabase !== undefined &&
+      defaultDatabase !== null &&
+      mod.MIGRATIONS_DIR !== undefined
+    ) {
+      await migrate({
+        database: defaultDatabase as never,
+        folder: mod.MIGRATIONS_DIR,
+        name: 'admin.product.com',
+        log: () => {},
+      });
+    }
+
+    adminHandler = mod.handler as AdminHandler;
+  } catch (error) {
+    adminBootError = error instanceof Error ? error.message : String(error);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants and types
@@ -32,6 +171,7 @@ const RECORD_JSON = 'dev.json';
 const RECORD_TSV = 'dev.pids';
 const DEFAULT_HOST = '0.0.0.0';
 const DEFAULT_PORT = 3000;
+const DEFAULT_ADMIN_PORT = 3001;
 const SHUTDOWN_DRAIN_MS = 5_000;
 
 /** Bumped when the record shape changes; `kill-dev.sh` reads it defensively. */
@@ -52,6 +192,7 @@ interface Options {
   readonly root: string;
   readonly host: string;
   readonly port: number;
+  readonly adminPort: number;
 }
 
 interface RuntimeInfo {
@@ -103,6 +244,7 @@ function parsePort(raw: string): number {
 function parseArgs(argv: readonly string[], cwd: string): Options {
   let host = process.env['HOST'] ?? DEFAULT_HOST;
   let port = DEFAULT_PORT;
+  let adminPort = DEFAULT_ADMIN_PORT;
   let root = resolve(cwd);
 
   for (let index = 0; index < argv.length; index += 1) {
@@ -119,6 +261,9 @@ function parseArgs(argv: readonly string[], cwd: string): Options {
       case '--port':
         port = parsePort(next());
         break;
+      case '--admin-port':
+        adminPort = parsePort(next());
+        break;
       case '--host':
         host = next();
         break;
@@ -128,9 +273,10 @@ function parseArgs(argv: readonly string[], cwd: string): Options {
       case '--help':
       case '-h':
         log(`${bold('tsir dev')} — development server\n`);
-        log('  --port <n>    port to bind (default 3000, or $PORT)');
-        log('  --host <addr> interface to bind (default 0.0.0.0)');
-        log('  --root <dir>  project root (default cwd)\n');
+        log('  --port <n>        port for the frontpage + docs (default 3000)');
+        log('  --admin-port <n>  port for the admin app (default 3001)');
+        log('  --host <addr>     interface to bind (default 0.0.0.0)');
+        log('  --root <dir>      project root (default cwd)\n');
         process.exit(0);
       default:
         fail(`unknown argument "${String(arg)}"`, 'run with --help to see supported flags');
@@ -139,8 +285,17 @@ function parseArgs(argv: readonly string[], cwd: string): Options {
 
   const envPort = process.env['PORT'];
   if (envPort !== undefined) port = parsePort(envPort);
+  const envAdminPort = process.env['ADMIN_PORT'];
+  if (envAdminPort !== undefined) adminPort = parsePort(envAdminPort);
 
-  return { root, host, port };
+  if (adminPort === port) {
+    fail(
+      '--admin-port must differ from --port',
+      `frontpage uses ${String(port)}, admin needs a separate port`,
+    );
+  }
+
+  return { root, host, port, adminPort };
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -198,14 +353,16 @@ async function writeRecord(root: string, options: Options, version: string): Pro
     pid: process.pid,
     startedAt: new Date().toISOString(),
     script: 'src/tools/dev.ts',
-    command: `bun src/tools/dev.ts --port ${String(options.port)}`,
+    command: `bun src/tools/dev.ts --port ${String(options.port)} --admin-port ${String(options.adminPort)}`,
     version,
     host: options.host,
-    ports: [options.port],
+    ports: [options.port, options.adminPort],
   };
 
   await Bun.write(join(runtimeDir, RECORD_JSON), `${JSON.stringify(record, null, 2)}\n`);
 
+  // A single PID row; the full port list (frontpage + admin) lives in the JSON
+  // record's `ports` array, which `kill-dev.sh` reads after the TSV.
   const tsv = `${String(process.pid)}\t${String(options.port)}\t${processStartLabel(process.pid)}\n`;
   await Bun.write(join(runtimeDir, RECORD_TSV), tsv);
 }
@@ -481,12 +638,25 @@ async function main(): Promise<void> {
 
   const info = await collectRuntime(options.root, options.port);
   const sizes = await readMeasuredSizes();
+
+  // Local dev doesn't have Cloudflare Turnstile; skip captcha verification so
+  // the login form works without a secret. Must be set before the admin app's
+  // modules load (they read it at import time). `env.bool()` only accepts the
+  // literals "true" / "false", so use "true" here, not "1".
+  process.env.CAPTCHA_DISABLED = 'true';
+
+  // The admin app is served on its own port (--admin-port) at the URL root,
+  // not under a /admin prefix. BASE_PATH defaults to '/' in the app, so no
+  // prefix stripping is needed — requests hit the admin handler directly.
+  await loadAdminHandler(options.root);
+
   // Record before binding so a crash during startup still leaves a trace.
   await writeRecord(options.root, options, info.version);
 
-  let server: Bun.Server<undefined>;
+  let mainServer: Bun.Server<undefined>;
+  let adminServer: Bun.Server<undefined> | null = null;
   try {
-    server = Bun.serve({
+    mainServer = Bun.serve({
       hostname: options.host,
       port: options.port,
       development: true,
@@ -540,6 +710,46 @@ async function main(): Promise<void> {
     fail(`could not start dev server: ${reason}`);
   }
 
+  // The admin app runs on its own port at the URL root. Every request is
+  // forwarded to the admin handler with the local D1 binding. When the admin
+  // app failed to boot, every request returns a 503 with the boot error.
+  const adminEnv: Record<string, unknown> = {
+    DB: adminDb !== null ? sqliteBinding(adminDb) : undefined,
+  };
+  try {
+    adminServer = Bun.serve({
+      hostname: options.host,
+      port: options.adminPort,
+      development: true,
+      async fetch(request: Request): Promise<Response> {
+        if (adminHandler === null) {
+          return new Response(`Admin app is not available: ${adminBootError ?? 'unknown error'}`, {
+            status: 503,
+            headers: { 'content-type': 'text/plain; charset=utf-8' },
+          });
+        }
+        return adminHandler(request, adminEnv);
+      },
+      error(error: Error): Response {
+        process.stderr.write(`${red('✗')} admin request failed: ${error.message}\n`);
+        return new Response('Internal Server Error', { status: 500 });
+      },
+    });
+  } catch (error: unknown) {
+    await mainServer.stop();
+    await removeRecord(options.root);
+    const reason = error instanceof Error ? error.message : String(error);
+    if (
+      /EADDRINUSE|address already in use|is port .* in use|failed to start server/i.test(reason)
+    ) {
+      fail(
+        `admin port ${String(options.adminPort)} is already in use — Tsir will not kill an unknown process`,
+        `run \`make kill\` to stop a Tsir dev server, or choose another port with --admin-port`,
+      );
+    }
+    fail(`could not start admin server: ${reason}`);
+  }
+
   const shutdown = async (signal: string): Promise<void> => {
     log(`\n${dim('·')} ${signal} received — draining (max ${String(SHUTDOWN_DRAIN_MS)}ms)`);
     const timer = setTimeout(() => {
@@ -551,7 +761,7 @@ async function main(): Promise<void> {
     timer.unref();
 
     try {
-      await server.stop();
+      await Promise.all([mainServer.stop(), adminServer?.stop() ?? Promise.resolve()]);
       await removeRecord(options.root);
       clearTimeout(timer);
       log(`${green('✓')} dev server stopped`);
@@ -575,15 +785,20 @@ async function main(): Promise<void> {
   startWatchers(options.root);
 
   const displayHost = options.host === '0.0.0.0' ? 'localhost' : options.host;
+  const mainPort = mainServer.port ?? options.port;
+  const adminPort = adminServer?.port ?? options.adminPort;
 
   log('');
   log(`  ${bold('tsir')} ${dim('· dev')}`);
   log('');
+  log(`  ${green('➜')}  local    ${cyan(`http://${displayHost}:${String(mainPort)}/`)}`);
+  if (adminHandler !== null) {
+    log(`  ${green('➜')}  admin    ${cyan(`http://${displayHost}:${String(adminPort)}/`)}`);
+  } else {
+    log(`  ${dim('➜  admin    not loaded (' + (adminBootError ?? 'unknown error') + ')')}`);
+  }
   log(
-    `  ${green('➜')}  local    ${cyan(`http://${displayHost}:${String(server.port ?? options.port)}/`)}`,
-  );
-  log(
-    `  ${green('➜')}  health   ${cyan(`http://${displayHost}:${String(server.port ?? options.port)}/__tsir/health`)}`,
+    `  ${green('➜')}  health   ${cyan(`http://${displayHost}:${String(mainPort)}/__tsir/health`)}`,
   );
   log(`  ${dim(`➜  runtime  bun ${Bun.version} · node ${info.node} · ${info.os}`)}`);
   log(`  ${dim(`➜  version  ${info.version} · env ${info.env}`)}`);

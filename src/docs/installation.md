@@ -46,23 +46,14 @@ dist/                              # or $HOME/tsir-dist/ after extraction
 ├── tsir                           # run directly: ./tsir --help
 ├── bin/tsir                       # add this directory to PATH for `tsir`
 ├── apps/
-│   ├── http/
+│   ├── admin.product.com/         # bundled admin application (RBAC, i18n, mail)
 │   │   ├── tsir.js
 │   │   ├── app.ts                 # app, module imports, and fetch handler
-│   │   ├── config.ts              # typed environment variables
-│   │   ├── users/                 # a module
-│   │   │   ├── index.ts           # public surface
-│   │   │   ├── routes.ts          # registry and module definition
-│   │   │   └── http/users.controller.ts
-│   │   └── media/                 # another module
-│   │       ├── index.ts
-│   │       ├── routes.ts
-│   │       └── http/uploads.controller.ts
-│   ├── minimal/                   # lifecycle example; no HTTP handler
-│   ├── todo-app-example.com/      # Svelte 5 drag-and-drop todo
-│   └── full-actions-example.com/  # HTTP + queues + events
+│   │   ├── config/                # split configuration (app, database, deploy, …)
+│   │   ├── modules/               # auth, users, rbac, i18n, mail, setup
+│   │   └── migrations/            # D1 / SQLite schema migrations
+│   └── frontpage/                 # static marketing site
 ├── framework/                     # compiled @tsir/* framework packages
-├── frontpage/                     # compatibility copy of the static site
 ├── package.json  bun.lock         # distribution workspace and lockfile
 ├── manifest.json                  # package build information
 └── README.md  LICENSE
@@ -72,10 +63,10 @@ dist/                              # or $HOME/tsir-dist/ after extraction
 release archive. The apps under `apps/` are runnable examples, **not your application**. Framework
 packages in `framework/` are different from application modules such as `users/`.
 
-To explore the bundled HTTP app from the checkout:
+To explore the bundled admin app from the checkout:
 
 ```sh
-cd dist/apps/http
+cd dist/apps/admin.product.com
 ../../tsir route:list
 ../../tsir test
 ../../tsir dev
@@ -128,11 +119,9 @@ Tsir does **not** scan your filesystem for controllers, jobs, or listeners. Ther
 auto-discovery, no glob import, and no convention-based loader. Instead, `app.ts` is your
 **composition root**: the single file where you import everything that should run.
 
-This is the same idea as Laravel's `routes/web.php` and `config/app.php`. In Laravel, a route
-only exists because you wrote it in `routes/web.php`; a service provider only boots because you
-registered it in `config/app.php`. The file is the contract. Tsir applies the same principle to
-everything: a controller's routes only exist because you imported its file, and a module only
-runs because you listed it in `defineApp`.
+The file is the contract: a controller's routes only exist because you imported its file, and a
+module only runs because you listed it in `defineApp`. Skip the import and the route simply won't
+exist — there is no "my route vanished" because a file was moved or a glob didn't match.
 
 When you run `tsir dev` or `tsir start`, two things happen in order:
 

@@ -14,7 +14,9 @@
   "bin": {
     "tsir": "./src/cli.ts"
   },
-  "sideEffects": false,
+  "sideEffects": [
+    "./src/commands/fixtures/http-app/src/**/*.controller.ts"
+  ],
   "dependencies": {
     "@tsir/cache": "workspace:*",
     "@tsir/config": "workspace:*",

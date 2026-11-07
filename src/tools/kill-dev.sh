@@ -67,10 +67,21 @@ elif [ -f "$RECORD_JSON" ]; then
     pids+=("$pid")
     labels+=("")
   done < <(grep -o '"pid"[[:space:]]*:[[:space:]]*[0-9]*' "$RECORD_JSON" | grep -o '[0-9]*$')
+fi
+
+# Always read the full port list from the JSON record (the TSV only carries the
+# primary port; secondary ports like the admin listener live in `ports`).
+if [ -f "$RECORD_JSON" ]; then
+  # Collapse whitespace so the ports array is grep-able regardless of formatting.
   while read -r port; do
     [ -z "$port" ] && continue
-    ports+=("$port")
-  done < <(grep -o '"ports"[[:space:]]*:[[:space:]]*\[[^]]*\]' "$RECORD_JSON" | grep -Eo '[0-9]+')
+    # Avoid duplicates from the TSV row above.
+    local_found=0
+    for existing in "${ports[@]}"; do
+      [ "$existing" = "$port" ] && local_found=1 && break
+    done
+    [ "$local_found" -eq 0 ] && ports+=("$port")
+  done < <(tr '\n' ' ' < "$RECORD_JSON" | grep -o '"ports"[[:space:]]*:[[:space:]]*\[[^]]*\]' | grep -Eo '[0-9]+')
 fi
 
 if [ "${#pids[@]}" -eq 0 ]; then

@@ -38,6 +38,14 @@ export type {
   RegistryCloseOptions,
 } from './connections.ts';
 
+export { createConnectionsFromConfig } from './from-config.ts';
+export type { BindingsSource, RuntimeBindings } from './from-config.ts';
+
+export { createDatabaseBootstrap } from './bootstrap.ts';
+export type { DatabaseBootstrap, DatabaseBootstrapOptions } from './bootstrap.ts';
+
+export { createSqliteBinding } from './sqlite-binding.ts';
+
 export { createD1Driver, D1_CAPABILITIES } from './d1.ts';
 export type { D1DriverOptions, D1Like, D1ResultLike, D1StatementLike } from './d1.ts';
 

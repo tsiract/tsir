@@ -39,6 +39,7 @@ const SKIP_DIRS = new Set([
   '.tsir',
   '.verify',
   '.arena',
+  '.trae',
   '.git',
 ]);
 

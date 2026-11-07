@@ -34,6 +34,11 @@ export interface RedisLike {
   sadd(key: string, ...members: string[]): Promise<number>;
   srem(key: string, ...members: string[]): Promise<number>;
   smembers(key: string): Promise<string[]>;
+  /**
+   * Run a Lua script. Needed for atomic lock release (compare-and-delete). Without it,
+   * `locks` is `false` — a non-atomic release can delete someone else's lock.
+   */
+  eval?(script: string, keys: readonly string[], args: readonly unknown[]): Promise<unknown>;
   /** Only needed by `clear()`; without it the driver advertises `clearAll: false`. */
   keys?(pattern: string): Promise<string[]>;
   /** Atomic write of several commands. Without it, a tagged write is not all-or-nothing. */
@@ -90,6 +95,10 @@ export function redisDriver(options: RedisDriverOptions): CacheDriver<never> {
       increment: true,
       ttl: true,
       clearAll: typeof client.keys === 'function',
+      // Lock release needs an atomic compare-and-delete, which is a Lua script. A client
+      // without `eval` cannot release safely, so the capability is false rather than
+      // offering a racy check-then-delete that can delete someone else's lock.
+      locks: typeof client.eval === 'function',
     },
     open(): CacheBackend {
       if (missing.length > 0) throw clientContract('redis', 'redis', missing);
@@ -127,8 +136,12 @@ export function redisDriver(options: RedisDriverOptions): CacheDriver<never> {
         // sends are the same instant.
         now,
         capabilities:
-          options.client.keys === undefined
-            ? { ...redisCapabilities, clearAll: false }
+          options.client.keys === undefined || options.client.eval === undefined
+            ? {
+                ...redisCapabilities,
+                clearAll: options.client.keys !== undefined,
+                locks: options.client.eval !== undefined,
+              }
             : redisCapabilities,
 
         async read(key: string): Promise<StoredValue | undefined> {
@@ -236,6 +249,49 @@ export function redisDriver(options: RedisDriverOptions): CacheDriver<never> {
           const found = await client.keys(`${prefix}*`);
           if (found.length > 0) await client.del(...found);
         },
+
+        /**
+         * `SET key owner NX PX ttl` — one round trip, atomic server-side. `NX` refuses when
+         * the key exists, `PX` sets the TTL in the same command so a lock with no expiry because
+         * the second call failed is impossible. Redis returns `OK` or `null`; we coerce to
+         * boolean.
+         */
+        async acquireLock(
+          key: string,
+          owner: string,
+          expiresAt: number | undefined,
+        ): Promise<boolean> {
+          const ttl = expiresAt === undefined ? undefined : Math.floor(expiresAt - now());
+          if (ttl !== undefined && ttl <= 0) {
+            // Already expired: refuse rather than store a key the next acquire will immediately
+            // consider free.
+            return false;
+          }
+          const args: (string | number)[] = ['NX'];
+          if (ttl !== undefined) args.push('PX', ttl);
+          const result = await client.set(k(key), owner, ...args);
+          return result === 'OK' || result === 'ok';
+        },
+
+        /**
+         * Atomic compare-and-delete via Lua: the script runs server-side, so no other client
+         * can change the value between the `GET` and `DEL`. Without `eval`, the capability is
+         * `false` and the store refuses before reaching here.
+         */
+        async releaseLock(key: string, owner: string): Promise<boolean> {
+          if (client.eval === undefined) {
+            throw unsupportedOperation(
+              'redis',
+              'redis',
+              'releaseLock',
+              'the client exposes no `eval`; atomic lock release requires a Lua script',
+            );
+          }
+          const script =
+            "if redis.call('get', KEYS[1]) == ARGV[1] then return redis.call('del', KEYS[1]) else return 0 end";
+          const result = await client.eval(script, [k(key)], [owner]);
+          return result === 1 || result === '1';
+        },
       };
 
       return backend;
@@ -251,4 +307,5 @@ export const redisCapabilities = {
   increment: true,
   ttl: true,
   clearAll: true,
+  locks: true,
 } as const;

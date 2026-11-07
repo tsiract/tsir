@@ -48,4 +48,4 @@ Both commands must exit 0. Record the result as `C8:` in `07-deploy-cloud-checks
 ## 5. Environment notes
 
 - `make check` passes with exit 0 on the last run. `buf` 1.47.2 was installed in this session, and `make proto-check` passes with it. CI should keep installing `buf` so the check runs there too.
-- Full-repo `eslint .` does not fit in 2 GB of memory. Use `make lint`, which runs one ESLint process per framework package, plus one each for `src/tools` and `src/apps`.
+- Full-repo `eslint .` does not fit in 2 GB of memory. Use `make lint`, which runs one ESLint process per framework package, plus one each for `src/tools`, `src/apps` and `src/apps/frontpage`.

@@ -238,7 +238,7 @@ See [`tasks/13-modularity.md`](../tasks/13-modularity.md). Order:
    controller, a test and a `unit`.
 6. `MOD-006` — `createTestApp(app, { only })`.
 7. `MOD-007` — the reference modular app. **Decided during implementation:** the
-   reference is the existing `src/apps/examples/http`, split into `users` and
+   reference is the existing `src/apps/http`, split into `users` and
    `media` modules with module-owned units, rather than a seventh example app.
    A new example would have duplicated the HTTP surface to demonstrate a
    five-line difference; splitting the reference app proves the seam on the code

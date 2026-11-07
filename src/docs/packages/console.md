@@ -20,8 +20,9 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (1). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (2). Each one is described in the [error-code reference](../errors.md).
 
+- `CLI_STUB_MISSING_VAR`
 - `CLI_WSDL_INVALID`
 
 ## Example

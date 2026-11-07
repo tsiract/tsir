@@ -58,7 +58,11 @@ function fakeSql(options: { placeholder?: 'question' | 'dollar'; now?: () => num
         };
       }
 
-      if (text.startsWith('INSERT INTO cache_entries') && text.includes('excluded.value')) {
+      if (
+        text.startsWith('INSERT INTO cache_entries') &&
+        text.includes('excluded.value') &&
+        !text.includes('RETURNING key')
+      ) {
         const [key, value, expiresAt] = params as [string, string, number | null];
         rows.set(key, { value, counter: null, expiresAt });
         return { rows: [], changes: 1 };
@@ -70,6 +74,33 @@ function fakeSql(options: { placeholder?: 'question' | 'dollar'; now?: () => num
         const next = (existing.counter ?? 0) + by;
         rows.set(key, { ...existing, counter: next });
         return { rows: [{ counter: next }], changes: 1 };
+      }
+
+      // acquireLock: insert, or update only when the existing row is expired.
+      if (text.startsWith('INSERT INTO cache_entries') && text.includes('RETURNING key')) {
+        const [key, owner, expiresAt, current] = params as [string, string, number | null, number];
+        const existing = rows.get(key);
+        const expired =
+          existing !== undefined && existing.expiresAt !== null && existing.expiresAt <= current;
+        if (existing === undefined || expired) {
+          rows.set(key, { value: owner, counter: null, expiresAt });
+          return { rows: [{ key }], changes: 1 };
+        }
+        return { rows: [], changes: 0 };
+      }
+
+      // releaseLock: delete only when the value still matches the owner.
+      if (
+        text.startsWith('DELETE FROM cache_entries WHERE key = ') &&
+        text.includes('AND value =')
+      ) {
+        const [key, owner] = params as [string, string];
+        const existing = rows.get(key);
+        if (existing !== undefined && existing.value === owner) {
+          rows.delete(key);
+          return { rows: [{ key }], changes: 1 };
+        }
+        return { rows: [], changes: 0 };
       }
 
       if (text.startsWith('DELETE FROM cache_entries WHERE key = ') && text.includes('RETURNING')) {
@@ -293,6 +324,7 @@ describe('in the registry', () => {
       increment: true,
       ttl: true,
       clearAll: true,
+      locks: true,
     });
   });
 });

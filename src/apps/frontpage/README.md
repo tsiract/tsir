@@ -1,8 +1,7 @@
 # Tsir public site
 
-A static, single-file homepage with compiled DaisyUI **Nord** (light) and **Abyss** (dark).
-The information architecture is Laravel-inspired; the content and package statuses are Tsir's.
-See ADR-0029 for the dependency and delivery decision.
+A static, single-file homepage with compiled DaisyUI **Silk** (light) and **Abyss** (dark).
+The content and package statuses are Tsir's. See ADR-0029 for the dependency and delivery decision.
 
 ## Edit and build
 

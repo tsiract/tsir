@@ -35,13 +35,13 @@ Cloudflare or AWS account — and those criteria live in
 
 ## AWS Lambda
 
-| ID        | Title                                                              | Status | Depends | Acceptance criteria (summary)                         |
-| --------- | ------------------------------------------------------------------ | ------ | ------- | ----------------------------------------------------- |
-| `DPL-013` | `toLambdaHandler(app)` (API GW v2, Function URL, SQS, EventBridge) | `[~]`  | DPL-004 | Conformance suite passes locally; nightly real invoke |
-| `DPL-014` | `bun build --target=node --format=esm` emitter                     | `[~]`  | DPL-013 | Cold start measured; no native modules                |
-| `DPL-015` | Deadline from `context.getRemainingTimeInMillis()`                 | `[x]`  | DPL-013 | Graceful drain within remaining time                  |
+| ID        | Title                                                              | Status | Depends | Acceptance criteria (summary)                                                                                                                                                 |
+| --------- | ------------------------------------------------------------------ | ------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DPL-013` | `toLambdaHandler(app)` (API GW v2, Function URL, SQS, EventBridge) | `[~]`  | DPL-004 | Conformance suite passes locally; nightly real invoke                                                                                                                         |
+| `DPL-014` | `bun build --target=node --format=esm` emitter                     | `[~]`  | DPL-013 | Cold start measured; no native modules                                                                                                                                        |
+| `DPL-015` | Deadline from `context.getRemainingTimeInMillis()`                 | `[x]`  | DPL-013 | Graceful drain within remaining time                                                                                                                                          |
 | `DPL-016` | SAM/CDK template generation                                        | `[~]`  | DPL-013 | Templates validate; no deploy by default — built and tested (secrets as params, events from triggers, cron translation, env limit); needs `sam validate --lint` (C5) to close |
-| `DPL-017` | Env var count/size limit check                                     | `[x]`  | DPL-016 | Over limit → `DPL_ENV_LIMIT`                          |
+| `DPL-017` | Env var count/size limit check                                     | `[x]`  | DPL-016 | Over limit → `DPL_ENV_LIMIT`                                                                                                                                                  |
 
 ## Cross-target
 
@@ -53,7 +53,7 @@ Cloudflare or AWS account — and those criteria live in
 | `DPL-021` | Migrate unit generation                                                                       | `[x]`  | MIG-012          | Runs once, not on cold start                                                                                                                                         |
 | `DPL-022` | Admin unit (health/metrics) kept private by default                                           | `[x]`  | DPL-009          | No public route generated unless enabled                                                                                                                             |
 | `DPL-023` | `tsir.js` deploy automation (`bootstrap` writes deploy block)                                 | `[x]`  | CFG-120          | Managed region updated, plan printed                                                                                                                                 |
-| `DPL-024` | Shared conformance suite across Bun/Workers/Lambda                                            | `[x]`  | DPL-008, DPL-013 | Same assertions, three targets (`conformance-suite.ts` runs against Bun, Cloudflare, Lambda)                                                                                                                                       |
+| `DPL-024` | Shared conformance suite across Bun/Workers/Lambda                                            | `[x]`  | DPL-008, DPL-013 | Same assertions, three targets (`conformance-suite.ts` runs against Bun, Cloudflare, Lambda)                                                                         |
 | `DPL-025` | Lambda: EventBridge dispatch matches schedules only; custom-bus events refused (bug)          | `[x]`  | DPL-013          | A custom-bus event never reaches `scheduled`; it fails with a named error until routed                                                                               |
 | `DPL-026` | Decorator-declared AWS event listeners on a class (`@OnSns`, `@OnEventBridge`, `@OnStepTask`) | `[x]`  | DPL-013, RTR-002 | A class with listener decorators compiles to units; each matcher routes to its method, with the same DI container and `validate` boundary as HTTP                    |
 | `DPL-027` | SNS → Lambda subscription generated from `@OnSns({ topic })`                                  | `[x]`  | DPL-026          | SAM template contains the topic subscription and invoke permission; the handler gets the parsed message                                                              |

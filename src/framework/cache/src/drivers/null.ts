@@ -20,6 +20,7 @@ export const NULL_CAPABILITIES = {
   increment: false,
   ttl: false,
   clearAll: true,
+  locks: false,
 } as const;
 
 export function nullDriver(): CacheDriver<never> {
@@ -40,6 +41,11 @@ export function nullDriver(): CacheDriver<never> {
           Promise.reject(new Error('cache: the null driver cannot increment')),
         removeTag: () => Promise.resolve(0),
         clear: () => Promise.resolve(),
+        // A never-store driver cannot hold a lock: there is nothing to acquire or release.
+        acquireLock: (): Promise<boolean> =>
+          Promise.reject(new Error('cache: the null driver cannot hold a lock')),
+        releaseLock: (): Promise<boolean> =>
+          Promise.reject(new Error('cache: the null driver cannot hold a lock')),
       };
     },
   };

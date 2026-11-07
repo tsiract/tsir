@@ -1,0 +1,18 @@
+{
+  "name": "@tsir/cashier",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Billing abstraction: customers, subscriptions, invoices, and webhook handling (Stripe-compatible).",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  }
+}

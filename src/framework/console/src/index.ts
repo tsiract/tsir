@@ -521,7 +521,7 @@ export async function runProjectCommand(
  * Extract the global `--app <path>` flag from argv.
  *
  * `--app` lets a project-bound command run from outside the application
- * directory: `tsir dev --app src/examples/http` boots that example without
+ * directory: `tsir dev --app src/apps/frontpage` boots that app without
  * `cd`. It is implemented by `process.chdir` before dispatch so every
  * `loadProject(process.cwd())` call site picks up the right root.
  *

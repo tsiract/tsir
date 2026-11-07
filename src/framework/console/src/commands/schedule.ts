@@ -228,6 +228,7 @@ function statusJson(status: TaskStatus): Record<string, unknown> {
     name: status.name,
     cron: status.cron,
     utcOffsetMinutes: status.utcOffsetMinutes,
+    ...(status.timezone === undefined ? {} : { timezone: status.timezone }),
     overlap: status.overlap,
     nextRunAt: status.nextRunAt === undefined ? null : new Date(status.nextRunAt).toISOString(),
     localNextRun:
@@ -345,7 +346,9 @@ export async function scheduleRunCommand(argv: readonly string[]): Promise<numbe
         ? style.green('✓')
         : outcome.status === 'busy'
           ? style.yellow('·')
-          : style.red('✗');
+          : outcome.status === 'skipped'
+            ? style.dim('·')
+            : style.red('✗');
     info(`  ${mark} ${style.bold(name)} ${outcome.status} ${style.dim(describeOutcome(outcome))}`);
 
     if (outcome.status === 'busy') {
@@ -354,6 +357,15 @@ export async function scheduleRunCommand(argv: readonly string[]): Promise<numbe
       );
       // Not a failure: the lock did its job. A pipeline that treats it as one would retry a run
       // that is already happening.
+      return EXIT.ok;
+    }
+    if (outcome.status === 'skipped') {
+      info(
+        style.dim(
+          '  the app is in maintenance mode and this task does not declare evenInMaintenanceMode',
+        ),
+      );
+      // Not a failure: the task was deliberately not run.
       return EXIT.ok;
     }
     if (outcome.status === 'timeout') {

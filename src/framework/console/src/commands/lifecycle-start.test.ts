@@ -8,7 +8,7 @@ import { buildCommand, startCommand } from './lifecycle.ts';
 // CLI-007: `tsir build` writes the artifact; `tsir start` boots it in production mode. The example
 // app is used in place, because its `@tsir/*` imports resolve only from inside the repository.
 
-const APP = join(import.meta.dir, '..', '..', '..', '..', 'apps', 'examples', 'minimal');
+const APP = join(import.meta.dir, 'fixtures', 'http-app');
 const TSIR_DIR = join(APP, '.tsir');
 const MANIFEST = join(TSIR_DIR, 'manifest.json');
 

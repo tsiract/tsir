@@ -1,0 +1,87 @@
+import { AsyncLocalStorage } from 'node:async_hooks';
+
+import { defineApp } from '@tsir/core';
+import { createFetchHandler } from '@tsir/http';
+import { collectRouteEntries, compileRoutes } from '@tsir/router';
+import type { Scope, Token } from '@tsir/container';
+
+import { runtimeBindings } from './database.ts';
+import { spec } from './config.ts';
+import { home } from './home/index.ts';
+import { HomeController, homeControllerToken } from './home/http/home.controller.ts';
+
+// Re-export the database registry so the CLI (tsir migrate, tsir db:seed) can
+// find it on the app entry. runtimeBindings is the seam the handler fills from
+// env on each request.
+export { databases, runtimeBindings, MIGRATIONS_DIR } from './database.ts';
+
+const appSpec = defineApp({
+  name: '{{name}}',
+  config: spec,
+  modules: [home.module],
+});
+
+export default appSpec;
+
+// Controller class -> DI token map. createFetchHandler hands us the controller
+// class; we map it to its token and resolve an instance from the request scope.
+const controllerTokens = new WeakMap<Function, Token<unknown>>();
+controllerTokens.set(HomeController, homeControllerToken);
+
+const requestScope = new AsyncLocalStorage<Scope>();
+
+interface Booted {
+  app: Awaited<ReturnType<typeof appSpec.createApp>>;
+  apiHandler: ReturnType<typeof createFetchHandler>;
+}
+
+let booted: Promise<Booted> | null = null;
+
+async function boot(): Promise<Booted> {
+  if (booted !== null) return booted;
+  booted = (async () => {
+    const app = await appSpec.createApp();
+    const apiHandler = createFetchHandler(compileRoutes(collectRouteEntries()), {
+      resolveController: (controllerClass: Function) => {
+        const tok = controllerTokens.get(controllerClass);
+        if (tok === undefined) {
+          throw new Error(`no DI token registered for controller ${controllerClass.name}`);
+        }
+        const scope = requestScope.getStore();
+        if (scope === undefined) {
+          throw new Error('resolveController called outside a request scope');
+        }
+        return scope.resolve(tok);
+      },
+      onError: (error) => {
+        console.error('[http error]', error);
+        return undefined;
+      },
+    });
+    return { app, apiHandler };
+  })();
+  return booted;
+}
+
+// The app handler. Cloudflare passes the environment (bindings) as the second
+// argument. The D1 binding (env.DB) is copied into runtimeBindings, where the
+// framework's deferred D1 driver finds it on the first query.
+//
+// Each request gets its own container scope; controllers are resolved from it.
+export const handler = async (
+  request: Request,
+  env?: Record<string, unknown>,
+): Promise<Response> => {
+  const { app, apiHandler } = await boot();
+
+  if (env !== undefined) {
+    Object.assign(runtimeBindings, env);
+  }
+
+  const scope = app.createScope('request', crypto.randomUUID());
+  try {
+    return await requestScope.run(scope, () => apiHandler(request));
+  } finally {
+    await scope.dispose();
+  }
+};

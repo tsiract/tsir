@@ -15,10 +15,29 @@
  * would need a queue here, and this one never does.
  */
 
-import { connect as netConnect, type Socket } from 'node:net';
-import { connect as tlsConnect } from 'node:tls';
-
 import type { SmtpConnection, SmtpConnector, SmtpReply } from './smtp-types.ts';
+
+// `node:net` and `node:tls` are loaded lazily: a Worker bundle must not resolve them at build
+// time (Bun's browser polyfill for `net` lacks `connect`). They are only touched when SMTP is
+// actually used — which never happens in a Worker deployment.
+type NetConnect = (options: { host: string; port: number }) => NetSocket;
+type TlsConnect = ((options: { host: string; port: number; servername: string }) => NetSocket) &
+  ((options: { socket: NetSocket; servername: string }) => NetSocket);
+interface NetSocket {
+  setTimeout(ms: number): void;
+  setEncoding(enc: string): void;
+  on(event: string, cb: (...args: never[]) => void): void;
+  once(event: string, cb: (...args: never[]) => void): void;
+  removeAllListeners(event?: string): void;
+  write(data: string, enc: string, cb: (err: Error | null) => void): void;
+  end(): void;
+  destroy(): void;
+}
+async function loadNodeSockets(): Promise<{ connect: NetConnect; tlsConnect: TlsConnect }> {
+  const net = (await import('node:net')) as unknown as { connect: NetConnect };
+  const tls = (await import('node:tls')) as unknown as { connect: TlsConnect };
+  return { connect: net.connect, tlsConnect: tls.connect };
+}
 
 /** `250-THING` continues; `250 THING` ends the reply. */
 const FINAL = /^\d{3} /u;
@@ -65,8 +84,9 @@ export function nodeSmtpConnector(options: NodeSmtpConnectorOptions = {}): SmtpC
   const defaultTimeout = options.timeoutMs ?? 30_000;
 
   return async ({ host, port, secure, timeoutMs }): Promise<SmtpConnection> => {
+    const { connect: netConnect, tlsConnect } = await loadNodeSockets();
     const timeout = timeoutMs > 0 ? timeoutMs : defaultTimeout;
-    let socket: Socket = secure
+    let socket: NetSocket = secure
       ? tlsConnect({ host, port, servername: host })
       : netConnect({ host, port });
     socket.setTimeout(timeout);
@@ -92,7 +112,7 @@ export function nodeSmtpConnector(options: NodeSmtpConnectorOptions = {}): SmtpC
       waiter?.reject(error);
     };
 
-    const attach = (target: Socket): void => {
+    const attach = (target: NetSocket): void => {
       // `latin1` and `'binary'` on the write side are the same one-byte mapping. The MIME body is
       // base64, so every byte on this wire is ASCII and no character set is ever in play.
       target.setEncoding('latin1');

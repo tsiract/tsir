@@ -2,7 +2,13 @@
 // app: http-example · routes: 6
 import { defineRoute, type RouteEntry } from '@tsir/router';
 import { UploadBody, UploadsController } from './media/http/uploads.controller.ts';
-import { CreateUser, UserIdParams, UserPage, UserProfile, UsersController } from './users/http/users.controller.ts';
+import {
+  CreateUser,
+  UserIdParams,
+  UserPage,
+  UserProfile,
+  UsersController,
+} from './users/http/users.controller.ts';
 
 export const routes: readonly RouteEntry[] = [
   defineRoute({

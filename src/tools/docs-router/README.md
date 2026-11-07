@@ -8,6 +8,6 @@ The router powers client-side navigation with the View Transition API and
 persists the sidebar scroll position between pages. It has no visible DOM of
 its own — it only wires up click handlers for internal links.
 
-The documentation *content* lives in [`src/docs/`](../../docs); the build
+The documentation _content_ lives in [`src/docs/`](../../docs); the build
 pipeline is in [`src/tools/docs-site.ts`](../docs-site.ts). This directory
 contains only the router source.

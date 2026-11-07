@@ -5,4 +5,4 @@
  * without being listed here, and when a listed code is removed from the baseline.
  */
 
-export type ConsoleErrorCode = 'CLI_WSDL_INVALID';
+export type ConsoleErrorCode = 'CLI_WSDL_INVALID' | 'CLI_STUB_MISSING_VAR';

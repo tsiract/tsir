@@ -22,10 +22,10 @@ export async function verifyAppJourney(archive: string): Promise<void> {
       'bin/tsir',
       'README.md',
       'src/docs/index.html',
-      'src/frontpage/index.html',
-      'apps/minimal/app.ts',
-      'apps/http/users/index.ts',
-      'apps/http/media/index.ts',
+      'src/apps/frontpage/index.html',
+      'apps/admin.product.com/app.ts',
+      'apps/admin.product.com/modules/users/index.ts',
+      'apps/admin.product.com/modules/auth/index.ts',
     ]) {
       await stat(join(distribution, file));
     }
@@ -88,29 +88,19 @@ export async function verifyAppJourney(archive: string): Promise<void> {
     );
     await run([process.execPath, 'add', '-d', 'drizzle-kit@0.31.11', '--ignore-scripts'], app);
     await run(
-      [
-        cli,
-        'make:migration',
-        'create-orders',
-        'shop',
-        '--schema',
-        'shop/models/order.model.ts',
-      ],
+      [cli, 'make:migration', 'create-orders', 'shop', '--schema', 'shop/models/order.model.ts'],
       app,
     );
-    const migration = await readFile(
-      join(app, 'shop/migrations/0000_create-orders.sql'),
-      'utf8',
-    );
+    const migration = await readFile(join(app, 'shop/migrations/0000_create-orders.sql'), 'utf8');
     if (!migration.includes('shop_order'))
       throw new Error('module migration did not contain the model table');
     await stat(join(app, 'shop/migrations/meta/_journal.json'));
     await stat(join(app, 'shop/migrations/meta/0000_snapshot.json'));
     await run([cli, 'make:migration', 'create-invoices', 'billing', '--dialect', 'postgres'], app);
     if (
-      !(
-        await readFile(join(app, 'billing/migrations/0000_create-invoices.sql'), 'utf8')
-      ).includes('billing_invoice')
+      !(await readFile(join(app, 'billing/migrations/0000_create-invoices.sql'), 'utf8')).includes(
+        'billing_invoice',
+      )
     )
       throw new Error('Postgres migration did not contain the model table');
     const pgJournal = JSON.parse(

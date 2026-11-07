@@ -84,9 +84,7 @@ describe('generated file', () => {
 
   test('--order sets the order and rejects a non-integer', async () => {
     expect(await makeSeederCommand(['Users', '--order', '7'])).toBe(EXIT.ok);
-    expect(readFileSync(join(dir, 'seeders', 'users.seeder.ts'), 'utf8')).toContain(
-      'order: 7,',
-    );
+    expect(readFileSync(join(dir, 'seeders', 'users.seeder.ts'), 'utf8')).toContain('order: 7,');
     expect(await rejectionOf(makeSeederCommand(['Posts', '--order', 'first']))).toContain(
       '--order must be a non-negative integer',
     );

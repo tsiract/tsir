@@ -1,0 +1,49 @@
+{
+  "name": "@tsir/media",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "Media processing: image (sharp), video (ffmpeg), and 3rd-party (Cloudflare, Cloudinary, ImageKit) adapters.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    },
+    "./sharp": {
+      "types": "./src/adapters/sharp.ts",
+      "default": "./src/adapters/sharp.ts"
+    },
+    "./ffmpeg": {
+      "types": "./src/adapters/ffmpeg.ts",
+      "default": "./src/adapters/ffmpeg.ts"
+    },
+    "./cloudflare": {
+      "types": "./src/adapters/cloudflare.ts",
+      "default": "./src/adapters/cloudflare.ts"
+    },
+    "./cloudinary": {
+      "types": "./src/adapters/cloudinary.ts",
+      "default": "./src/adapters/cloudinary.ts"
+    },
+    "./imagekit": {
+      "types": "./src/adapters/imagekit.ts",
+      "default": "./src/adapters/imagekit.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@tsir/container": "workspace:*"
+  },
+  "peerDependencies": {
+    "sharp": ">=0.33.0"
+  },
+  "peerDependenciesMeta": {
+    "sharp": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "sharp": "^0.33.0"
+  }
+}

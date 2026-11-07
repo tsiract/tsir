@@ -57,7 +57,15 @@ export interface PutOptions {
   readonly metadata?: Readonly<Record<string, string>> | undefined;
   /** Refuse an existing key with `STO_ALREADY_EXISTS` instead of replacing it. */
   readonly ifNoneMatch?: boolean | undefined;
+  /**
+   * Object ACL. `public` means an unauthenticated reader can fetch it; `private` is the default.
+   * Local maps this to file mode bits; S3 maps it to a canned ACL.
+   */
+  readonly visibility?: Visibility | undefined;
 }
+
+/** Whether an object can be read without credentials. */
+export type Visibility = 'public' | 'private';
 
 /** What the backend knows about an object. What `head` returns, and what `list` reports. */
 export interface StoredObject {
@@ -71,6 +79,8 @@ export interface StoredObject {
   /** Epoch ms, when the backend knows it. */
   readonly lastModified?: number | undefined;
   readonly metadata?: Readonly<Record<string, string>> | undefined;
+  /** Object ACL, when the backend tracks it. */
+  readonly visibility?: Visibility | undefined;
 }
 
 /** A body plus what is known about it. `get` returns this, or `undefined`. */
@@ -110,6 +120,22 @@ export interface StorageDriver {
   head(key: string): Promise<StoredObject | undefined>;
   delete(key: string): Promise<boolean>;
   list(options: ListOptions): Promise<ListResult>;
+  /**
+   * Immediate subdirectories (relative keys ending in `/`) under `prefix`. The default
+   * implementation returns an empty array; drivers with real directory semantics implement it.
+   */
+  directories(prefix?: string): Promise<readonly string[]>;
+  /** Change an object's ACL in place. No-op on drivers that do not track visibility. */
+  setVisibility(key: string, visibility: Visibility): Promise<StoredObject>;
+  /** Copy an object within the same disk. Source and dest may be different keys. */
+  copy(source: string, destination: string): Promise<StoredObject>;
+  /** Move an object within the same disk (copy + delete source). */
+  move(source: string, destination: string): Promise<StoredObject>;
+  /**
+   * Stream an object's bytes. Returns `undefined` when the key does not exist.
+   * Drivers without streaming support throw `CAP_UNSUPPORTED_OPERATION`.
+   */
+  stream(key: string, options: GetOptions): Promise<ReadableStream<Uint8Array> | undefined>;
   /** A public URL. Throws `CAP_UNSUPPORTED_OPERATION` where `publicUrls` is false. */
   url(key: string): string;
   /** A URL that expires. Throws where `signedUrls` is false. */
@@ -135,6 +161,16 @@ export interface Disk {
   exists(key: string): Promise<boolean>;
   delete(key: string): Promise<boolean>;
   list(options?: ListOptions): Promise<ListResult>;
+  /** Immediate subdirectories (relative keys ending in `/`) under `prefix`. */
+  directories(prefix?: string): Promise<readonly string[]>;
+  /** Change an object's ACL in place. No-op on drivers that do not track visibility. */
+  setVisibility(key: string, visibility: Visibility): Promise<StoredObject>;
+  /** Copy an object within the same disk. */
+  copy(source: string, destination: string): Promise<StoredObject>;
+  /** Move an object within the same disk (copy + delete source). */
+  move(source: string, destination: string): Promise<StoredObject>;
+  /** Stream an object's bytes. Returns `undefined` when the key does not exist. */
+  stream(key: string, options?: GetOptions): Promise<ReadableStream<Uint8Array> | undefined>;
   url(key: string): string;
   temporaryUrl(key: string, expiresInMs?: number): Promise<string>;
 }

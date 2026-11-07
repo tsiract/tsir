@@ -4,14 +4,20 @@ node_modules/
 build/
 dist/
 coverage/
+test-results/
 .tsir/
 .verify/
 .cache/
 src/contracts/
 src/apps/frontpage/public/index.html
+src/apps/admin.product.com/client/.build/
+src/apps/admin.product.com/public/app.js
+src/apps/admin.product.com/public/app.js.map
 
 # Existing generator outputs retain their generators' formatting.
-src/apps/examples/http/src/routes.gen.ts
+src/examples/http/src/routes.gen.ts
+src/apps/admin.product.com/routes.gen.ts
+src/apps/admin.product.com/unit-graph.json
 src/docs/dependencies.md
 src/framework/console/src/commands/fixtures/tax.gen.ts
 src/framework/link/src/contracts/tsir/orders/v1/orders_pb.ts

@@ -26,6 +26,8 @@ Phase 5  Link                   ──► REST / gRPC / SOAP / WebSocket        
 Phase 6  Deploy                 ──► Workers, Lambda, topology, tsir.js automation  🟡 graph + emitters built; cloud half open
 Phase 7  Capabilities           ──► auth, policy, cache, queue, events, schedule, mail, storage  ✅ closed, with caveats (§ 3)
 Phase 8  Production readiness   ──► benchmarks, security review, docs, release automation  [CURRENT]
+Phase 9  Laravel decoupling     ──► rename Laravel-inspired packages & terminology      [ ] planning-only, after P8]
+Phase 10 Feature parity         ──► 1:1 feature mapping vs Laravel ecosystem + tasks   [ ] planning-only, after P9]
 ```
 
 Phases 3 and 4 are ordered because Vault's column codec integrates with `@tsir/database`; Phases 5 and 6 are ordered because `@tsir/link` needs a stable unit model from `@tsir/deploy`'s design (though both may be specified in parallel).
@@ -297,7 +299,7 @@ Caveats that stay open: brute-force protection is not in `@tsir/auth` (CAP-P7 F3
 
 **Goal:** evidence, docs, and release mechanics.
 
-**Scope:** benchmarks, security review, docs site, compatibility policy, upgrade guide, release automation, `src/apps/examples`.
+**Scope:** benchmarks, security review, docs site, compatibility policy, upgrade guide, release automation, `src/apps`.
 
 **Exit criteria (Gate P8)**
 
@@ -306,6 +308,42 @@ Caveats that stay open: brute-force protection is not in `@tsir/auth` (CAP-P7 F3
 3. Docs site covers every public package and every error code.
 4. Compatibility policy: SemVer for `1.0`, documented support window, deprecation process.
 5. Release automation publishes **signed** artifacts and generates changelogs. _(Landed early in Phase 1: `.github/workflows/release.yml` + `make release-pack` already build both artifacts — `dist/` tree and per-package tarballs — with checksums, a tag/version guard, and a double-gated npm publish that emits provenance (ADR-0014). Gate P8 still owes artifact signing and generated changelogs.)_
+
+---
+
+### Phase 9 — Laravel ecosystem decoupling & `@tsir/*` rebranding
+
+**Goal:** establish an independent TypeScript ecosystem under the `@tsir/*` namespace, with no Laravel-derived naming, terminology, or branding. A deliberate ecosystem-wide rebranding that renames Laravel-inspired packages and replaces Laravel-specific terminology in APIs, comments, docs, and UI copy, with no behavior change.
+
+**Scope:** `@tsir/nightwatch`, `@tsir/pennant`, `@tsir/cashier`, `@tsir/forge`, `@tsir/socialize`, `@tsir/scout`, `@tsir/pulse` are renamed to functionally accurate names; `@tsir/broadcast`'s `Echo`-named symbols are renamed; `@tsir/telemetry` keeps its name (generic) but drops "Telescope-style"/"Horizon-style" wording. Generic industry terms (`auth`, `cache`, `queue`, …) are **not** touched.
+
+**Exit criteria (Gate P9)**
+
+1. No Laravel-specific branding or terminology remains in source, docs (except explicitly historical notes), config, or UI.
+2. All Laravel-inspired `@tsir/*` package names replaced with approved independent names; imports/exports/dependencies consistent.
+3. Public API and internal naming consistent; docs, examples, comments, and config references updated.
+4. Existing functionality preserved — full `make check` passes.
+5. Final repository-wide search for Laravel terms conducted; remaining references individually reviewed.
+
+Full task ledger: [`plans/tasks/14-laravel-decoupling.md`](../tasks/14-laravel-decoupling.md). This phase is **planning-only** until Phase 8 closes.
+
+---
+
+### Phase 10 — `@tsir/*` feature parity
+
+**Goal:** establish 1:1 functional feature coverage between `@tsir/*` packages and their Laravel ecosystem counterparts, using authoritative Laravel documentation and verifiable implementation evidence. Parity is about user-facing behavior, not internal architecture.
+
+**Scope:** every `@tsir/*` package with a Laravel counterpart (foundational services + first-party packages). `@tsir/link` and `@tsir/media` are out of scope (no direct Laravel first-party analog).
+
+**Exit criteria (Gate P10)**
+
+1. Every relevant `@tsir/*` package has a feature-by-feature mapping with a status and (for verified features) source + test + doc evidence.
+2. All missing/partial features translated into `PARITY-*` tasks with acceptance criteria.
+3. No feature marked verified without traceable evidence (source file, test case, official Laravel doc URL).
+4. Aggregate verified parity ≥ 80% (excluding deliberately-different rows).
+5. This document is the single source of truth for parity.
+
+Full task ledger: [`plans/tasks/15-feature-parity.md`](../tasks/15-feature-parity.md). This phase is **planning-only** until Phase 9 closes.
 
 ---
 
@@ -363,3 +401,5 @@ A module is **not** done because the happy path works. It is done when all of th
 | 6     | `07-deploy.md`, `09-frontpage.md`                                                                                                      |
 | 7     | `07-capabilities.md`, `queue.md`, `events.md`, `schedule.md`, `storage.md`, `mail.md`, `notify.md`, `policy.md`, `auth.md`, `pulse.md` |
 | 8     | `08-dx.md`, `11-observability.md`, `12-security.md`                                                                                    |
+| 9     | [`14-laravel-decoupling.md`](../tasks/14-laravel-decoupling.md)                                                                        |
+| 10    | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                                                                                |

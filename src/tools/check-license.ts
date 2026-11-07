@@ -42,18 +42,35 @@ if (!existsSync('LICENSE')) {
 }
 
 // ── 2. every manifest agrees ───────────────────────────────────────────────
-// Root, plus the single packages that live directly under src/apps.
+// Root, plus the single packages that live directly under src/apps/frontpage and src/apps.
 const manifests = ['package.json', 'src/apps/frontpage/package.json'];
 /** Directories whose children are all workspaces; every child needs a manifest. */
-const WORKSPACE_DIRS = ['src/framework', 'src/apps/examples'] as const;
+const WORKSPACE_DIRS = ['src/framework', 'src/apps'] as const;
 
 for (const dir of WORKSPACE_DIRS) {
   if (!existsSync(dir)) continue;
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const candidate = join(dir, entry.name, 'package.json');
-    if (existsSync(candidate)) manifests.push(candidate);
-    else problems.push(`${dir}/${entry.name}: directory without a package.json`);
+    if (existsSync(candidate)) {
+      manifests.push(candidate);
+    } else {
+      // The directory is a container (e.g. `src/apps/examples`); its children
+      // are the actual workspaces. Recurse one level to find their manifests.
+      const container = join(dir, entry.name);
+      let foundChild = false;
+      for (const child of readdirSync(container, { withFileTypes: true })) {
+        if (!child.isDirectory()) continue;
+        const childManifest = join(container, child.name, 'package.json');
+        if (existsSync(childManifest)) {
+          manifests.push(childManifest);
+          foundChild = true;
+        }
+      }
+      if (!foundChild) {
+        problems.push(`${dir}/${entry.name}: directory without a package.json`);
+      }
+    }
   }
 }
 
@@ -83,7 +100,7 @@ function walk(dir: string, out: string[] = []): string[] {
 }
 
 const SPDX = /SPDX-License-Identifier:\s*([^\s*]+)/;
-for (const dir of ['src/framework', 'src/apps', 'src/tools']) {
+for (const dir of ['src/framework', 'src/apps', 'src/apps/frontpage', 'src/tools']) {
   for (const file of walk(dir)) {
     const header = SPDX.exec(readFileSync(file, 'utf8').slice(0, 600));
     if (header?.[1] !== undefined && header[1] !== EXPECTED) {

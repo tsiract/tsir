@@ -30,6 +30,12 @@ export default tseslint.config(
       // bug the next regeneration would silently erase.
       '**/src/contracts/**',
       'eslint.config.mjs',
+      // Generated client build output (Bun.build artifacts), not source.
+      '**/.build/**',
+      // Compiled client bundle, not source.
+      '**/public/app.js',
+      // Documentation guide example snippets, not part of any tsconfig project.
+      'build/guide-examples/**',
       // Plain-JS repo configuration, not part of any tsconfig project (commitlint
       // loads it directly); type-aware linting cannot parse it.
       'commitlint.config.mjs',
@@ -41,6 +47,8 @@ export default tseslint.config(
       '**/tsir.mjs',
       // Browser-only progressive enhancement: compiled by Bun.build, not the Bun TS project.
       'src/apps/frontpage/client.js',
+      // Admin SPA client (Svelte): built by Bun.build, not part of the main tsconfig project.
+      'src/apps/admin.product.com/client/**',
     ],
   },
   ...tseslint.configs.recommendedTypeChecked,

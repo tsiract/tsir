@@ -8,6 +8,7 @@
   "workspaces": [
     "src/framework/*",
     "src/apps/frontpage",
+    "src/apps/admin.product.com",
     "src/apps/examples/*"
   ],
   "engines": {

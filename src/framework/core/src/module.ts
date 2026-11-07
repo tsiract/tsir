@@ -52,7 +52,7 @@ export function defineModule<TConfig extends ConfigSpec = ConfigSpec>(
     ...definition,
     providers: Object.freeze([...(definition.providers ?? [])]),
     requires: Object.freeze([...(definition.requires ?? [])]),
-  }) as ModuleDefinition<TConfig>;
+  });
 }
 
 /** Validates the module set before anything is constructed. */

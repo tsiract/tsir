@@ -100,3 +100,6 @@ export { buildMime, type BuiltMime } from './mime.ts';
 
 /* ── errors ───────────────────────────────────────────────────────────────── */
 export type { MailErrorCode } from './errors.ts';
+
+export { createMailBootstrap } from './bootstrap.ts';
+export type { MailBootstrap, MailBootstrapOptions } from './bootstrap.ts';

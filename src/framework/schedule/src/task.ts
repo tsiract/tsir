@@ -28,7 +28,24 @@ export interface TaskContext {
   log(message: string): void;
 }
 
-export interface TaskDefinition {
+/**
+ * Lifecycle hooks around a task run.
+ *
+ * `before` runs before the handler; if it throws, the handler is skipped and the run is a
+ * failure carrying that error. `onSuccess` runs only after a clean handler; `onFailure` runs
+ * only after a handler error or timeout (and receives the error). `after` always runs, after
+ * the success/failure hook. Errors from `onSuccess`/`onFailure`/`after` are reported to the
+ * observer but do not change the task's outcome — a hook that throws must not turn a successful
+ * run into a failed one, or vice versa.
+ */
+export interface TaskHooks {
+  readonly before?: ((context: TaskContext) => void | Promise<void>) | undefined;
+  readonly after?: ((context: TaskContext) => void | Promise<void>) | undefined;
+  readonly onSuccess?: ((context: TaskContext) => void | Promise<void>) | undefined;
+  readonly onFailure?: ((context: TaskContext, error: unknown) => void | Promise<void>) | undefined;
+}
+
+export interface TaskDefinition extends TaskHooks {
   /** Unique in a project; the lock key and the `tsir schedule:run` argument. */
   readonly name: string;
   /** The canonical five-field form, after macros are expanded. */
@@ -36,6 +53,8 @@ export interface TaskDefinition {
   readonly spec: CronSpec;
   /** Fixed offset from UTC, in minutes. `480` is UTC+8. Default `0` (UTC). */
   readonly utcOffsetMinutes: number;
+  /** IANA timezone, evaluated per tick. Overrides `utcOffsetMinutes` for matching. */
+  readonly timezone?: string | undefined;
   /** Milliseconds before the run is cancelled and the lock released. Default 300 000. */
   readonly timeoutMs: number;
   /**
@@ -46,20 +65,42 @@ export interface TaskDefinition {
    *     run concurrently (a cache warm, an idempotent sweep).
    */
   readonly overlap: 'skip' | 'allow';
+  /**
+   * When true the scheduler starts the handler and returns immediately (`status: 'ran'`); the
+   * handler runs to completion in the background, still holding the overlap lock and still
+   * honouring `timeoutMs`. Errors from the background run are reported to the observer. Use for
+   * a long task that would otherwise make `runDue` wait — the next tick sees the lock held and
+   * skips, which is the point.
+   */
+  readonly runInBackground: boolean;
+  /**
+   * When false (default) the task is skipped while the app is in maintenance mode. Set true for
+   * a task that must run regardless — a heartbeat, a cleanup of stale maintenance state.
+   */
+  readonly evenInMaintenanceMode: boolean;
   handle(context: TaskContext): Promise<void> | void;
   readonly description?: string | undefined;
 }
 
-export const TASK_DEFAULTS = { timeoutMs: 300_000, overlap: 'skip', utcOffsetMinutes: 0 } as const;
+export const TASK_DEFAULTS = {
+  timeoutMs: 300_000,
+  overlap: 'skip',
+  utcOffsetMinutes: 0,
+  runInBackground: false,
+  evenInMaintenanceMode: false,
+} as const;
 
 const TASK_NAME = /^[a-z][a-z0-9]*([-.:][a-z0-9]+)*$/u;
 
-export interface DefineTaskInput {
+export interface DefineTaskInput extends TaskHooks {
   readonly name: string;
   readonly cron: string;
   readonly utcOffsetMinutes?: number | undefined;
+  readonly timezone?: string | undefined;
   readonly timeoutMs?: number | undefined;
   readonly overlap?: 'skip' | 'allow' | undefined;
+  readonly runInBackground?: boolean | undefined;
+  readonly evenInMaintenanceMode?: boolean | undefined;
   readonly description?: string | undefined;
   handle(context: TaskContext): Promise<void> | void;
 }
@@ -88,19 +129,41 @@ export function defineTask(input: DefineTaskInput): TaskDefinition {
     );
   }
 
-  const spec = parseCron(input.cron, { utcOffsetMinutes, origin: `task "${input.name}"` });
+  const spec = parseCron(input.cron, {
+    utcOffsetMinutes,
+    ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
+    origin: `task "${input.name}"`,
+  });
+
+  // Hooks are wrapped, not assigned by reference: they are methods on the caller's object, and
+  // a method separated from its object loses its `this` (`unbound-method`). Captured in locals
+  // first so the wrapper can close over a definitely-defined function without a non-null
+  // assertion.
+  const before = input.before;
+  const after = input.after;
+  const onSuccess = input.onSuccess;
+  const onFailure = input.onFailure;
 
   return {
     name: input.name,
     cron: spec.expression,
     spec,
     utcOffsetMinutes,
+    ...(input.timezone === undefined ? {} : { timezone: input.timezone }),
     timeoutMs,
     overlap: input.overlap ?? TASK_DEFAULTS.overlap,
+    runInBackground: input.runInBackground ?? TASK_DEFAULTS.runInBackground,
+    evenInMaintenanceMode: input.evenInMaintenanceMode ?? TASK_DEFAULTS.evenInMaintenanceMode,
     ...(input.description === undefined ? {} : { description: input.description }),
     // Wrapped, not assigned by reference: `handle` is a method on the object the caller wrote,
     // and a method separated from its object loses its `this` (`unbound-method`).
     handle: (context) => input.handle(context),
+    ...(before === undefined ? {} : { before: (context) => before(context) }),
+    ...(after === undefined ? {} : { after: (context) => after(context) }),
+    ...(onSuccess === undefined ? {} : { onSuccess: (context) => onSuccess(context) }),
+    ...(onFailure === undefined
+      ? {}
+      : { onFailure: (context, error) => onFailure(context, error) }),
   };
 }
 

@@ -28,7 +28,8 @@ export type StorageErrorCode =
   | 'STO_FILESYSTEM_UNAVAILABLE'
   | 'STO_SIGNING_FAILED'
   | 'STO_CONFIG_INVALID'
-  | 'STO_REQUEST_FAILED';
+  | 'STO_REQUEST_FAILED'
+  | 'STO_NOT_FOUND';
 
 const KIND = 'capability';
 
@@ -182,4 +183,13 @@ export function requestFailed(input: {
       context: { disk: input.disk, status: input.status },
     },
   );
+}
+
+/** An operation on a key that does not exist (copy/move source, setVisibility). */
+export function notFound(key: string, disk: string): TsirError {
+  return new TsirError('STO_NOT_FOUND', `no object at ${JSON.stringify(key)} on disk "${disk}"`, {
+    kind: KIND,
+    hint: 'call `head` or `exists` first — copy/move/setVisibility need the source to be present',
+    context: { disk, key },
+  });
 }

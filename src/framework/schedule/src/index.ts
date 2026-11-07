@@ -22,13 +22,20 @@ export {
   matchesCron,
   nextRunAt,
   nextRuns,
+  timezoneOffsetAt,
   toUtcCron,
   parseCron,
 } from './cron.ts';
 export type { CronSpec, ParseCronOptions } from './cron.ts';
 
 export { createTaskRegistry, defineTask, TASK_DEFAULTS } from './task.ts';
-export type { DefineTaskInput, TaskContext, TaskDefinition, TaskRegistry } from './task.ts';
+export type {
+  DefineTaskInput,
+  TaskContext,
+  TaskDefinition,
+  TaskHooks,
+  TaskRegistry,
+} from './task.ts';
 
 export { createScheduler } from './scheduler.ts';
 export type {
@@ -51,3 +58,6 @@ export type {
 } from './lock.ts';
 
 export type { ScheduleErrorCode } from './errors.ts';
+
+export { createScheduleBootstrap } from './bootstrap.ts';
+export type { ScheduleBootstrap, ScheduleBootstrapOptions } from './bootstrap.ts';

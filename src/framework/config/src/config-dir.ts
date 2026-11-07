@@ -1,5 +1,5 @@
 /**
- * `configDir` — Laravel-style split project configuration, combined at load.
+ * `configDir` — split project configuration, combined at load.
  *
  * Instead of putting every section (`database`, `cache`, `queue`, …) into one
  * `tsir.js`, keep one file per section under `config/`:

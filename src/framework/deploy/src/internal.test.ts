@@ -7,11 +7,7 @@
 
 import { describe, expect, test } from 'bun:test';
 
-import {
-  invokeUnit,
-  publish,
-  setInternalTransport,
-} from './internal.ts';
+import { invokeUnit, publish, setInternalTransport } from './internal.ts';
 import type { InternalTransport } from './internal.ts';
 
 class FakeTransport implements InternalTransport {

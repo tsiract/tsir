@@ -322,3 +322,241 @@ describe('describe', () => {
     expect(new Date(warm?.nextRunAt ?? 0).toISOString()).toBe('2026-01-01T00:05:00.000Z');
   });
 });
+
+describe('maintenance mode', () => {
+  test('a cron tick is skipped when maintenance mode is on', async () => {
+    const runs: string[] = [];
+    const nightly = defineTask({
+      name: 'nightly',
+      cron: '0 0 * * *',
+      handle: () => {
+        runs.push('run');
+      },
+    });
+
+    const scheduler = createScheduler({
+      tasks: [nightly],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+      isMaintenanceMode: () => true,
+    });
+
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+    expect(outcome?.status).toBe('skipped');
+    expect(runs).toEqual([]);
+  });
+
+  test('a task with evenInMaintenanceMode runs regardless', async () => {
+    const runs: string[] = [];
+    const heartbeat = defineTask({
+      name: 'heartbeat',
+      cron: '0 0 * * *',
+      evenInMaintenanceMode: true,
+      handle: () => {
+        runs.push('run');
+      },
+    });
+
+    const scheduler = createScheduler({
+      tasks: [heartbeat],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+      isMaintenanceMode: () => true,
+    });
+
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+    expect(outcome?.status).toBe('ran');
+    expect(runs).toEqual(['run']);
+  });
+
+  test('a manual run is never blocked by maintenance mode', async () => {
+    const runs: string[] = [];
+    const nightly = defineTask({
+      name: 'nightly',
+      cron: '0 0 * * *',
+      handle: () => {
+        runs.push('run');
+      },
+    });
+
+    const scheduler = createScheduler({
+      tasks: [nightly],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+      isMaintenanceMode: () => true,
+    });
+
+    const outcome = await scheduler.run('nightly');
+    expect(outcome.status).toBe('ran');
+    expect(runs).toEqual(['run']);
+  });
+});
+
+describe('run in background', () => {
+  test('runDue returns immediately while the handler runs later', async () => {
+    let release: (() => void) | undefined;
+    const slow = defineTask({
+      name: 'slow',
+      cron: '* * * * *',
+      runInBackground: true,
+      handle: () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        }),
+    });
+
+    const scheduler = createScheduler({ tasks: [slow], lock: memoryLock(), now: () => MIDNIGHT });
+
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+    // The outcome is reported as `ran` immediately — the handler is still running.
+    expect(outcome?.status).toBe('ran');
+
+    // The lock is held by the background run, so the next tick is busy.
+    const [busy] = await scheduler.runDue(MIDNIGHT + MINUTE);
+    expect(busy?.status).toBe('busy');
+
+    // Releasing the handler lets the lock go, so the tick after runs again.
+    release?.();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    const [next] = await scheduler.runDue(MIDNIGHT + 2 * MINUTE);
+    expect(next?.status).toBe('ran');
+  });
+
+  test('a background failure is reported to the observer', async () => {
+    const errors: { code: string }[] = [];
+    const failing = defineTask({
+      name: 'failing',
+      cron: '* * * * *',
+      runInBackground: true,
+      handle: () => {
+        throw new Error('boom');
+      },
+    });
+
+    void createScheduler({
+      tasks: [failing],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+      onError: (error) => {
+        errors.push({ code: (error as { code: string }).code });
+      },
+    }).runDue(MIDNIGHT);
+
+    // Give the background run a tick to fail.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    expect(errors).toEqual([{ code: 'SCHED_TASK_FAILED' }]);
+  });
+});
+
+describe('task hooks', () => {
+  test('before runs before the handler, after runs after, onSuccess on a clean run', async () => {
+    const calls: string[] = [];
+    const hooked = defineTask({
+      name: 'hooked',
+      cron: '* * * * *',
+      before: () => {
+        calls.push('before');
+      },
+      onSuccess: () => {
+        calls.push('onSuccess');
+      },
+      after: () => {
+        calls.push('after');
+      },
+      handle: () => {
+        calls.push('handle');
+      },
+    });
+
+    const scheduler = createScheduler({ tasks: [hooked], lock: memoryLock(), now: () => MIDNIGHT });
+    await scheduler.runDue(MIDNIGHT);
+
+    expect(calls).toEqual(['before', 'handle', 'onSuccess', 'after']);
+  });
+
+  test('onFailure runs on a handler error, and after still runs', async () => {
+    const calls: string[] = [];
+    const failing = defineTask({
+      name: 'failing',
+      cron: '* * * * *',
+      onFailure: (_context, error) => {
+        calls.push(`onFailure:${(error as Error).message}`);
+      },
+      after: () => {
+        calls.push('after');
+      },
+      handle: () => {
+        throw new Error('boom');
+      },
+    });
+
+    const scheduler = createScheduler({
+      tasks: [failing],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+    });
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+
+    expect(outcome?.status).toBe('failed');
+    expect(calls).toEqual(['onFailure:boom', 'after']);
+  });
+
+  test('a before failure skips the handler and counts as a failure', async () => {
+    const calls: string[] = [];
+    const guarded = defineTask({
+      name: 'guarded',
+      cron: '* * * * *',
+      before: () => {
+        calls.push('before');
+        throw new Error('precondition failed');
+      },
+      handle: () => {
+        calls.push('handle');
+      },
+      onFailure: (_context, error) => {
+        calls.push(`onFailure:${(error as Error).message}`);
+      },
+      after: () => {
+        calls.push('after');
+      },
+    });
+
+    const scheduler = createScheduler({
+      tasks: [guarded],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+    });
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+
+    expect(outcome?.status).toBe('failed');
+    expect(outcome?.error).toContain('precondition failed');
+    expect(calls).toEqual(['before', 'onFailure:precondition failed', 'after']);
+  });
+
+  test('an after-hook failure is logged but does not change the outcome', async () => {
+    const errors: { code: string }[] = [];
+    const flakyAfter = defineTask({
+      name: 'flaky-after',
+      cron: '* * * * *',
+      after: () => {
+        throw new Error('cleanup failed');
+      },
+      handle: () => undefined,
+    });
+
+    const scheduler = createScheduler({
+      tasks: [flakyAfter],
+      lock: memoryLock(),
+      now: () => MIDNIGHT,
+      onError: (error) => {
+        errors.push({ code: (error as { code: string }).code });
+      },
+    });
+    const [outcome] = await scheduler.runDue(MIDNIGHT);
+
+    // The run still succeeded — a hook must not change the task's outcome.
+    expect(outcome?.status).toBe('ran');
+    // And the hook's failure is not reported as a task failure (it is only logged).
+    expect(errors).toEqual([]);
+  });
+});

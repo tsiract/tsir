@@ -6,6 +6,12 @@
  *   · no facades, no hidden dependencies, no `any`,
  *   · never overwrite an existing file without `--force`,
  *   · print the next command to run.
+ *
+ * Code templates live in `stubs/` as `.slug` files (e.g. `stubs/new/app.ts.slug`).
+ * `renderStub()` reads the file and substitutes `{{variable}}` placeholders.
+ * Keep the generator logic here and the template content in the slugs —
+ * editing a generated file's shape should mean editing its `.slug`, not this
+ * module.
  */
 
 import { chmodSync, existsSync, realpathSync } from 'node:fs';
@@ -15,161 +21,9 @@ import { boolFlag, parseArgs } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { CliError, EXIT, info, ok, style, UsageError, warn } from '../output.ts';
 import { findConfigFile } from '../project.ts';
+import { renderStub } from '../stub.ts';
 import { RACT_MODE, RACT_TEMPLATE } from './project-command.ts';
 import { scopedName, splitAppModule } from './naming.ts';
-
-const APP_TEMPLATE = (name: string): string => `import { defineApp } from '@tsir/core';
-import { createFetchHandler } from '@tsir/http';
-import { collectRouteEntries, compileRoutes } from '@tsir/router';
-import { spec } from './config.ts';
-import { home } from './home/index.ts';
-import './home/http/home.controller.ts';
-
-export default defineApp({
-  name: '${name}',
-  config: spec,
-  modules: [home.module],
-});
-
-// Import each controller above before compiling the route table.
-export const handler = createFetchHandler(compileRoutes(collectRouteEntries()));
-`;
-
-const HOME_ROUTES = `import { RouteRegistry, routeModule } from '@tsir/router';
-
-export const registry = new RouteRegistry();
-export const home = routeModule({ name: 'home', registry, unit: 'http' });
-`;
-
-const HOME_CONTROLLER = `import { Controller, Get } from '@tsir/router';
-import { registry } from '../routes.ts';
-
-@Controller(registry, '')
-export class HomeController {
-  @Get('/')
-  index(): { message: string } {
-    return { message: 'Welcome to Tsir' };
-  }
-}
-`;
-
-const CONFIG_TEMPLATE = (name: string): string => `import { defineConfig, env } from '@tsir/config';
-
-export const spec = defineConfig({
-  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'development' }),
-  APP_NAME: env.string({ default: '${name}' }),
-});
-
-export type AppConfig = typeof spec;
-`;
-
-const TSR_CONFIG_TEMPLATE = (name: string): string => `// tsir.js — canonical project configuration
-//
-// Phase 1 keeps this file intentionally small: it tells the CLI where the
-// application entry lives. Presets, managed regions, and deploy topology join
-// it in later phases; the shape below is a forward-compatible subset.
-
-export default {
-  app: {
-    name: '${name}',
-    entry: './app.ts',
-  },
-};
-`;
-
-/**
- * The files `make:module` writes. A module owns its components in typed
- * subdirectories: `http/` for controllers, `models/` for schemas, etc. The
- * module root holds `routes.ts` (the route registry), `index.ts` (the public
- * surface), and the module's test.
- */
-function moduleFiles(
-  base: string,
-  kebab: string,
-): readonly { readonly name: string; readonly contents: string }[] {
-  const camel = base.charAt(0).toLowerCase() + base.slice(1);
-  const prefix = `/${kebab}`;
-  return [
-    {
-      name: 'routes.ts',
-      contents: `import { RouteRegistry, routeModule as _routeModule } from '@tsir/router';
-
-/** This module's route table. Only its own controllers add to it. */
-export const registry = new RouteRegistry();
-
-export const ${camel} = _routeModule({
-  name: '${kebab}',
-  registry,
-  unit: 'http',
-});
-`,
-    },
-    {
-      name: `http/${kebab}.controller.ts`,
-      contents: `import { Controller, Get } from '@tsir/router';
-
-import { registry } from '../routes.ts';
-
-@Controller(registry, '${prefix}')
-export class ${base}Controller {
-  @Get('/')
-  list(): unknown {
-    return { items: [] };
-  }
-}
-`,
-    },
-    {
-      name: 'index.ts',
-      contents: `/** The module's public surface. Other modules import from here, and nowhere deeper. */
-export { ${camel}, registry } from './routes.ts';
-`,
-    },
-    {
-      name: `${kebab}.test.ts`,
-      contents: `import { describe, expect, test } from 'bun:test';
-import { defineConfig, env } from '@tsir/config';
-import { defineApp } from '@tsir/core';
-import { createTestApp } from '@tsir/testing';
-
-import { ${camel} as _module } from './index.ts';
-import './http/${kebab}.controller.ts';
-
-const spec = defineConfig({
-  APP_ENV: env.enum(['development', 'test', 'production'], { default: 'test' }),
-});
-
-describe('${kebab} module', () => {
-  test('boots on its own and serves its route', async () => {
-    const app = defineApp({ name: '${kebab}-test', config: spec, modules: [_module.module] });
-    const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
-    try {
-      const paths = harness.routes().routes.map((route) => route.path);
-      expect(paths.some((path) => path.startsWith('${prefix}'))).toBe(true);
-    } finally {
-      await harness.dispose();
-    }
-  });
-});
-`,
-    },
-  ];
-}
-
-const TEST_TEMPLATE = (name: string): string => `import { describe, expect, test } from 'bun:test';
-import { createTestApp } from '@tsir/testing';
-
-import app from '../app.ts';
-
-describe('${name}', () => {
-  test('boots through the production path', async () => {
-    const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
-    expect(harness.app.state.kind).toBe('ready');
-    await harness.dispose();
-    expect(harness.app.state.kind).toBe('stopped');
-  });
-});
-`;
 
 export async function newCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
@@ -222,12 +76,23 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     throw new CliError('TSIR_DIST is not a valid Tsir distribution', EXIT.environment);
   }
   const dependencies = Object.fromEntries(
-    ['console', 'config', 'core', 'http', 'router', 'testing', 'validate'].map((part) => [
-      `@tsir/${part}`,
-      packages === undefined ? '0.0.0' : 'workspace:*',
-    ]),
+    [
+      'console',
+      'config',
+      'container',
+      'core',
+      'database',
+      'http',
+      'migrate',
+      'router',
+      'testing',
+      'validate',
+    ].map((part) => [`@tsir/${part}`, packages === undefined ? '0.0.0' : 'workspace:*']),
   );
+  // Drizzle is the ORM the database bootstrap exposes; it is not a @tsir package.
+  dependencies['drizzle-orm'] = '0.45.4';
 
+  const stubVars = { name };
   const files: readonly (readonly [string, string])[] = [
     [
       'package.json',
@@ -247,12 +112,17 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
         2,
       ) + '\n',
     ],
-    ['tsir.js', TSR_CONFIG_TEMPLATE(name)],
-    ['app.ts', APP_TEMPLATE(name)],
-    ['config.ts', CONFIG_TEMPLATE(name)],
-    ['home/index.ts', "export { home } from './routes.ts';\n"],
-    ['home/routes.ts', HOME_ROUTES],
-    ['home/http/home.controller.ts', HOME_CONTROLLER],
+    ['tsir.js', renderStub('new/tsir.js', stubVars)],
+    ['app.ts', renderStub('new/app.ts', stubVars)],
+    ['config.ts', renderStub('new/config.ts', stubVars)],
+    ['config/database.ts', renderStub('new/config/database.ts', stubVars)],
+    ['database.ts', renderStub('new/database.ts', stubVars)],
+    ['home/index.ts', renderStub('new/home/index.ts', stubVars)],
+    ['home/registry.ts', renderStub('new/home/registry.ts', stubVars)],
+    ['home/routes.ts', renderStub('new/home/routes.ts', stubVars)],
+    ['home/http/home.controller.ts', renderStub('new/home/http/home.controller.ts', stubVars)],
+    // Empty migrations directory — `tsir make:migration` adds the first one.
+    ['migrations/.gitkeep', ''],
     ['.gitignore', 'node_modules/\n.env\n.tsir/\n'],
     [
       'tsconfig.json',
@@ -274,7 +144,7 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     ['ract', RACT_TEMPLATE],
     // CLI-018: `ract` has no extension, so prettier cannot parse it and must ignore it by name.
     ['.prettierignore', 'ract\n'],
-    ['test/app.test.ts', TEST_TEMPLATE(name)],
+    ['test/app.test.ts', renderStub('new/test/app.test.ts', stubVars)],
     [
       '.env.example',
       '# Copy to .env and fill in. Never commit real secrets.\nAPP_ENV=development\n',
@@ -304,6 +174,27 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   }
   info('');
   return EXIT.ok;
+}
+
+/**
+ * The files `make:module` writes. A module owns its components in typed
+ * subdirectories: `http/` for controllers, `models/` for schemas, etc. The
+ * module root holds `routes.ts` (the route registry), `index.ts` (the public
+ * surface), and the module's test.
+ */
+function moduleFiles(
+  base: string,
+  kebab: string,
+): readonly { readonly name: string; readonly contents: string }[] {
+  const camel = base.charAt(0).toLowerCase() + base.slice(1);
+  const prefix = `/${kebab}`;
+  const vars = { base, camel, kebab, prefix };
+  return [
+    { name: 'routes.ts', contents: renderStub('module/routes.ts', vars) },
+    { name: `http/${kebab}.controller.ts`, contents: renderStub('module/controller.ts', vars) },
+    { name: 'index.ts', contents: renderStub('module/index.ts', vars) },
+    { name: `${kebab}.test.ts`, contents: renderStub('module/test.ts', vars) },
+  ];
 }
 
 export async function makeModuleCommand(argv: readonly string[]): Promise<number> {

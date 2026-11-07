@@ -34,6 +34,7 @@ export type {
   CacheCapabilities,
   CacheDriver,
   CacheEntryOptions,
+  CacheLock,
   Codec,
   StoredValue,
 } from './port.ts';
@@ -51,3 +52,6 @@ export { conformanceCases } from './conformance.ts';
 export type { ConformanceCase, ConformanceOptions } from './conformance.ts';
 
 export type { CacheErrorCode } from './errors.ts';
+
+export { createCacheBootstrap } from './bootstrap.ts';
+export type { CacheBootstrap, CacheBootstrapOptions } from './bootstrap.ts';

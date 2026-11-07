@@ -75,6 +75,7 @@ export class TaskStore {
 
   private nextOrder(status: TaskStatus): number {
     const sameStatus = this.list(status);
-    return sameStatus.length === 0 ? 0 : sameStatus[sameStatus.length - 1].order + 1;
+    const last = sameStatus[sameStatus.length - 1];
+    return last === undefined ? 0 : last.order + 1;
   }
 }

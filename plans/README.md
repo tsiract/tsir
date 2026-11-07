@@ -157,8 +157,8 @@ What exists today:
 | `@tsir/migrate` — journal, advisory lock, drift, rollback, verify, pre-flight guidance        | ✅ implemented, tested (51 unit + 7 integ.)                             |
 | `@tsir/seed` — seeder contract, ordering, env gating, idempotency harness, fixtures           | ✅ implemented, tested (33 unit + 3 integ.)                             |
 | `@tsir/console` — `dev`, `build`, `doctor`, `config:dump`, `new`, `make:module`, `migrate*`   | ✅ implemented, `db:seed`, `storage:*`, `mail:*`, `notify:*`            |
-| `src/apps/examples/minimal` — the smallest complete application                               | ✅ boots and shuts down cleanly                                         |
-| `src/apps/examples/http` — two modules (`users`, `media`), guards, fetch handler              | ✅ 16 tests, module tables + `unit: media`                              |
+| `src/apps/minimal` — the smallest complete application                                        | ✅ boots and shuts down cleanly                                         |
+| `src/apps/http` — two modules (`users`, `media`), guards, fetch handler                       | ✅ 16 tests, module tables + `unit: media`                              |
 | `tsir route:list` (aligned table + versioned `--json`)                                        | ✅ verified against the HTTP example                                    |
 | `tsir route:compile` — deterministic `routes.gen.ts`, `--check` drift gate                    | ✅ generated table boots the HTTP example                               |
 | Guards + `principal` binding, 401 challenge, CORS preflight, response contracts               | ✅ `contracts.test.ts` (13 cases)                                       |
@@ -183,7 +183,7 @@ What exists today:
 | Package scaffolder (`src/tools/new-package.ts`)                                               | ✅ manifest, barrel, test, task stub                                    |
 | Runtime floor enforcement (`@tsir/console` boot guard, `engines`)                             | ✅ bun ≥ 1.2, node ≥ 21                                                 |
 | Postgres integration job (CI service container)                                               | ✅ 3 suites / 17 tests green (PG 17.6)                                  |
-| OpenAPI served at `/__tsir/openapi.json` in dev                                       | ⛔ the only Phase 2 item left (`tasks/03-http.md`)                                                               |
+| OpenAPI served at `/__tsir/openapi.json` in dev                                               | ⛔ the only Phase 2 item left (`tasks/03-http.md`)                      |
 | Migrate unit in the deploy graph (MIG-012)                                                    | ✅ Phase 6 — `migrate:<connection>` script                              |
 | Managed regions + `tsir bootstrap --plan/--yes` (`CFG-104`, `CFG-107`, `CFG-115`)             | ✅ deploy block, fenced and idempotent                                  |
 | Vault-backed column encryption (DB-010)                                                       | ✅ closed by `VLT-008` (2026-10-28)                                     |

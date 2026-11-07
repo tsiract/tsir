@@ -9,7 +9,7 @@
 ## Context
 
 The public site needs a clearer product hierarchy, a complete ecosystem directory and
-consistent light/dark themes. The requested visual system is DaisyUI Nord for light and
+consistent light/dark themes. The requested visual system is DaisyUI Silk for light and
 Abyss for dark, with a Laravel-inspired arrangement of hero, code showcases, alternating
 feature sections, ecosystem navigation and grouped footer. Laravel's branding, social proof
 and product claims are not Tsir's and must not be copied.
@@ -27,7 +27,7 @@ values would drift from DaisyUI and would not actually use its components.
 1. Pin `daisyui`, `tailwindcss` and `@tailwindcss/cli` as **root development dependencies**.
    They are classified in ADR-0012's build-time inventory. No framework package gains a
    runtime dependency, and no framework source imports them.
-2. Compile only the used button, badge, card and input components with the unmodified Nord
+2. Compile only the used button, badge, card and input components with the unmodified Silk
    and Abyss theme definitions. Inline the resulting CSS and a small progressive-enhancement
    script into `src/apps/frontpage/public/index.html`. Keep SVG and the favicon inline.
 3. Author the template, styles, client script and typed package inventory separately. Commit
@@ -37,9 +37,9 @@ values would drift from DaisyUI and would not actually use its components.
 4. Raise the **uncompressed homepage** ceiling to 128 KiB. The current artifact is about
    122 KiB. This is a measured delivery budget, not a framework bundle-size claim. The page
    still makes no external asset requests. Documentation is a separate static destination.
-5. Nord is the light palette; Abyss is the dark palette. Initial theme follows the OS; an
+5. Silk is the light palette; Abyss is the dark palette. Initial theme follows the OS; an
    explicit choice is saved under `tsir-theme` and shared by the homepage and docs. Storage
-   failure is non-fatal. Without JavaScript the page remains readable in Nord.
+   failure is non-fatal. Without JavaScript the page remains readable in Silk.
 6. Reuse the compiled stylesheet and script in the docs renderer. Build docs at dev startup,
    serve them under `/docs/`, and include them beside the homepage in distribution. Package
    cards link to real reference pages; examples link to runnable repository tests.
@@ -67,6 +67,6 @@ values would drift from DaisyUI and would not actually use its components.
 - Browser smoke checks: theme persistence, navigation, package search/category filters,
   empty state/reset, keyboard tabs, clipboard, docs links and no external asset requests.
 - Viewports: 320, 375, 390, 768, 1024 and 1440 CSS pixels; no page-level horizontal overflow.
-- Axe WCAG A/AA checks in Nord and Abyss, plus a JavaScript-disabled content check.
+- Axe WCAG A/AA checks in Silk and Abyss, plus a JavaScript-disabled content check.
 
 Browser QA is a release check, not a claim of exhaustive assistive-technology coverage.

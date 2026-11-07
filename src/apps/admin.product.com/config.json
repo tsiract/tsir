@@ -1,0 +1,13 @@
+{
+  "appName": "Tsir Admin",
+  "logo": "/logo.svg",
+  "favicon": "/favicon.svg",
+  "primaryColor": "#38bdf8",
+  "supportEmail": "support@tsir.local",
+  "sessionCookieName": "tsir_admin_session",
+  "captcha": {
+    "provider": "turnstile",
+    "siteKey": "",
+    "secret": { "fromEnv": "CAPTCHA_SECRET" }
+  }
+}

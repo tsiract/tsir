@@ -41,10 +41,10 @@ smoke checks, not exhaustive assistive-technology certification. DOC-008 remains
 
 ## Naming & legal
 
-| ID        | Title                                                     | Status | Depends | Acceptance criteria (summary)                                                                 |
-| --------- | --------------------------------------------------------- | ------ | ------- | --------------------------------------------------------------------------------------------- |
-| `DOC-015` | Package-name availability check (`@tsir/*`, npm registry) | `[ ]`  | —       | Report committed to `plans/decisions/`                                                        |
-| `DOC-016` | Trademark / project-confusion search for "Tsir"           | `[ ]`  | —       | Written findings; blockers flagged                                                            |
+| ID        | Title                                                     | Status | Depends | Acceptance criteria (summary)                                                                                 |
+| --------- | --------------------------------------------------------- | ------ | ------- | ------------------------------------------------------------------------------------------------------------- |
+| `DOC-015` | Package-name availability check (`@tsir/*`, npm registry) | `[ ]`  | —       | Report committed to `plans/decisions/`                                                                        |
+| `DOC-016` | Trademark / project-confusion search for "Tsir"           | `[ ]`  | —       | Written findings; blockers flagged                                                                            |
 | `DOC-017` | LICENSE + third-party attributions                        | `[x]`  | FND-017 | `LICENSE` (MIT) committed and enforced by `make license`; lockfile attributions in `src/docs/attributions.md` |
 
 ---

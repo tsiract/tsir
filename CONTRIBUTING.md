@@ -147,12 +147,13 @@ Generated folders are listed in `.gitignore` and never committed: `node_modules/
 
 ### `src/` folders
 
-| Folder           | What it contains                                                                                                             |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `src/framework/` | One folder per package (`src/framework/<name>/`). This is the product.                                                       |
-| `src/apps/`      | Applications: `examples/` (small apps that show features), `docs/`, and `frontpage/` (the marketing site)                    |
-| `src/tools/`     | Repository tooling: gates (`check-*.ts`), `dist.ts`, `bench.ts`, `version.ts`, and the `tools.test.ts` suite                 |
-| `src/docs/`      | Documentation that the tools check: the API surface snapshot, error codes, errors table, dependency policy, migrations guide |
+| Folder                | What it contains                                                                                                             |
+| --------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `src/framework/`      | One folder per package (`src/framework/<name>/`). This is the product.                                                       |
+| `src/apps/`           | Runnable example apps that demonstrate features.                                                                             |
+| `src/apps/frontpage/` | The marketing site (a self-contained static page).                                                                           |
+| `src/tools/`          | Repository tooling: gates (`check-*.ts`), `dist.ts`, `bench.ts`, `version.ts`, and the `tools.test.ts` suite                 |
+| `src/docs/`           | Documentation that the tools check: the API surface snapshot, error codes, errors table, dependency policy, migrations guide |
 
 Inside a package, the layout is the same everywhere:
 

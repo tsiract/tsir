@@ -510,7 +510,12 @@ describe('aws event listeners (DPL-026)', () => {
     expect(entry?.listeners).toHaveLength(1);
     expect(entry?.listeners[0]).toEqual({
       handler: 'onEvent',
-      meta: { kind: 'eventbridge', eventBus: 'default', detailType: 'order.placed', unit: 'schedule' },
+      meta: {
+        kind: 'eventbridge',
+        eventBus: 'default',
+        detailType: 'order.placed',
+        unit: 'schedule',
+      },
     });
   });
 

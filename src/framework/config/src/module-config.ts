@@ -27,5 +27,5 @@ export function moduleConfig<Base extends ConfigSpec, Extension extends ConfigSp
   return Object.freeze({
     ...base,
     ...extension,
-  }) as Base & Extension;
+  });
 }

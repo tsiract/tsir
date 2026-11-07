@@ -67,3 +67,6 @@ export {
 } from './http.ts';
 
 export type { PolicyErrorCode } from './errors.ts';
+
+export { createPolicyBootstrap } from './bootstrap.ts';
+export type { PolicyBootstrap, PolicyBootstrapOptions } from './bootstrap.ts';

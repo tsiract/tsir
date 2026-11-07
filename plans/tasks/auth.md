@@ -8,26 +8,29 @@
 > **Related:** [`policy.md`](./policy.md) (what the principal may do), [`12-security.md`](./12-security.md)
 > (`SEC-2xx`), [`03-http.md`](./03-http.md) (401/403).
 
-**Status: complete — 2026-10-29.** Ten modules across `src/`, `src/adapters/` and `src/drivers/`,
-two subpaths (`/memory`, `/bun`), six test files, one type-test file. Tests: **87**, and the coverage
-gate reports **95.85 % lines / 97.03 % functions**. Dependency set: `@tsir/container` only.
+**Status: in progress.** Core auth (passwords, sessions, tokens, API keys, guards) is complete
+(`AUTH-1`–`AUTH-12`). Three features remain: SPA cookie auth (Sanctum), CSRF protection, and email
+verification (`AUTH-13`–`AUTH-15`).
 
 ## Tasks
 
-| ID        | Task                                                          | Status | Depends           | Acceptance                                                                                                                                      |
-| --------- | ------------------------------------------------------------- | ------ | ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `AUTH-1`  | `PasswordHasher` port + `pbkdf2Hasher` over WebCrypto         | `[x]`  | —                 | A self-describing hash (`$tsir$pbkdf2-sha256$i=…$salt$digest`); fewer than 100 000 iterations is a `RangeError`, so the floor cannot drift down |
-| `AUTH-2`  | `argon2id` adapter behind `@tsir/auth/bun`                    | `[x]`  | `AUTH-1`          | `Bun.password` only, in an adapter subpath, so a Worker bundle never sees a `Bun` global; PHC strings verify through `extraHashers`             |
-| `AUTH-3`  | `assertPasswordAcceptable` **before** hashing                 | `[x]`  | `AUTH-1`          | Min 8 / max 1 024, a common-password list, ≤ 2 distinct characters; a refusal costs nothing, not 200 ms                                         |
-| `AUTH-4`  | `verifyPassword` — dispatch on the algorithm in the hash      | `[x]`  | `AUTH-1`,`AUTH-2` | A deployment that moves runtime keeps verifying old rows; an unreadable hash is `AUTH_INVALID_HASH`, never "wrong password"                     |
-| `AUTH-5`  | `needsRehash` + rehash-on-login path                          | `[x]`  | `AUTH-4`          | Raising the cost is a non-event: old hashes verify with their own parameters and say when they should be upgraded                               |
-| `AUTH-6`  | Tokens: `randomToken`, `hashToken`, `constantTimeEqual`       | `[x]`  | —                 | 32 bytes of CSPRNG, stored as SHA-256 hex; comparison has no early exit                                                                         |
-| `AUTH-7`  | Sessions — `start`/`read`/`rotate`/`revoke`/`revokeSubject`   | `[x]`  | `AUTH-6`          | Absolute **and** idle lifetime, both enforced on read; an expired or revoked row is **deleted**, not merely refused                             |
-| `AUTH-8`  | `__Host-` cookie, asserted verbatim                           | `[x]`  | `AUTH-7`          | `Path=/; HttpOnly; Secure; SameSite=Lax`, no `Domain`; `clearCookie()` adds the 1970 `Expires`                                                  |
-| `AUTH-9`  | API keys — `tsk_<public id>_<secret>`, hash at rest, revoke   | `[x]`  | `AUTH-6`          | The key is shown **once**; verification is one indexed read plus a constant-time compare; revocation is a column, so an audit can see the key   |
-| `AUTH-10` | `memory` and `database` stores for both ports (D1 + Postgres) | `[x]`  | `AUTH-7`,`AUTH-9` | One structural SQL port that `@tsir/database` satisfies without an import; `sessionTableDdl`/`apiKeyTableDdl` print the migrations              |
-| `AUTH-11` | Guards — session, bearer, API key, `composeGuards`            | `[x]`  | `AUTH-7`,`AUTH-9` | A guard answers `Principal                                                                                                                      | null` and never explains itself; a **throw stops the chain** so an outage cannot downgrade |
-| `AUTH-12` | Type tests                                                    | `[x]`  | `AUTH-11`         | A `Redacted`-style confusion, a guard whose principal type is wrong, and a session started without a subject all fail to compile                |
+| ID        | Task                                                          | Status | Depends           | Acceptance                                                                                                                                               |
+| --------- | ------------------------------------------------------------- | ------ | ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `AUTH-1`  | `PasswordHasher` port + `pbkdf2Hasher` over WebCrypto         | `[x]`  | —                 | A self-describing hash (`$tsir$pbkdf2-sha256$i=…$salt$digest`); fewer than 100 000 iterations is a `RangeError`, so the floor cannot drift down          |
+| `AUTH-2`  | `argon2id` adapter behind `@tsir/auth/bun`                    | `[x]`  | `AUTH-1`          | `Bun.password` only, in an adapter subpath, so a Worker bundle never sees a `Bun` global; PHC strings verify through `extraHashers`                      |
+| `AUTH-3`  | `assertPasswordAcceptable` **before** hashing                 | `[x]`  | `AUTH-1`          | Min 8 / max 1 024, a common-password list, ≤ 2 distinct characters; a refusal costs nothing, not 200 ms                                                  |
+| `AUTH-4`  | `verifyPassword` — dispatch on the algorithm in the hash      | `[x]`  | `AUTH-1`,`AUTH-2` | A deployment that moves runtime keeps verifying old rows; an unreadable hash is `AUTH_INVALID_HASH`, never "wrong password"                              |
+| `AUTH-5`  | `needsRehash` + rehash-on-login path                          | `[x]`  | `AUTH-4`          | Raising the cost is a non-event: old hashes verify with their own parameters and say when they should be upgraded                                        |
+| `AUTH-6`  | Tokens: `randomToken`, `hashToken`, `constantTimeEqual`       | `[x]`  | —                 | 32 bytes of CSPRNG, stored as SHA-256 hex; comparison has no early exit                                                                                  |
+| `AUTH-7`  | Sessions — `start`/`read`/`rotate`/`revoke`/`revokeSubject`   | `[x]`  | `AUTH-6`          | Absolute **and** idle lifetime, both enforced on read; an expired or revoked row is **deleted**, not merely refused                                      |
+| `AUTH-8`  | `__Host-` cookie, asserted verbatim                           | `[x]`  | `AUTH-7`          | `Path=/; HttpOnly; Secure; SameSite=Lax`, no `Domain`; `clearCookie()` adds the 1970 `Expires`                                                           |
+| `AUTH-9`  | API keys — `tsk_<public id>_<secret>`, hash at rest, revoke   | `[x]`  | `AUTH-6`          | The key is shown **once**; verification is one indexed read plus a constant-time compare; revocation is a column, so an audit can see the key            |
+| `AUTH-10` | `memory` and `database` stores for both ports (D1 + Postgres) | `[x]`  | `AUTH-7`,`AUTH-9` | One structural SQL port that `@tsir/database` satisfies without an import; `sessionTableDdl`/`apiKeyTableDdl` print the migrations                       |
+| `AUTH-11` | Guards — session, bearer, API key, `composeGuards`            | `[x]`  | `AUTH-7`,`AUTH-9` | A guard answers `Principal                                                                                                                               | null` and never explains itself; a **throw stops the chain** so an outage cannot downgrade |
+| `AUTH-12` | Type tests                                                    | `[x]`  | `AUTH-11`         | A `Redacted`-style confusion, a guard whose principal type is wrong, and a session started without a subject all fail to compile                         |
+| `AUTH-13` | SPA cookie auth (Sanctum) — `XSRF-TOKEN` + stateful cookie    | `[ ]`  | `AUTH-7`          | `sanctumGuard` reads the session cookie and the `XSRF-TOKEN` header; a missing or mismatched token is 401; the cookie is `SameSite=Lax`                  |
+| `AUTH-14` | CSRF protection middleware                                    | `[ ]`  | `AUTH-13`         | `csrfMiddleware` rejects state-changing requests without a valid `X-CSRF-TOKEN`; the token is bound to the session; safe methods (GET/HEAD) pass through |
+| `AUTH-15` | Email verification — signed URL + verified flag               | `[ ]`  | `AUTH-13`, vault  | `sendVerificationEmail` signs a URL with `@tsir/vault`; `verifyEmail` checks the signature and sets `emailVerifiedAt`; an expired signature is refused   |
 
 ## As built: hashes are self-describing, so cost is not a migration
 

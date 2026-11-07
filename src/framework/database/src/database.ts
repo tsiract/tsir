@@ -91,8 +91,8 @@ export interface Database<Names extends string = string> {
   /** This connection's name (ADR-0019). `db.connection(db.name)` returns `db`. */
   readonly name: string;
   /**
-   * The named connection (`DB-019`, ADR-0019) — Laravel's `DB::connection('x')`,
-   * without a service locator.
+   * The named connection (`DB-019`, ADR-0019) — resolves another connection by
+   * name, without a service locator.
    *
    * `Names` is the literal union the generator emits, so a typo is a compile error
    * in application code. The runtime check is for the other case: a `tsir.js`
