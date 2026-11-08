@@ -1,0 +1,29 @@
+// config/app.ts — the application's own settings.
+//
+// Configuration is split by concern: one file per section under `config/`, and
+// `tsir.js` merges them with `configDir()`. The filename becomes the top-level
+// key, and the set of allowed keys is `PROJECT_TOP_LEVEL_KEYS` in @tsir/config.
+//
+// A section is a plain object rather than a class or a builder: it is readable,
+// diffable and greppable, and the framework validates it when the project loads
+// (`checkProjectFile`), so a typo in `entry` fails at startup instead of at the
+// first request. Saying `satisfies` here gives the same check to the editor.
+//
+// What belongs elsewhere:
+//   · environment-validated application values (ports, URLs, secrets) → config.ts
+//     (`defineConfig` from @tsir/config, one schema for the whole app)
+//   · a capability the application does not use → no file, because an empty
+//     section implies configuration that does not exist
+import { checkProjectFile } from '@tsir/config';
+
+const app = {
+  name: '{{name}}',
+  entry: './app.ts',
+} satisfies Readonly<Record<string, unknown>>;
+
+// The section on its own cannot be validated (the project also has `database`),
+// so the check runs in the app entry where the whole project is available; this
+// import documents where that happens.
+void checkProjectFile;
+
+export default app;

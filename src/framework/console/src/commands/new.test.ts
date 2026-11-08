@@ -3,6 +3,7 @@ import {
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -62,8 +63,13 @@ describe('tsir new', () => {
     ]) {
       expect(existsSync(join(root, file))).toBe(true);
     }
-    expect(readFileSync(join(root, 'tsir.js'), 'utf8')).toContain("name: 'shop-api'");
-    expect(readFileSync(join(root, 'tsir.js'), 'utf8')).toContain("entry: './app.ts'");
+    // The project file is an assembly point: sections live in `config/`, merged by `configDir()`.
+    // The name and entry belong to the app section, which is where a reader looks for them.
+    expect(readFileSync(join(root, 'tsir.js'), 'utf8')).toContain('configDir');
+    expect(readFileSync(join(root, 'config', 'app.ts'), 'utf8')).toContain("name: 'shop-api'");
+    expect(readFileSync(join(root, 'config', 'app.ts'), 'utf8')).toContain("entry: './app.ts'");
+    // Only the sections the application actually uses are created.
+    expect(readdirSync(join(root, 'config')).sort()).toEqual(['app.ts', 'database.ts']);
   });
 
   test('CLI-018: the scaffold ships an executable extensionless ract that runs tsir commands', async () => {
@@ -137,9 +143,11 @@ describe('tsir new', () => {
     await newCommand(['shop-api']);
     expect(await rejectionOf(newCommand(['shop-api']))).toContain('already exists');
 
-    writeFileSync(join(parent, 'apps', 'shop-api', 'tsir.js'), '// edited by hand\n');
+    writeFileSync(join(parent, 'apps', 'shop-api', 'config', 'app.ts'), '// edited by hand\n');
     expect(await newCommand(['shop-api', '--force'])).toBe(EXIT.ok);
-    expect(readFileSync(join(parent, 'apps', 'shop-api', 'tsir.js'), 'utf8')).toContain("name: 'shop-api'");
+    expect(readFileSync(join(parent, 'apps', 'shop-api', 'config', 'app.ts'), 'utf8')).toContain(
+      "name: 'shop-api'",
+    );
   });
 
   test('refuses to create an application inside the generated distribution', async () => {

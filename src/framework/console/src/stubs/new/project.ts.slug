@@ -1,0 +1,17 @@
+// tsir.js — the canonical project configuration.
+//
+// Each section lives in its own file under `config/`, and `configDir()` merges
+// them: the filename becomes the top-level key. This file is an assembly point,
+// not a place where settings accumulate — adding a capability means adding
+// `config/<section>.ts`.
+//
+//   config/app.ts        name, entry
+//   config/database.ts   connections (the scaffold ships a database)
+//
+// Sections the application does not use are not created: an empty
+// `config/cache.ts` would claim a cache configuration that does not exist.
+// `PROJECT_TOP_LEVEL_KEYS` in @tsir/config is the closed set a project may
+// declare, and the framework validates these files on load.
+import { configDir } from '@tsir/config';
+
+export default await configDir(`${import.meta.dir}/config`);
