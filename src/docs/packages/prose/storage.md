@@ -33,6 +33,8 @@ console.log(body === undefined ? 'missing' : 'found');
   is not set.
 - `STO_UNSUPPORTED_OPERATION`: the disk's driver cannot do what was asked. Check `disk.capabilities`
   first; every false capability is fixed at build time.
+- `STO_NOT_FOUND`: `copy`, `move` or `setVisibility` named a source key that does not exist. Call
+  `head` or `exists` first — the alternative is a silent no-op that looks like a successful copy.
 - `STO_ALREADY_EXISTS`: a write asked not to replace an existing key, and the key exists.
 - `STO_FORBIDDEN_IN_PRODUCTION`: a disk on an ephemeral driver is the default in production. The data
   would not survive the process.

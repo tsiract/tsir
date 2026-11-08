@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/broadcast`**
+
+`AuthorizeResult`, `BroadcastBootstrap`, `BroadcastBootstrapOptions`, `BroadcastMessage`, `Broadcaster`, `ChannelSubscriber`, `EchoChannel`, `EchoOptions`, `EchoPresenceChannel`, `EchoPrivateChannel`, `PresenceMember`, `PusherBroadcasterOptions`, `PusherLike`, `RedisBroadcasterOptions`, `RedisPubSubClient`, `WebSocketConnection`, `WebSocketPrincipal`, `WebSocketServerOptions`, `createBroadcastBootstrap`, `createEcho`, `createWebSocketHandler`, `memoryBroadcaster`, `pusherBroadcaster`, `redisBroadcaster`
+
 ## Error codes
 
 This package raises no error codes of its own.

@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/pennant`**
+
+`FeatureContext`, `FeatureDefinition`, `FeatureManager`, `FeatureRule`, `FeatureStore`, `PennantBootstrap`, `PennantBootstrapOptions`, `createFeatureManager`, `createPennantBootstrap`, `databaseStore`, `evaluate`, `memoryStore`, `nullStore`
+
 ## Error codes
 
 This package raises no error codes of its own.

@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/cashier`**
+
+`BillingProvider`, `CashierBootstrap`, `CashierBootstrapOptions`, `CheckoutSession`, `Coupon`, `Customer`, `Invoice`, `PaymentMethod`, `StripeProviderOptions`, `Subscription`, `TaxRate`, `WebhookEvent`, `constructWebhookEvent`, `createCashierBootstrap`, `stripeProvider`
+
 ## Error codes
 
 Owned by this package (5). Each one is described in the [error-code reference](../errors.md).

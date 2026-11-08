@@ -56,6 +56,13 @@ console.log(
 - `DPL_GRAPH_DRIFT`: the unit graph has changed since it was last accepted. Review the change, then run
   `tsir deploy:plan --write` to accept it.
 - `DPL_EVENT_UNRECOGNISED`: a Lambda invocation carried an event shape the unit does not handle.
+- `DPL_LISTENER_NOT_FOUND`: an SNS, EventBridge or Step Functions event arrived for a key no
+  `@OnSns` / `@OnEventBridge` / `@OnStepTask` listener on this unit subscribes to. It is a routing bug
+  in the template, not a bad message, so it fails instead of being silently dropped.
+- `DPL_PUBLISH_UNKNOWN`: `publish` named a topic that no `@OnSns` listener reads. The message would go
+  to a topic nobody consumes — the quietest way to lose work — so the call is refused at the call site.
+- `DPL_INVOKE_UNKNOWN`: `invokeUnit` named a unit or task that no `@OnStepTask` listener handles. The
+  invoke would land on a function with no matching task name and fail after a round trip.
 
 ## Security notes
 

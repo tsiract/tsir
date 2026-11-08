@@ -21,7 +21,7 @@ import {
 import { createCaptchaService, type CaptchaService } from './services/captcha.service.ts';
 import { AuthController, authControllerToken } from './http/auth.controller.ts';
 import { createSocializeProviders } from './services/socialize.ts';
-import { mailServiceToken } from '../mail/services/mail.service.ts';
+import { mailServiceToken } from '../mail/index.ts';
 import { auditServiceToken } from '../shared/audit.ts';
 
 /** Token for the captcha service. */

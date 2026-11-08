@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/scout`**
+
+`ScoutBootstrap`, `ScoutBootstrapOptions`, `SearchDocument`, `SearchEngine`, `SearchResult`, `createScoutBootstrap`, `memoryEngine`, `postgresEngine`, `sqliteEngine`
+
 ## Error codes
 
 This package raises no error codes of its own.

@@ -14,6 +14,30 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/media`**
+
+`CloudflareAdapterOptions`, `CloudinaryAdapterOptions`, `FfmpegAdapterOptions`, `ImageKitAdapterOptions`, `MediaAdapter`, `MediaBootstrap`, `MediaBootstrapOptions`, `MediaKind`, `MediaManager`, `ProcessOptions`, `ProcessResult`, `SharpAdapterOptions`, `cloudflareAdapter`, `cloudinaryAdapter`, `createMediaBootstrap`, `createMediaManager`, `ffmpegAdapter`, `imagekitAdapter`, `sharpAdapter`
+
+**`@tsir/media/cloudflare`**
+
+`CloudflareAdapterOptions`, `cloudflareAdapter`
+
+**`@tsir/media/cloudinary`**
+
+`CloudinaryAdapterOptions`, `cloudinaryAdapter`
+
+**`@tsir/media/ffmpeg`**
+
+`FfmpegAdapterOptions`, `ffmpegAdapter`
+
+**`@tsir/media/imagekit`**
+
+`ImageKitAdapterOptions`, `imagekitAdapter`
+
+**`@tsir/media/sharp`**
+
+`SharpAdapterOptions`, `sharpAdapter`
+
 ## Error codes
 
 Owned by this package (8). Each one is described in the [error-code reference](../errors.md).

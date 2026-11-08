@@ -50,6 +50,8 @@ export { databases, runtimeBindings, MIGRATIONS_DIR } from './database.ts';
 //   · `jobs`     — standalone jobs (not derived from event listeners)
 //   · `mailers`  — `tsir mail:preview`
 export { queues, events } from './modules/system/index.ts';
+// A re-export is not a local binding, and `scheduled` below needs one to drain.
+import { queues } from './modules/system/index.ts';
 export { mailers } from './modules/mail/index.ts';
 
 // Standalone jobs — ones not derived from event listeners. The queue worker
@@ -60,6 +62,60 @@ export const jobs = [SendWelcomeEmailJob] as const;
 // Seeders — `tsir db:seed` runs these in `order` order.
 import { RolesAndPermissionsSeeder } from './modules/rbac/seeders/roles-and-permissions.seeder.ts';
 export const seeders = [RolesAndPermissionsSeeder] as const;
+
+// ── Scheduled work ────────────────────────────────────────────────────────────
+//
+// `config/queue.ts` declares a `database` connection, and the deploy graph turns every
+// connection into a unit: `queue:database`, triggered by a one-minute cron (`QUEUE-17`,
+// `CAP-004`). A cron-triggered unit is only deployable if its entry exports `scheduled`,
+// so this is the export that makes the declaration true rather than inert.
+//
+// The core is one line — `drainOnce()` reserves a bounded batch and returns what happened.
+// That is deliberately *not* a poll loop: a platform cron has a hard wall-clock budget, and a
+// `start()` loop inside it would be killed mid-lease. `batchSize` bounds the work per tick,
+// which is the "bounded batch" the capability table promises for Workers and Lambda.
+const DRAIN_BATCH = 10;
+
+// `config/queue.ts` is always present in this app, but the type is honest about the general case
+// (`@tsir/events` builds no registry when no `queue` block was supplied), so assert it the same way
+// `consoleLogger` is asserted above rather than reaching through a non-null assertion at the call
+// site — a cron that throws on its first tick is worse than one that refuses to load.
+if (queues === undefined) {
+  throw new Error('queues is required — config/queue.ts must declare a connection to drain');
+}
+const queueRegistry: NonNullable<typeof queues> = queues;
+
+/**
+ * Both platform shapes accept this signature, so one export serves Workers and Lambda.
+ *
+ * Workers: `scheduled(controller, env)` with `{ scheduledTime, cron }`.
+ * Lambda:  `scheduled(event, context)` with `{ source, detail, time, signal }`.
+ * The first argument is only read for a fire time (or, failing that, "now"), so the two
+ * shapes collapse to one parameter object — no per-target entry file, no duplicated handler.
+ *
+ * `env` is copied into `runtimeBindings` exactly as the HTTP handler does, because the
+ * `database` driver needs the D1 binding to reach the `queue_jobs` table.
+ */
+export const scheduled = async (
+  event: { readonly scheduledTime?: number; readonly time?: string } = {},
+  env?: Record<string, unknown>,
+): Promise<void> => {
+  if (env !== undefined) Object.assign(runtimeBindings, env);
+
+  const at =
+    event.scheduledTime ?? (event.time === undefined ? Date.now() : Date.parse(event.time));
+
+  const results = await queueRegistry.worker('database', { batchSize: DRAIN_BATCH }).drainOnce();
+
+  const counts = { completed: 0, retried: 0, dead: 0 };
+  for (const result of results) counts[result.outcome] += 1;
+
+  // Silence on an idle tick: a cron fires every minute, and a log line per empty tick is
+  // 1 440 lines a day that say nothing. Failures are the news, so they are what gets logged.
+  if (counts.dead > 0 || counts.retried > 0) {
+    log.warn('queue.drain', { at, drained: results.length, ...counts });
+  }
+};
 
 // ── Modules (route tables + providers) ────────────────────────────────────────
 import { createAuthModule } from './modules/auth/index.ts';
@@ -364,7 +420,7 @@ export const handler = async (
           ...(connectingIp !== null ? { ip: connectingIp } : {}),
           ...(userAgent !== null ? { userAgent } : {}),
         })
-        .catch((err) => log.error('request-log.persist_failed', err));
+        .catch((err: unknown) => log.error('request-log.persist_failed', err));
 
       return innerResponse;
     });

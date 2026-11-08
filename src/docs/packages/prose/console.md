@@ -23,6 +23,9 @@ console.log(await runCli(['hello:world']));
 
 - `CLI_WSDL_INVALID`: the WSDL file given to the SOAP client generator is invalid. The message gives the
   reason. The generator refuses rather than writing a client that cannot work.
+- `CLI_STUB_MISSING_VAR`: a stub template references a `{{placeholder}}` that the generator did not
+  pass a value for. This is an internal inconsistency in the stub, not a user error — the hint names
+  `renderStub()`, because the caller is the generator author.
 - A command name that does not match the naming rule (lowercase words joined by `:` or `-`) is refused
   when it is defined, and the error is a usage error, so the CLI prints the usage and exits.
 - An unknown command name is a usage error, which exits with code 2.

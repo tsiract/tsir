@@ -250,6 +250,7 @@
     "STO_FORBIDDEN_IN_PRODUCTION": "storage",
     "STO_INVALID_KEY": "storage",
     "STO_NO_DISKS": "storage",
+    "STO_NOT_FOUND": "storage",
     "STO_REQUEST_FAILED": "storage",
     "STO_SIGNING_FAILED": "storage",
     "STO_UNKNOWN_DEFAULT": "storage",

@@ -37,20 +37,20 @@ for the README badge, so this map and the badge cannot disagree.
 
 ### 2.1 Where Phase 8 actually is (re-derived 2026-11-08)
 
-Phase 8 is the phase this repository is *in*, and it collects four independent work streams that do
+Phase 8 is the phase this repository is _in_, and it collects four independent work streams that do
 not share a ledger. This is the authoritative map from stream to ledger to state:
 
-| Stream                                | Ledger                                                                        | State                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Stream                                                | Ledger                                                                                                                                                                 | State                                                                                            |
+| ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Production readiness (bench, security, docs, release) | [`12-security.md`](../tasks/12-security.md), [`10-testing.md`](../tasks/10-testing.md), [`09-frontpage.md`](../tasks/09-frontpage.md), [`08-dx.md`](../tasks/08-dx.md) | Partial — `SEC-006`/`SEC-007`/`SEC-015`/`SEC-017`/`SEC-018` open; docs and release mostly landed |
-| Capability completeness (Phase 7 leftovers) | [`07-capabilities.md`](../tasks/07-capabilities.md) + per-module files        | Closed except `TEL-*` and the Phase-7 modules' own open rows          |
-| Feature parity (originally Phase 10)  | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                       | Active — 177/255 verified, under construction rather than planning-only |
-| **Infrastructure hardening**           | [`16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md)   | **Not started — gates Phase 8** (`P0` = `INF-001`–`INF-005`)          |
+| Capability completeness (Phase 7 leftovers)           | [`07-capabilities.md`](../tasks/07-capabilities.md) + per-module files                                                                                                 | Closed except `TEL-*` and the Phase-7 modules' own open rows                                     |
+| Feature parity (originally Phase 10)                  | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                                                                                                                | Active — 177/255 verified, under construction rather than planning-only                          |
+| **Infrastructure hardening**                          | [`16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md)                                                                                            | **Not started — gates Phase 8** (`P0` = `INF-001`–`INF-005`)                                     |
 
 Two consequences worth stating plainly, because the phase map above does not show them:
 
 1. **Phase 9 (Laravel decoupling) and Phase 10 (feature parity) are no longer strictly "after Phase 8".**
-   Feature parity is being executed *inside* Phase 8 (its ledger has `[x]` rows dated 2026-11-07/08),
+   Feature parity is being executed _inside_ Phase 8 (its ledger has `[x]` rows dated 2026-11-07/08),
    while decoupling remains genuinely gated. The map keeps its ordering; this section records the
    deviation rather than pretending the ledger agrees with it.
 2. **`INF-*` is the gate, not a side quest.** A "production readiness" phase that closes with a

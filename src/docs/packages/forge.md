@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/forge`**
+
+`DatabaseEngine`, `DatabaseSpec`, `DeployRecipe`, `DeployStep`, `ForgeBootstrap`, `ForgeBootstrapOptions`, `Server`, `ServerProvider`, `SiteConfig`, `SshProviderOptions`, `SslSpec`, `createDatabase`, `createForgeBootstrap`, `createSite`, `deleteDatabase`, `deleteSite`, `deploy`, `localProvider`, `obtainSslCertificate`, `revokeSslCertificate`, `sshProvider`
+
 ## Error codes
 
 Owned by this package (1). Each one is described in the [error-code reference](../errors.md).

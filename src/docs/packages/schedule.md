@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/schedule`**
 
-`CRON_FIELDS`, `CreateSchedulerOptions`, `CronSpec`, `DatabaseLockOptions`, `DefineTaskInput`, `LockCapabilities`, `LockHandle`, `LockProvider`, `LockSql`, `LockSqlResult`, `LockSqlStatement`, `ParseCronOptions`, `RunStatus`, `ScheduleErrorCode`, `Scheduler`, `TASK_DEFAULTS`, `TaskContext`, `TaskDefinition`, `TaskOutcome`, `TaskRegistry`, `TaskStatus`, `createScheduler`, `createTaskRegistry`, `databaseLock`, `defineTask`, `isValidCron`, `matchesCron`, `memoryLock`, `nextRunAt`, `nextRuns`, `parseCron`, `scheduleLockDdl`, `toUtcCron`
+`CRON_FIELDS`, `CreateSchedulerOptions`, `CronSpec`, `DatabaseLockOptions`, `DefineTaskInput`, `LockCapabilities`, `LockHandle`, `LockProvider`, `LockSql`, `LockSqlResult`, `LockSqlStatement`, `ParseCronOptions`, `RunStatus`, `ScheduleBootstrap`, `ScheduleBootstrapOptions`, `ScheduleErrorCode`, `Scheduler`, `TASK_DEFAULTS`, `TaskContext`, `TaskDefinition`, `TaskHooks`, `TaskOutcome`, `TaskRegistry`, `TaskStatus`, `createScheduleBootstrap`, `createScheduler`, `createTaskRegistry`, `databaseLock`, `defineTask`, `isValidCron`, `matchesCron`, `memoryLock`, `nextRunAt`, `nextRuns`, `parseCron`, `scheduleLockDdl`, `timezoneOffsetAt`, `toUtcCron`
 
 **`@tsir/schedule/conformance`**
 

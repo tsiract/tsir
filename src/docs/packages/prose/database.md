@@ -25,6 +25,15 @@ console.log(result.rows);
 
 ## Failure modes
 
+- `DB_D1_NO_BINDING`: a `d1` connection has no `binding` in `config/database.ts`. D1 is reached through
+  a Worker binding, never a connection string, so the binding name is required even though the rest of
+  the entry looks complete.
+- `DB_POSTGRES_BOOTSTRAP_UNWIRED`: `bootstrap` was asked to wire PostgreSQL but no `postgres()` client
+  factory was supplied. Tsir does not pick a Postgres client for you (ADR-0009), so the application
+  supplies one; the error names the missing factory rather than failing on the first query.
+- `DB_TX_STATEMENT_UNSUPPORTED`: `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` reached a D1 connection. D1 has
+  no interactive transactions; use `batch([...])` for atomic multi-statement writes (ADR-0016).
+
 - `DB_UNKNOWN_CONNECTION`: a connection name was used that is not declared. The message lists the
   declared connections.
 - `DB_UNKNOWN_DEFAULT`: the default names a connection that is not declared.

@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/nightwatch`**
+
+`BrowserBackend`, `NightwatchBootstrap`, `NightwatchBootstrapOptions`, `Page`, `createNightwatchBootstrap`, `inMemoryBackend`, `playwrightBackend`
+
 ## Error codes
 
 This package raises no error codes of its own.

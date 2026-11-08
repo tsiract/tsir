@@ -14,6 +14,18 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/socialize`**
+
+`GitHubProviderConfig`, `GoogleProviderConfig`, `ProviderConfig`, `SocialUser`, `Socialize`, `SocializeBootstrap`, `SocializeBootstrapOptions`, `SocializeConfig`, `SocializeProvider`, `StateStore`, `TokenResponse`, `createSocializeBootstrap`, `generateState`, `githubProvider`, `googleProvider`, `socialize`, `verifyState`
+
+**`@tsir/socialize/github`**
+
+`GitHubProviderConfig`, `githubProvider`
+
+**`@tsir/socialize/google`**
+
+`GoogleProviderConfig`, `googleProvider`
+
 ## Error codes
 
 Owned by this package (5). Each one is described in the [error-code reference](../errors.md).

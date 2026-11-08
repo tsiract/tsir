@@ -13,11 +13,10 @@
       "kind": "http",
       "private": false,
       "modules": [
-        "auth",
         "i18n",
-        "mail",
         "rbac",
         "setup",
+        "system",
         "users"
       ],
       "requires": [],
@@ -25,43 +24,45 @@
         {
           "kind": "http",
           "detail": [
-            "DELETE /api/email-templates/:name",
             "DELETE /api/groups/:id",
             "DELETE /api/i18n/keys/:id",
             "DELETE /api/permissions/:id",
             "DELETE /api/roles/:id",
             "DELETE /api/users/:id",
-            "GET /api/auth/captcha",
-            "GET /api/auth/me",
             "GET /api/auth/setup",
-            "GET /api/email-templates",
-            "GET /api/email-templates/:name",
+            "GET /api/features",
             "GET /api/groups",
             "GET /api/groups/:id",
             "GET /api/i18n/dictionary",
             "GET /api/i18n/keys",
             "GET /api/i18n/keys/:id/translations",
             "GET /api/permissions",
+            "GET /api/queues/counts",
+            "GET /api/queues/jobs",
+            "GET /api/queues/jobs/:id",
+            "GET /api/requests",
+            "GET /api/requests/:id",
             "GET /api/roles",
             "GET /api/roles/:id",
+            "GET /api/search",
             "GET /api/users",
             "GET /api/users/:id",
+            "GET /api/users/:id/permissions",
             "GET /api/users/:id/roles",
-            "PATCH /api/email-templates/:name",
+            "GET /system/health",
+            "GET /system/metrics",
+            "GET /system/ready",
+            "PATCH /api/features/:name",
             "PATCH /api/groups/:id",
             "PATCH /api/i18n/keys/:id/translations/:locale",
             "PATCH /api/roles/:id",
             "PATCH /api/users/:id",
-            "POST /api/auth/forgot-password",
-            "POST /api/auth/login",
-            "POST /api/auth/logout",
-            "POST /api/auth/reset-password",
             "POST /api/auth/setup",
-            "POST /api/email-templates",
             "POST /api/groups",
             "POST /api/i18n/keys",
             "POST /api/i18n/seed",
             "POST /api/permissions",
+            "POST /api/queues/jobs/:id/retry",
             "POST /api/roles",
             "POST /api/users"
           ]
@@ -78,10 +79,6 @@
         {
           "source": "override",
           "from": "deploy.units.http"
-        },
-        {
-          "source": "routes",
-          "from": "DELETE /api/email-templates/:name"
         },
         {
           "source": "routes",
@@ -105,23 +102,11 @@
         },
         {
           "source": "routes",
-          "from": "GET /api/auth/captcha"
-        },
-        {
-          "source": "routes",
-          "from": "GET /api/auth/me"
-        },
-        {
-          "source": "routes",
           "from": "GET /api/auth/setup"
         },
         {
           "source": "routes",
-          "from": "GET /api/email-templates"
-        },
-        {
-          "source": "routes",
-          "from": "GET /api/email-templates/:name"
+          "from": "GET /api/features"
         },
         {
           "source": "routes",
@@ -149,11 +134,35 @@
         },
         {
           "source": "routes",
+          "from": "GET /api/queues/counts"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/queues/jobs"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/queues/jobs/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/requests"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/requests/:id"
+        },
+        {
+          "source": "routes",
           "from": "GET /api/roles"
         },
         {
           "source": "routes",
           "from": "GET /api/roles/:id"
+        },
+        {
+          "source": "routes",
+          "from": "GET /api/search"
         },
         {
           "source": "routes",
@@ -165,11 +174,27 @@
         },
         {
           "source": "routes",
+          "from": "GET /api/users/:id/permissions"
+        },
+        {
+          "source": "routes",
           "from": "GET /api/users/:id/roles"
         },
         {
           "source": "routes",
-          "from": "PATCH /api/email-templates/:name"
+          "from": "GET /system/health"
+        },
+        {
+          "source": "routes",
+          "from": "GET /system/metrics"
+        },
+        {
+          "source": "routes",
+          "from": "GET /system/ready"
+        },
+        {
+          "source": "routes",
+          "from": "PATCH /api/features/:name"
         },
         {
           "source": "routes",
@@ -189,27 +214,7 @@
         },
         {
           "source": "routes",
-          "from": "POST /api/auth/forgot-password"
-        },
-        {
-          "source": "routes",
-          "from": "POST /api/auth/login"
-        },
-        {
-          "source": "routes",
-          "from": "POST /api/auth/logout"
-        },
-        {
-          "source": "routes",
-          "from": "POST /api/auth/reset-password"
-        },
-        {
-          "source": "routes",
           "from": "POST /api/auth/setup"
-        },
-        {
-          "source": "routes",
-          "from": "POST /api/email-templates"
         },
         {
           "source": "routes",
@@ -229,11 +234,37 @@
         },
         {
           "source": "routes",
+          "from": "POST /api/queues/jobs/:id/retry"
+        },
+        {
+          "source": "routes",
           "from": "POST /api/roles"
         },
         {
           "source": "routes",
           "from": "POST /api/users"
+        }
+      ]
+    },
+    {
+      "name": "queue:database",
+      "kind": "queue",
+      "private": true,
+      "modules": [],
+      "requires": [],
+      "triggers": [
+        {
+          "kind": "cron",
+          "detail": [
+            "* * * * *"
+          ]
+        }
+      ],
+      "bindings": [],
+      "reasons": [
+        {
+          "source": "queues",
+          "from": "database (database)"
         }
       ]
     },

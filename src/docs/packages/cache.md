@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/cache`**
 
-`BuildCachesOptions`, `CACHE_DRIVERS`, `Cache`, `CacheBackend`, `CacheBindings`, `CacheCapabilities`, `CacheDriver`, `CacheDriverName`, `CacheEntryOptions`, `CacheErrorCode`, `Caches`, `CachesOptions`, `Codec`, `ConfiguredStore`, `ConformanceCase`, `ConformanceOptions`, `JsonEnvelope`, `StoreDefinition`, `StoreOptions`, `StoreRequirement`, `StoreValue`, `StoredValue`, `assertRequirements`, `cacheTableDdl`, `cachesFromConfig`, `checkRequirements`, `conformanceCases`, `createCache`, `createCaches`, `defineStore`, `driverFor`, `guardCodec`, `json`, `text`
+`BuildCachesOptions`, `CACHE_DRIVERS`, `Cache`, `CacheBackend`, `CacheBindings`, `CacheBootstrap`, `CacheBootstrapOptions`, `CacheCapabilities`, `CacheDriver`, `CacheDriverName`, `CacheEntryOptions`, `CacheErrorCode`, `CacheLock`, `Caches`, `CachesOptions`, `Codec`, `ConfiguredStore`, `ConformanceCase`, `ConformanceOptions`, `JsonEnvelope`, `StoreDefinition`, `StoreOptions`, `StoreRequirement`, `StoreValue`, `StoredValue`, `assertRequirements`, `cacheTableDdl`, `cachesFromConfig`, `checkRequirements`, `conformanceCases`, `createCache`, `createCacheBootstrap`, `createCaches`, `defineStore`, `driverFor`, `guardCodec`, `json`, `text`
 
 **`@tsir/cache/cloudflare-kv`**
 

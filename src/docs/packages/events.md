@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/events`**
 
-`BatchStatement`, `CreateEventsOptions`, `CreatePublisherOptions`, `DeliveryEnvelope`, `DispatchContextOptions`, `DispatchReport`, `EventContext`, `EventDefinition`, `EventMode`, `Events`, `EventsErrorCode`, `EventsQueue`, `ListenerDefinition`, `Outbox`, `OutboxEntry`, `OutboxOptions`, `Publisher`, `createEvents`, `createOutbox`, `createPublisher`, `defineEvent`, `defineListener`, `deliveryJobName`, `deliveryMessage`, `modeOf`
+`BatchStatement`, `CreateEventsOptions`, `CreatePublisherOptions`, `DeliveryEnvelope`, `DispatchContextOptions`, `DispatchReport`, `EventContext`, `EventDefinition`, `EventMode`, `Events`, `EventsBootstrap`, `EventsBootstrapOptions`, `EventsErrorCode`, `EventsQueue`, `ListenerDefinition`, `Outbox`, `OutboxEntry`, `OutboxOptions`, `Publisher`, `createEvents`, `createEventsBootstrap`, `createOutbox`, `createPublisher`, `defineEvent`, `defineListener`, `deliveryJobName`, `deliveryMessage`, `modeOf`
 
 ## Error codes
 

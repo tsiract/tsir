@@ -14,6 +14,10 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/telemetry`**
+
+`JobCounts`, `JobState`, `QueueJobRow`, `RequestLog`, `RequestLogEntry`, `TelemetryBootstrap`, `TelemetryBootstrapOptions`, `createQueueMonitor`, `createRequestLogger`, `createTelemetryBootstrap`, `queueDead`, `queueJobs`, `requestLogs`
+
 ## Error codes
 
 This package raises no error codes of its own.

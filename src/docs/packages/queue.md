@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/queue`**
 
-`BackoffOptions`, `BuildQueuesOptions`, `ConfiguredConnection`, `CreateQueueOptions`, `DispatchOptions`, `DispatchResult`, `JOB_DEFAULTS`, `JobContext`, `JobDefinition`, `JobLike`, `JobMessage`, `JobOutcome`, `JobRegistry`, `JobResult`, `QUEUE_DRIVERS`, `Queue`, `QueueBackend`, `QueueBindings`, `QueueCapabilities`, `QueueDriver`, `QueueErrorCode`, `QueueSql`, `QueueSqlResult`, `QueueSqlStatement`, `Queues`, `RetryDelayOptions`, `SyncExecutor`, `SyncQueueOptions`, `Worker`, `WorkerOptions`, `createJobRegistry`, `createQueue`, `createQueues`, `createWorker`, `defineJob`, `describeSchedule`, `queueTableDdl`, `retryDelayMs`, `retrySchedule`
+`BackoffOptions`, `BuildQueuesOptions`, `ConfiguredConnection`, `CreateQueueOptions`, `DispatchOptions`, `DispatchResult`, `JOB_DEFAULTS`, `JobContext`, `JobDefinition`, `JobLike`, `JobMessage`, `JobOutcome`, `JobRegistry`, `JobResult`, `QUEUE_DRIVERS`, `Queue`, `QueueBackend`, `QueueBindings`, `QueueBootstrap`, `QueueBootstrapOptions`, `QueueCapabilities`, `QueueDriver`, `QueueErrorCode`, `QueueSql`, `QueueSqlResult`, `QueueSqlStatement`, `Queues`, `RetryDelayOptions`, `SyncExecutor`, `SyncQueueOptions`, `Worker`, `WorkerOptions`, `createJobRegistry`, `createQueue`, `createQueueBootstrap`, `createQueues`, `createWorker`, `defineJob`, `describeSchedule`, `queueTableDdl`, `retryDelayMs`, `retrySchedule`
 
 **`@tsir/queue/cloudflare-queues`**
 

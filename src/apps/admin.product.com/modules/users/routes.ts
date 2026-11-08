@@ -4,9 +4,9 @@ import { classProvider } from '@tsir/container';
 
 import { drizzleToken } from '../../database.ts';
 import { UsersController, usersControllerToken } from './http/users.controller.ts';
-import { authServiceToken } from '../auth/services/auth.service.ts';
+import { authServiceToken } from '../auth/index.ts';
 import { auditServiceToken } from '../shared/audit.ts';
-import { rbacServiceToken } from '../rbac/services/rbac.service.ts';
+import { rbacServiceToken } from '../rbac/index.ts';
 
 export const providers = [
   classProvider(

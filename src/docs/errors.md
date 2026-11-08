@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-279 codes across 27 packages.
+280 codes across 27 packages.
 
 ## `@tsir/auth`
 
@@ -388,6 +388,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `STO_FILESYSTEM_UNAVAILABLE`  |
 | `STO_FORBIDDEN_IN_PRODUCTION` |
 | `STO_INVALID_KEY`             |
+| `STO_NOT_FOUND`               |
 | `STO_NO_DISKS`                |
 | `STO_REQUEST_FAILED`          |
 | `STO_SIGNING_FAILED`          |

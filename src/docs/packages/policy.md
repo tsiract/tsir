@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/policy`**
 
-`AuthorizeInput`, `Decision`, `DecisionSource`, `GateDefinition`, `HttpPolicy`, `PERMISSION_PATTERN`, `PolicyAnswer`, `PolicyContext`, `PolicyErrorCode`, `PolicyMatrixRow`, `PolicyRefLike`, `PolicyRequest`, `PolicyRequestContext`, `PolicyRule`, `Principal`, `Registry`, `RegistryOptions`, `RequireInput`, `RoleDefinition`, `RoleGraph`, `ToHttpOptions`, `allow`, `allowGate`, `assertPermission`, `authorizeService`, `createRegistry`, `createRoleGraph`, `defineRole`, `deny`, `denyGate`, `isDecision`, `joinPermission`, `permissionRef`, `rolesFromData`, `splitPermission`, `toHttpPolicies`
+`AuthorizeInput`, `Decision`, `DecisionSource`, `GateDefinition`, `HttpPolicy`, `PERMISSION_PATTERN`, `PolicyAnswer`, `PolicyBootstrap`, `PolicyBootstrapOptions`, `PolicyContext`, `PolicyErrorCode`, `PolicyMatrixRow`, `PolicyRefLike`, `PolicyRequest`, `PolicyRequestContext`, `PolicyRule`, `Principal`, `Registry`, `RegistryOptions`, `RequireInput`, `RoleDefinition`, `RoleGraph`, `ToHttpOptions`, `allow`, `allowGate`, `assertPermission`, `authorizeService`, `createPolicyBootstrap`, `createRegistry`, `createRoleGraph`, `defineRole`, `deny`, `denyGate`, `isDecision`, `joinPermission`, `permissionRef`, `rolesFromData`, `splitPermission`, `toHttpPolicies`
 
 ## Error codes
 
