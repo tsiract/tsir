@@ -396,7 +396,13 @@ export async function makeMigrationCommand(
       const connection = connectionName ?? 'default';
       const defaultConnection = registry?.default ?? connection;
       folder = moduleJournalFolder(selected.dir, connection, defaultConnection);
-      const schema = resolve(project.root, schemaInput ?? join(selected.dir, '*.model.ts'));
+      // The default has to match where `make:model` actually writes. That command puts schemas in
+      // `<module>/models/<name>.model.ts`, but this glob looked only at `<module>/*.model.ts`, so
+      // `make:model order shop` followed by `make:migration create-orders shop` — the documented
+      // pair, and the order a user meets them in — failed with "no schema files found". `**` keeps
+      // the search module-local (the guard below still rejects anything outside `selected.dir`)
+      // while covering both the nested `models/` directory and a hand-placed root schema.
+      const schema = resolve(project.root, schemaInput ?? join(selected.dir, '**', '*.model.ts'));
       const relativeSchema = relative(selected.dir, schema);
       if (
         relativeSchema === '' ||
