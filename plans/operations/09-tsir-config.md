@@ -184,6 +184,24 @@ database: { default: 'app', connections: { app: { … }, reporting: { … } } },
   `default: 'app', connections: { app: { … } }` with the same values, as a real config-format migration
   (§ 5.3), not a silent rewrite at boot.
 
+> **Status (2026-11-07 audit).** The **shape** above is `[VERIFIED]` — the generator, the literal-union
+> types and `CFG_UNKNOWN_DEFAULT` all work. What does not work yet is the binding layer underneath
+> three of the entries, and a config that validates is not a config that runs:
+>
+> | Config surface                                                              | Status       | Finding                                                                                                                   |
+> | --------------------------------------------------------------------------- | ------------ | ------------------------------------------------------------------------------------------------------------------------- |
+> | `database.connections.*` with `driver: 'd1'`                                | `[VERIFIED]` | `wrangler.ts` emits `[[d1_databases]]` per connection                                                                     |
+> | `database.connections.*` with `driver: 'postgres'`                          | `[PARTIAL]`  | `createConnectionsFromConfig` throws `DB_DRIVER_UNAVAILABLE` (`INF-003`) — the config validates, the boot fails           |
+> | `database.connections.*` with `driver: 'mysql'`                             | `[PLANNED]`  | `@tsir/database/mysql` does not exist (`INF-003`)                                                                         |
+> | `queue.connections.*` on a **mixed** target set                             | `[PARTIAL]`  | `checkQueueConnections` refuses `sqs` whenever `cloudflare` is in `targets` (`INF-007`), so hybrid P3 has no legal config |
+> | Request-scoped bindings on Workers (`env.HYPERDRIVE`, per-request D1/KV/R2) | `[PARTIAL]`  | config entries are resolved once at boot, but a Worker binding belongs to a request (`INF-003`, `INF-006`)                |
+>
+> The rule for this document: **a connection entry must declare the substrate it binds to**, and the
+> substrate must name the profile ([`../architecture/17-infrastructure-philosophy.md § 13`](../architecture/17-infrastructure-philosophy.md#13-deployment-profiles))
+> it belongs to. A config that declares `sqs` beside a `cloudflare` target is describing P3, and P3 is
+> `[PROPOSED]` until `INF-007` lands. Acceptance criteria live in
+> [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md).
+
 ---
 
 ## 3. Presets

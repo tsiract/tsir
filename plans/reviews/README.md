@@ -3,10 +3,12 @@
 One file per phase gate. A review is what turns "the tests pass" into "someone looked at this
 adversarially and wrote down what they found".
 
-| Review                                                                     | Gate | Date       | Reviewer                           | Outcome                                        |
-| -------------------------------------------------------------------------- | ---- | ---------- | ---------------------------------- | ---------------------------------------------- |
-| [`2026-10-28-vault-design-review.md`](./2026-10-28-vault-design-review.md) | P4   | 2026-10-28 | the author of the code (`SEC-004`) | 9 findings — 6 fixed, 3 accepted               |
-| [`2026-10-29-capabilities-review.md`](./2026-10-29-capabilities-review.md) | P7   | 2026-10-29 | the author of the code             | 6 findings — 2 fixed, 4 accepted; 5 open risks |
+| Review                                                                                               | Gate | Date       | Reviewer                           | Outcome                                                                      |
+| ---------------------------------------------------------------------------------------------------- | ---- | ---------- | ---------------------------------- | ---------------------------------------------------------------------------- |
+| [`2026-10-28-vault-design-review.md`](./2026-10-28-vault-design-review.md)                           | P4   | 2026-10-28 | the author of the code (`SEC-004`) | 9 findings — 6 fixed, 3 accepted                                             |
+| [`2026-10-29-capabilities-review.md`](./2026-10-29-capabilities-review.md)                           | P7   | 2026-10-29 | the author of the code             | 6 findings — 2 fixed, 4 accepted; 5 open risks                               |
+| [`2026-11-07-infrastructure-agnosticism-audit.md`](./2026-11-07-infrastructure-agnosticism-audit.md) | P8   | 2026-11-07 | the author of the code             | source-code audit of 33 packages — 16 findings `INF-001`…`INF-016`, all open |
+| [`2026-11-08-admin-e2e-acceptance.md`](./2026-11-08-admin-e2e-acceptance.md)                         | P8   | 2026-11-08 | the author of the code             | 3 critical admin defects — all fixed; 8/8 e2e green                          |
 
 ## What a review has to contain
 

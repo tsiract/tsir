@@ -627,6 +627,18 @@ _requires_ the other three, and it is what stops a compromised subdomain plantin
 there rather than here: the API-key id is **hex** because base64url contains the `_` separator, and a
 hash whose algorithm cannot be read is a **coded error**, never "wrong password".
 
+> **Status (2026-11-07 audit).** The **D1** path is `[VERIFIED]`; the **Postgres** path is
+> `[PARTIAL]` for two independent reasons:
+>
+> | Defect                                                                                                                                                             | Finding   | Impact                                                                                                                                               |
+> | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | `session-database.ts` (`touch`) and `keys-database.ts` (`revoke`, `touch`) call `placeholders(1)` twice, emitting `SET col = $1 WHERE id = $1` with two parameters | `INF-001` | Rolling session expiry and API-key revocation throw on Postgres — an auth bypass risk, since a revoked key never gets its revoke statement to commit |
+> | PBKDF2 defaults to 210,000 SHA-256 iterations, ≈ 5–14 ms CPU, against a Workers Free cap of 10 ms                                                                  | `INF-013` | `Error 1102` on the Free plan under auth load; also a DoS amplifier without rate limiting                                                            |
+>
+> Both are P0/P2 respectively and both keep their public API — the fixes change emitted SQL and an
+> iteration default, not a signature. `INF-001` and `INF-013` in
+> [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md).
+
 ### 4.9 `@tsir/pulse` (observability)
 
 Logging, metrics, tracing and health — not a capability in the sense above (no driver registry, no
@@ -724,6 +736,60 @@ What `@tsir/storage` deliberately does not do: multipart uploads (one request, b
 caller's memory), retries (a retry policy belongs to whoever knows whether the write is idempotent),
 `copy`/`move` (read then write is the caller's two calls), and image processing. Each is a real
 feature; none is one a first version can fake.
+
+> **Status (2026-11-07 audit, `INF-008`).** The SigV4 signer and the `s3` driver are `[VERIFIED]`
+> against the published vectors, and the key/`local` security argument above holds. Three things
+> break parity with R2 and modern S3, all in the same driver:
+>
+> 1. **`x-amz-acl` is sent on a visibility change.** R2 rejects the header outright (HTTP 400) and an
+>    S3 bucket with `BucketOwnerEnforced` rejects it too, which means the one driver that is supposed
+>    to serve both returns 400 on both defaults.
+> 2. **Objects are buffered whole.** The driver reads the stream into one `Uint8Array` before
+>    signing, so a file larger than the isolate's 128 MB cannot be written at all on Workers — and
+>    § 6.1's "bounded by the caller's memory" is really "bounded by the runtime's memory". A
+>    presigned `PUT` that lets the client upload directly is the fix, next to streaming.
+> 3. **No native `R2Bucket` driver.** R2 is reachable only through the S3 endpoint, which is fine on
+>    Lambda and wasteful on Workers, where a binding costs no subrequest and no signature.
+>
+> The accept criteria (no `x-amz-acl` in any request, a streamed 200 MB `put` without a 200 MB
+> allocation, an `R2Bucket` driver passing the same `diskConformance` kit) are `INF-008`.
+
+### 6.2 Cross-cloud status of every capability (2026-11-07 audit)
+
+The driver tables above say what was designed. This table says what runs, on which substrates, after
+reading the source of all 33 packages — the labels are the six from
+[`../architecture/17-infrastructure-philosophy.md § 16`](../architecture/17-infrastructure-philosophy.md#16-capability-status-register),
+and the findings are [`INF-001`…`INF-018`](../reviews/2026-11-07-infrastructure-agnosticism-audit.md).
+
+| Capability         | Cloudflare (P1)                                                          | AWS (P2)                                             | Portable host (P4)                       | Status                                              |
+| ------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------- | ---------------------------------------- | --------------------------------------------------- |
+| `cache`            | KV `[VERIFIED]`                                                          | no driver; app-supplied Redis                        | `memory`, `local` `[VERIFIED]`           | `[PARTIAL]` — Redis is `INF-017`                    |
+| `queue`            | CF Queues `[PARTIAL]` (`INF-004`)                                        | SQS `[PARTIAL]` (`INF-007`)                          | database `[VERIFIED]`; Redis `[PLANNED]` | `[PARTIAL]` — batch ack loses messages              |
+| `events`           | outbox on D1 `[VERIFIED]`                                                | outbox on RDS `[VERIFIED]`                           | outbox on any dialect                    | `[VERIFIED]`                                        |
+| `schedule`         | Cron Triggers `[VERIFIED]`                                               | EventBridge `[VERIFIED]`                             | in-process ticker `[VERIFIED]`           | `[VERIFIED]`                                        |
+| `mail`             | HTTP transports `[VERIFIED]`                                             | SES/SMTP `[VERIFIED]`                                | SMTP `[VERIFIED]`                        | `[VERIFIED]`                                        |
+| `notify`           | channels + signed webhooks `[VERIFIED]`                                  | same                                                 | same                                     | `[VERIFIED]`                                        |
+| `policy`           | provider-independent `[VERIFIED]`                                        | same                                                 | same                                     | `[VERIFIED]`                                        |
+| `auth`             | D1 `[VERIFIED]`; PBKDF2 `[LIMITATION]` (`INF-013`)                       | Postgres `[PARTIAL]`                                 | Postgres `[VERIFIED]`                    | `[PARTIAL]` — `$1`/`$1` bug (`INF-001`)             |
+| `pulse`            | provider-independent `[VERIFIED]`                                        | same                                                 | same                                     | `[VERIFIED]`                                        |
+| `storage`          | R2 by endpoint `[PARTIAL]` (`INF-008`)                                   | S3 `[PARTIAL]` (`INF-008`)                           | `local` `[VERIFIED]`; MinIO `[PARTIAL]`  | `[PARTIAL]` — ACL headers, no `R2Bucket` driver     |
+| `broadcast`        | in-memory only `[PARTIAL]`                                               | in-memory only `[PARTIAL]`                           | app-supplied Redis `[PARTIAL]`           | `[PARTIAL]` — leak + no DO/APIGW bridge (`INF-009`) |
+| `pennant`          | `databaseStore` on D1 `[PARTIAL]`                                        | `?` placeholders fail on PG                          | `memory` `[VERIFIED]`                    | `[PARTIAL]` — dialect leakage (`INF-011`)           |
+| `media`            | cloud adapters `[VERIFIED]`; `sharp`/`ffmpeg` `[LIMITATION]` (`INF-015`) | `sharp`/`ffmpeg` `[VERIFIED]` on Lambda with a layer | same                                     | `[PARTIAL]` — no capability guard                   |
+| `telemetry`        | **broken** — `sqliteTable` + `transaction()` on D1 (`INF-010`)           | `sqliteTable` refuses PG                             | SQLite only                              | `[PARTIAL]`                                         |
+| `link/ws`          | DO-shaped rooms `[PARTIAL]`                                              | no APIGW WS emitter `[PLANNED]`                      | dedicated `ws` server `[VERIFIED]`       | `[PARTIAL]` — `INF-005`, `INF-009`                  |
+| `link/rest`,`soap` | `fetch` `[VERIFIED]`                                                     | `fetch` `[VERIFIED]`                                 | `fetch` `[VERIFIED]`                     | `[VERIFIED]`                                        |
+| `link/grpc`        | `[LIMITATION]` — `node:http2` (`INF-015`)                                | `[VERIFIED]` on Lambda                               | `[VERIFIED]`                             | `[LIMITATION]`                                      |
+
+Two rules follow from this table and are not negotiable in review:
+
+1. **A `[PARTIAL]` row is not a supported driver.** The package README, the `tsir doctor` output and
+   the module docs must say the same label; a table here claiming `[VERIFIED]` for a row that is
+   `[PARTIAL]` is a bug in the document, not a rounding difference.
+2. **The lock-in column belongs to the substrate, not the port.**
+   [`17-infrastructure-philosophy.md § 6.4`](../architecture/17-infrastructure-philosophy.md#64-lock-in-and-migration-difficulty)
+   scores each primitive; swapping `queue` from CF Queues to SQS moves the connection, never the
+   messages (§ 12.4 of the same document).
 
 ---
 

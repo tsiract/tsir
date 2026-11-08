@@ -1,0 +1,115 @@
+# Tasks — Infrastructure hardening (Phase 8)
+
+> The work that turns the portability claims in
+> [`17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md) into
+> something a test can check. Every task below is `[ ]` — none of this is implemented. Closing a
+> task means its acceptance criteria are met **and** the status label in § 16 of the philosophy
+> document moves, in the same PR.
+>
+> **Plan:** [`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md) ·
+> **Evidence:** [`../reviews/2026-11-07-infrastructure-agnosticism-audit.md`](../reviews/2026-11-07-infrastructure-agnosticism-audit.md) ·
+> **Decision:** [ADR-0030](../decisions/0030-hybrid-cloud-and-workload-substrates.md)
+
+**Status: none started.** `INF-001`…`INF-018` were raised by the 2026-11-07 audit. The ids are
+deliberately a new `INF` prefix rather than an extension of `DPL`, `DB` or `CAP`, because each one
+crosses at least two packages and would otherwise be split across four ledgers with no single
+owner.
+
+## Rules for this file
+
+1. **Backward compatible.** No task may break an application that works today. Where a behaviour is
+   wrong (for example `INF-001`), the fix keeps the same public API and changes the emitted SQL.
+2. **No new runtime dependency** without an ADR (ADR-0012). `INF-007`'s SigV4 client is
+   specifically the alternative _to_ adding `@aws-sdk/*` to a Workers bundle.
+3. **No removal of a Cloudflare integration.** `INF-002` moves a static import to a subpath; it
+   does not delete the Bun/SQLite path.
+4. **Every fix ships with the test that would have caught it.** "It works now" is not acceptance
+   criteria; "this test fails on `main` and passes here" is.
+5. **Labels move in the same PR.** If `INF-004` lands, § 16's `CF Queues driver` row goes from
+   `[PARTIAL]` to `[VERIFIED]`.
+
+---
+
+## P0 — silent data loss, broken dialect, invalid template
+
+| ID        | Task                                                                                   | Status | Depends   | Acceptance criteria                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| --------- | -------------------------------------------------------------------------------------- | ------ | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INF-001` | Fix the Postgres `$1`/`$1` placeholder bug in `@tsir/auth` session and key stores      | `[ ]`  | —         | A PG integration test calls `sessions.touch()` and asserts `last_seen_at` advanced (fails today with a parameter-count error). Same for `apiKeys.revoke()` and `apiKeys.touch()`: a revoked key returns 401 on the next request. SQLite output is byte-identical to today (golden assertion), so D1 behaviour cannot regress. `placeholders()` is called once per statement; a lint/test asserts no `UPDATE … SET x = $1 WHERE id = $1` string in the package.                                                                                                                                                |
+| `INF-002` | Remove `bun:sqlite`, `node:fs` and `node:path` from the `@tsir/database` barrel        | `[ ]`  | —         | `import { … } from '@tsir/database'` in a Workers-targeted bundle contains no `bun:` or `node:` specifier — asserted by `make verify-dist`'s Workers probe. The SQLite-remote bootstrap moves to a `@tsir/database/bun` subpath (ADR-0022 pattern) with its own README and test. No module-level mutable `runtimeBindings`; the binding carrier is an argument. An existing app importing the old symbol either keeps working through a deprecation shim or the change is documented in the package `CHANGELOG`.                                                                                              |
+| `INF-003` | Make `createConnectionsFromConfig` work for Postgres, and scope Hyperdrive per request | `[ ]`  | `INF-002` | `database: { default: 'primary', stores: { primary: { driver: 'postgres', … } } }` in `tsir.js` boots and answers a query (PG integration suite). No `DB_DRIVER_UNAVAILABLE` for a shipped driver. A Workers-shaped test issues two simulated requests with two different `env.HYPERDRIVE.connectionString` values and observes two distinct clients; a connection is never reused across requests. Drivers are built lazily for request-scoped substrates and eagerly only for P4. `@tsir/database/mysql` remains `[PLANNED]` and its absence is an explicit, named error rather than a missing module path. |
+| `INF-004` | Stop the Cloudflare Queues consumer from dropping unprocessed batch messages           | `[ ]`  | —         | Given a 10-message batch where 3 handlers throw, the driver acks exactly 7 and retries exactly 3 (per-message `ack`/`retry`, never whole-batch). A `batchSize > 1` drain processes every message in `batch.messages`; a test with `batchSize: 10` asserts 10 handler invocations — it fails on `main` because `drainOnce()` defaults to 1. A failing handler does not re-run a succeeded one (idempotency is preserved by not double-acking). The `@tsir/queue` conformance kit gains a "partial batch" case that every push-driver must pass.                                                                |
+| `INF-005` | Emit `@OnSns`, `@OnEventBridge` and `@OnStepTask` units; fix the SAM template          | `[ ]`  | —         | `deploy:build` on an app with all three decorators emits a Lambda bundle per unit and the SAM template references each handler; `adapterTriggers()` no longer drops `sns`/`eventbridge`/`manual`. `sam validate --lint` passes (`C5:` in [`07-deploy-cloud-checks.md`](./07-deploy-cloud-checks.md)). The `EventPattern` YAML is an object, not a string — asserted by a snapshot test. A WebSocket unit is **not** attached to `AWS::Serverless::HttpApi`; it fails with a named error until the APIGW WS emitter exists (`INF-009`).                                                                        |
+
+## P1 — correctness on the edge, hybrid unblocked
+
+| ID        | Task                                                                                       | Status | Depends   | Acceptance criteria                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
+| --------- | ------------------------------------------------------------------------------------------ | ------ | --------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INF-006` | Add `waitUntil` and a request-scoped `env` carrier to `RequestContext`                     | `[ ]`  | —         | `ctx.waitUntil(promise)` exists on the Workers adapter and is a `[LIMITATION]`-documented no-op-with-warning on Bun. `ctx.env` carries bindings for the current request only; a test proves request A cannot read request B's binding. A test asserts an unawaited `ctx.waitUntil` promise is registered with the runtime (Workers-shaped adapter) rather than dropped. `admin.product.com` uses it for `requestLogger.record` (`INF-016`). Type-level test: `waitUntil` is required in the context type, so app code cannot silently fall back to `void`.                                         |
+| `INF-007` | Unblock the Cloudflare → SQS hybrid and remove the AWS SDK from runtime barrels            | `[ ]`  | —         | `checkQueueConnections` allows `sqs` when `cloudflare` is in `targets`; it validates a queue connection against its own driver only. New negative test: a queue connection with no matching trigger still fails with `DPL_QUEUE_TRIGGER_MISSING`. `sqsDriver` gains a WebCrypto SigV4 `fetch` client (`~120` lines, same shape as `@tsir/storage`); the conformance kit passes against LocalStack, and a bundle proof asserts no `@aws-sdk/*` in a Workers target. `@tsir/deploy/internal.ts` keeps the SDK only on the Lambda-side path, behind a subpath.                                        |
+| `INF-008` | Storage: no `x-amz-acl` on write, stream instead of buffer, add a native `R2Bucket` driver | `[ ]`  | —         | A conformance run against R2 and against an S3 bucket with `BucketOwnerEnforced` succeeds (today both return 400). Visibility is expressed with a bucket policy or an object tag, not a per-object ACL; a test asserts the request carries no `x-amz-acl` header. A 200 MB upload does not allocate 200 MB — asserted by a peak-RSS assertion around a streamed `put`. `r2Driver` accepts the `R2Bucket` binding and passes the same conformance kit under miniflare; the `s3` endpoint path keeps working unchanged (no breaking change).                                                         |
+| `INF-009` | One real-time contract with two transports; fix the subscription leak                      | `[ ]`  | `INF-006` | `@tsir/broadcast`'s WebSocket transport retains the disposer from `broadcaster.subscribe()` and calls it on `close`, `error` and lease expiry; a test opens and closes 100 sockets and asserts the listener count returns to zero (fails on `main`). Presence is documented as single-instance-only and refuses to be constructed in a multi-isolate profile, or is backed by the shared store. One shared room-contract test suite runs against the DO-shaped transport and the in-memory transport. A hub or broker hop is required for cross-room fan-out and is documented, not implied.       |
+| `INF-010` | Make `@tsir/telemetry` dialect-neutral                                                     | `[ ]`  | `INF-003` | `requestLogger` and `queueMonitor` accept a dialect (or a table factory) instead of hardcoding `sqliteTable`; the same code runs on D1, SQLite and Postgres. `retryJob()` no longer calls `drizzle.transaction()` on a D1 connection — it uses `batch()` (ADR-0016) — and a D1-shaped test exercises it. A PG integration test writes and reads a request log row. Managed queues are counted, not only the database driver.                                                                                                                                                                       |
+| `INF-011` | Make `@tsir/pennant` dialect-neutral                                                       | `[ ]`  | `INF-003` | `databaseStore` takes its placeholder style from the connection's dialect; a PG integration test toggles a flag and reads it back (today the hardcoded `?` fails). SQLite output is unchanged (golden assertion). The dialect is passed, never guessed from the driver name.                                                                                                                                                                                                                                                                                                                       |
+| `INF-012` | Correct target detection and introduce the long-running worker unit (S4)                   | `[ ]`  | `INF-002` | `detectTarget()` returns a Node target for a generic Node.js host, never `'lambda'`; a table-driven test covers Bun, workerd, Lambda, generic Node and container. A `worker` deploy unit kind exists, is expressible in `tsir.js`, and appears in the committed deploy graph (ADR-0026). `deploy:build` emits an entry module that starts a `@tsir/queue` drain loop on Bun/Node; a test boots it, pushes 3 messages, drains them and shuts down within `shutdownTimeoutMs`. A `worker` unit on a target that cannot host it fails with a named error. `Q60` is answered by whichever shape ships. |
+
+## P2 — Free-tier safety, honest constants, edge-native reference app
+
+| ID        | Task                                                                     | Status | Depends              | Acceptance criteria                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| --------- | ------------------------------------------------------------------------ | ------ | -------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INF-013` | PBKDF2 iteration policy per substrate, plus a documented auth rate limit | `[ ]`  | —                    | The iteration count is a config value with a documented default per profile; P1 documents the Free-plan CPU measurement behind its choice and refuses (or warns with a named error) a count that exceeds the measured 10 ms budget. A committed micro-benchmark records CPU-ms for 100 k / 210 k / 600 k iterations, and `make bench` fails on drift. The auth route ships a documented rate-limit recipe so a 210 k hash cannot be used as a DoS amplifier. Argon2id via `@tsir/auth/bun` is unaffected and asserted unchanged. |
+| `INF-014` | Update stale platform constants and the documentation they contradict    | `[ ]`  | —                    | `CLOUDFLARE_QUEUES_MAX_DELAY_SECONDS` reflects the current 24 h limit (today 12 h), with a test citing the platform doc. The Cloudflare bundle budget is not the stale 1 MiB figure; the number and its source are recorded in the code comment. `08-deploy.md`'s "D1 is not a supported database target" claim is corrected — `wrangler.ts` **does** emit `[[d1_databases]]`. A "platform constants" test asserts each constant is within the documented range, so the next drift fails CI instead of a reader noticing.        |
+| `INF-015` | Build-time capability attribution for native binaries and HTTP/2 modules | `[ ]`  | `INF-012`            | A build targeting Workers/Cloudflare fails with a named error when the reachable graph includes `@tsir/media` `ffmpeg`/`sharp`, `@tsir/link/grpc` (`node:http2`), `@tsir/forge` or `@tsir/nightwatch`, naming the capability and the profile that can host it (P5 or P4). The check is driven by the package manifests, not a hardcoded list. A P4 build of the same graph succeeds. `make deploy-check` reports the capability attribution per unit.                                                                            |
+| `INF-016` | Make `admin.product.com` the edge-native reference app                   | `[ ]`  | `INF-006`, `INF-002` | No `node:fs`/`node:path` at request time — SPA assets are served by the platform's assets binding (or a documented `[LIMITATION]` if the target cannot). Client IP comes from `ctx.clientIp`, not a hardcoded `cf-connecting-ip` header. `requestLogger.record` is inside `ctx.waitUntil`. `createDatabaseBootstrap` is no longer imported from the barrel. The app boots on Bun, Workers and (with the `[PLANNED]` gaps named) Lambda, and the existing admin E2E acceptance review's open findings are re-checked.             |
+| `INF-017` | Decide the Redis driver question for cache and queue                     | `[ ]`  | `INF-003`            | Either a `redis` cache driver ships and passes the `@tsir/cache` conformance kit against a Redis container (with a documented Workers path via an HTTP-based provider), or the decision is recorded as `Rejected` with the reason and `15-capabilities.md` links it. No driver is added to a runtime barrel without an ADR (ADR-0012, ADR-0027). The same decision covers the queue side, so cache and queue cannot disagree.                                                                                                    |
+| `INF-018` | Decide the workflow-orchestration question (`Q61`, `Q62`)                | `[ ]`  | —                    | An ADR exists with status `Proposed`→`Accepted`/`Rejected` answering: does Tsir own a workflow abstraction, or document CF Workflows / Step Functions as `[PROVIDER-SPECIFIC]`? If it owns one, the step-state store question is answered (portable `@tsir/database` vs native store) and § 9.6 of the philosophy document is amended in the same PR. If it does not, § 9.6 and § 14 gain the documented recipes and no seam is added.                                                                                           |
+
+---
+
+## P3 — follow-through
+
+These exist so the register is complete; they are scheduled only after `INF-017` and `INF-018`
+resolve, and they inherit their priority from those answers.
+
+| ID        | Task                                                               | Status | Depends   | Acceptance criteria                                                                                                                                                                                                                                                                           |
+| --------- | ------------------------------------------------------------------ | ------ | --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `INF-019` | Read-replica routing for `Connections` (`Q63`)                     | `[ ]`  | `INF-003` | Either `use('read')` selects a replica with a documented consistency note, or the recipe is documented and the code stays out. A test proves the default path did not change for an app that declares no replica.                                                                             |
+| `INF-020` | Native DLQ and exponential backoff policy in `@tsir/queue` (`Q64`) | `[ ]`  | `INF-004` | Policy is either implemented in the port (a test drives 5 attempts and asserts the documented backoff sequence) or explicitly delegated per driver with a table in `15-capabilities.md`. Cloudflare Queues gains a DLQ-equivalent (a second queue) either way, because the platform has none. |
+
+---
+
+## Sequencing
+
+```
+INF-001  ──────────────────────────────►  (independent, do first: everything PG depends on it)
+INF-002  ──►  INF-003  ──┬─► INF-010
+                         ├─► INF-011
+                         └─► INF-017  ──►  INF-019
+INF-004  ────────────────────────────────►  INF-020
+INF-005  ────────────────────────────────►  (validates 07-deploy-cloud-checks C3/C5)
+INF-006  ──┬─► INF-009
+           └─► INF-016
+INF-007  ────────────────────────────────►  (unblocks profile P3)
+INF-008  ────────────────────────────────►  (independent)
+INF-012  ──► INF-015
+INF-013, INF-014  ───────────────────────►  (independent)
+INF-018  ────────────────────────────────►  (decision only)
+```
+
+`INF-001`, `INF-002`, `INF-004`, `INF-005`, `INF-008`, `INF-013` and `INF-014` are independent
+and can be reviewed in parallel — that is deliberate, because the P0/P2 split is about impact, not
+about coupling.
+
+---
+
+## Definition of done
+
+A task here is done when, in the same pull request:
+
+1. the acceptance criteria are met and linked to the test or command that proves it;
+2. the corresponding row in § 16 of
+   [`17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md) has its
+   status label updated;
+3. the affected module document (`08-deploy.md`, `05-database.md`, `15-capabilities.md`,
+   `09-tsir-config.md`, `13-observability.md`) reflects the new behaviour in the same PR;
+4. `make check plans plan-refs links` passes;
+5. nothing in the diff makes a working application stop working.

@@ -263,6 +263,17 @@ Job execution ──► new span linked to enqueue trace (not parented — async
 - Inbound `traceparent` is trusted only from `pulse.trustedTraceOrigins` (default: any, since traces are not authorization) but **validated** for format; malformed headers are replaced, not propagated.
 - Correlation ids are returned in `X-Request-Id` and included in problem responses as `requestId`.
 - Cross-runtime: on Workers/Lambda, context lives in the request handler scope, not `AsyncLocalStorage` (which is unavailable or partial). The framework passes context explicitly through `ctx`; `AsyncLocalStorage` is used on Bun only as an ergonomic layer for the logger, never as a source of truth.
+- **Request-scoped context needs `ctx.waitUntil`.** A log line written after the response is
+  returned has to be registered with the runtime or it is discarded: Workers cancels a pending
+  promise when the response completes, and Lambda freezes the execution environment when the handler
+  resolves. `RequestContext` does **not** expose `waitUntil` today (`INF-006`), so `record(...)` calls
+  that are not awaited — including the flagship admin app's request logger (`INF-016`) — are silent
+  losses on Workers. Until `INF-006` lands, a sink write must be awaited when it matters.
+- **Attribution is per connection, not per process.** A span or metric belongs to the named
+  connection it used (`db.connection('reporting')`), so a slow analytics query cannot be read as a
+  slow primary. `@tsir/database` already logs per connection; `@tsir/pulse`'s labels must carry the
+  connection name, and `db_query_duration_ms`'s `driver` label alone is not enough in a multi-connection
+  app (ADR-0019, [`09-tsir-config.md § 2.2`](./09-tsir-config.md#22-named-registries-adr-0019)).
 
 ---
 
@@ -302,6 +313,27 @@ forwarded** (version `ff`, all-zero ids, wrong lengths, non-hex — all start a 
 parent-based sampling obeys the parent in **both** directions, because respecting only the positive
 case is how a 10 % head sample becomes a 100 % tail in the next service. An unsampled span still runs;
 it is simply not exported.
+
+## 5.2 As built: `@tsir/telemetry` and its dialect problem
+
+`@tsir/pulse` is provider-independent and `[VERIFIED]`: four wire formats, three redaction layers, a
+cardinality guard, `traceparent` with parent-based sampling, and fail-open sinks. `@tsir/telemetry` is
+the package that turns requests and queue attempts into **rows**, and it is `[PARTIAL]`:
+
+| Behaviour                                       | Status         | Finding                                                                                                                                                                   |
+| ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `requestLogger` writes a request row            | `[PARTIAL]`    | the schema is hardcoded `drizzle-orm/sqlite-core`, so it cannot run on Postgres at all                                                                                    |
+| `queueMonitor.retryJob()` retries a dead job    | **broken**     | it calls `drizzle.transaction()`, which throws on D1 (ADR-0016: no interactive transactions) and is refused by the Postgres path — it fails on _both_ engines (`INF-010`) |
+| Queue monitoring covers Cloudflare Queues / SQS | `[LIMITATION]` | only the database driver's rows are visible; a managed queue has no row to monitor                                                                                        |
+| Retention / redaction of telemetry rows         | `[VERIFIED]`   | the redaction contract is `@tsir/pulse`'s and is reused                                                                                                                   |
+| Traces and metrics                              | `[VERIFIED]`   | `@tsir/pulse`, no dialect involvement                                                                                                                                     |
+
+The fix is `INF-010`: take the dialect from the connection, and use `batch()` where `transaction()` is
+impossible. A telemetry package that is the only thing that cannot run on the default database is a
+gap in the observability story, not a corner case — the first question after an incident is usually
+"show me the requests", and today that table does not exist on D1.
+
+---
 
 ## 6. Health & readiness
 

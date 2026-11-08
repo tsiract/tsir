@@ -15,7 +15,7 @@ The product requirements live in the project brief. This directory turns that br
 | `modules/`      | one document per feature area: public surface, failure modes, security, tasks     |
 | `operations/`   | config, developer experience, testing, observability and security practice        |
 | `tasks/`        | the task ledger — one file per area, `PREFIX-NNN` ids, committed acceptance tests |
-| `decisions/`    | ADRs, `0001`–`0027`, each with status, context, decision and consequences         |
+| `decisions/`    | ADRs, `0001`–`0030`, each with status, context, decision and consequences         |
 | `reviews/`      | gate reviews: what was checked, what was waived, who signed off                   |
 
 Nothing outside this directory links into it, and no code imports from it — the ids
@@ -30,28 +30,47 @@ tracker: an RFC is a proposal, never a bug report.
 
 ## 2. How to use this directory
 
-| If you want to…                                      | Read                                                      |
-| ---------------------------------------------------- | --------------------------------------------------------- |
-| Understand what Tsir is and is not                   | [`00-foundation.md`](./roadmap/00-foundation.md)          |
-| Know what is built next, and in what order           | [`01-roadmap.md`](./roadmap/01-roadmap.md)                |
-| Understand package boundaries and tooling            | [`02-monorepo.md`](./architecture/02-monorepo.md)         |
-| Work on the application lifecycle, DI, or config     | [`03-core.md`](./modules/03-core.md)                      |
-| Work on HTTP, routing, validation, OpenAPI           | [`04-http.md`](./modules/04-http.md)                      |
-| Work on Drizzle, migrations, seeders                 | [`05-database.md`](./modules/05-database.md)              |
-| Work on encryption and key rotation                  | [`06-vault.md`](./modules/06-vault.md)                    |
-| Work on REST / gRPC / SOAP / WebSocket service calls | [`07-link.md`](./modules/07-link.md)                      |
-| Work on Cloudflare Workers and AWS Lambda            | [`08-deploy.md`](./modules/08-deploy.md)                  |
-| Work on `tsir.js`, presets, and bootstrap automation | [`09-tsir-config.md`](./operations/09-tsir-config.md)     |
-| Work on the framework welcome page                   | [`10-frontpage.md`](./modules/10-frontpage.md)            |
-| Work on the Makefile, CLI, or generators             | [`11-dx.md`](./operations/11-dx.md)                       |
-| Write tests                                          | [`12-testing.md`](./operations/12-testing.md)             |
-| Work on logs, metrics, tracing, health               | [`13-observability.md`](./operations/13-observability.md) |
-| Review security implications                         | [`14-security.md`](./operations/14-security.md)           |
-| Work on cache, queue, mail, notifications, drivers   | [`15-capabilities.md`](./modules/15-capabilities.md)      |
-| Work on modules, boundaries, or developer experience | [`16-modularity.md`](./architecture/16-modularity.md)     |
+| If you want to…                                      | Read                                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Understand what Tsir is and is not                   | [`00-foundation.md`](./roadmap/00-foundation.md)                                    |
+| Know what is built next, and in what order           | [`01-roadmap.md`](./roadmap/01-roadmap.md)                                          |
+| Understand package boundaries and tooling            | [`02-monorepo.md`](./architecture/02-monorepo.md)                                   |
+| Work on the application lifecycle, DI, or config     | [`03-core.md`](./modules/03-core.md)                                                |
+| Work on HTTP, routing, validation, OpenAPI           | [`04-http.md`](./modules/04-http.md)                                                |
+| Work on Drizzle, migrations, seeders                 | [`05-database.md`](./modules/05-database.md)                                        |
+| Work on encryption and key rotation                  | [`06-vault.md`](./modules/06-vault.md)                                              |
+| Work on REST / gRPC / SOAP / WebSocket service calls | [`07-link.md`](./modules/07-link.md)                                                |
+| Work on Cloudflare Workers and AWS Lambda            | [`08-deploy.md`](./modules/08-deploy.md)                                            |
+| Work on `tsir.js`, presets, and bootstrap automation | [`09-tsir-config.md`](./operations/09-tsir-config.md)                               |
+| Work on the framework welcome page                   | [`10-frontpage.md`](./modules/10-frontpage.md)                                      |
+| Work on the Makefile, CLI, or generators             | [`11-dx.md`](./operations/11-dx.md)                                                 |
+| Write tests                                          | [`12-testing.md`](./operations/12-testing.md)                                       |
+| Work on logs, metrics, tracing, health               | [`13-observability.md`](./operations/13-observability.md)                           |
+| Review security implications                         | [`14-security.md`](./operations/14-security.md)                                     |
+| Work on cache, queue, mail, notifications, drivers   | [`15-capabilities.md`](./modules/15-capabilities.md)                                |
+| Work on modules, boundaries, or developer experience | [`16-modularity.md`](./architecture/16-modularity.md)                               |
+| Choose a substrate, a cloud, or a deployment profile | [`17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md) |
+| Work on the admin app (`admin.product.com`)          | [`16-admin-frontend.md`](./modules/16-admin-frontend.md)                            |
 
 Task tracking: [`tasks/`](./tasks/README.md). Architectural decisions: [`decisions/`](./decisions/README.md).
 Gate reviews (what was checked, what was waived): [`reviews/`](./reviews/README.md).
+
+Three documents carry the infrastructure position, and they are meant to be read in this order:
+
+1. [`reviews/2026-11-07-infrastructure-agnosticism-audit.md`](./reviews/2026-11-07-infrastructure-agnosticism-audit.md)
+   — what the code actually does, package by package, with the `INF-001`…`INF-018` findings.
+2. [`architecture/17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md)
+   — what the framework intends to support: Cloudflare-first, AWS-compatible, hybrid by design,
+   five deployment profiles over seven runtime seams.
+3. [`decisions/0030-hybrid-cloud-and-workload-substrates.md`](./decisions/0030-hybrid-cloud-and-workload-substrates.md)
+   — the decision that ratifies 2, with
+   [`tasks/16-infrastructure-hardening.md`](./tasks/16-infrastructure-hardening.md) as the ledger
+   that makes it true.
+
+Infrastructure prose in this directory carries one of six status labels — `[VERIFIED]`,
+`[PARTIAL]`, `[PLANNED]`, `[PROPOSED]`, `[LIMITATION]`, `[PROVIDER-SPECIFIC]` — defined in
+[`17-infrastructure-philosophy.md § 16`](./architecture/17-infrastructure-philosophy.md#16-capability-status-register).
+A declared provider that does not work is `[PARTIAL]`, never "supported".
 
 ---
 

@@ -343,6 +343,16 @@ Rules:
   MariaDB 11 in CI; known divergences (JSON, `CHECK`, `RETURNING`, generated columns) are
   covered by tests and listed here rather than discovered in production (`Q49`).
 
+> **Status (2026-11-07 audit, `INF-003`): `[PLANNED]`, not shipped.** `@tsir/database/mysql`
+> does not exist in `src/framework/database/`, so the table above describes the intended engine,
+> not a selectable one. A `mysql` connection today fails at config validation with a driver-missing
+> error, which is at least honest; the risk is a reader of this table assuming the adapter is
+> importable. The adapter ships as `INF-003`'s follow-up in
+> [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md), after the
+> Postgres path is fixed. The Postgres column of this table is `[PARTIAL]` for the same task: the
+> `$1` placeholder bug in `@tsir/auth` (`INF-001`) is a Postgres-only defect that a MySQL adapter
+> must not reproduce (`?` placeholders count differently).
+
 ---
 
 ## 3. Connection & lifecycle
@@ -482,6 +492,17 @@ interactiveTx: true } }` fails at boot with `DB_CAPABILITY_UNSUPPORTED` naming b
 - **Query logging never emits a bound value**: `logging: 'all'` prints SQL with placeholders plus
   parameter _types_ and count (§ 2.3). There is no level, and no environment, in which a value
   reaches the log.
+
+> **Status (2026-11-07 audit, `INF-002` and `INF-003`).**
+>
+> | Behaviour described above                       | Status         | Why                                                                                                                                                                                                                                               |
+> | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Lazily connected, eagerly validated             | `[PARTIAL]`    | `createConnectionsFromConfig` builds drivers **eagerly at boot** and throws for `postgres`; the lazy path exists per connection but the config factory does not use it (`INF-003`)                                                                |
+> | Hyperdrive on Workers                           | `[PARTIAL]`    | `env.HYPERDRIVE.connectionString` changes **per request**, so a boot-time client cannot be correct. Request-scoped construction is `INF-003`                                                                                                      |
+> | Disposal drains every connection                | `[VERIFIED]`   | pool rules, ADR-0009                                                                                                                                                                                                                              |
+> | Per-connection health                           | `[VERIFIED]`   | `db.health()`                                                                                                                                                                                                                                     |
+> | `createDatabaseBootstrap` (Bun/SQLite topology) | `[LIMITATION]` | statically imports `bun:sqlite`, `node:fs`, `node:path` from the package barrel, caches the first `DbDriver` forever, and mutates a module-global binding per request (`INF-002`). It works for a single Bun process and is not usable on Workers |
+> | MySQL (`@tsir/database/mysql`)                  | `[PLANNED]`    | does not exist (§ 2.9)                                                                                                                                                                                                                            |
 
 ---
 
@@ -735,3 +756,19 @@ await db.close(); // drop schema, end the pool
 ## 11. Task index
 
 [`tasks/04-database.md`](../tasks/04-database.md) — `DB-001` … `DB-026`, `MIG-001` … `MIG-016`, `SED-001` … `SED-011`.
+
+Infrastructure findings that belong to this module but are tracked centrally, because each one also
+touches `@tsir/auth`, `@tsir/console` or the deploy emitters:
+[`tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) —
+
+- `INF-001` — the Postgres `$1`/`$1` placeholder bug (`@tsir/auth`, but it is the reason the Postgres
+  column of § 2 is `[PARTIAL]`);
+- `INF-002` — `bun:sqlite`/`node:fs` in the package barrel, and the mutable global binding in
+  `createDatabaseBootstrap`;
+- `INF-003` — `createConnectionsFromConfig` for Postgres, request-scoped Hyperdrive, and the
+  `[PLANNED]` MySQL subpath;
+- `INF-010` / `INF-011` — driver-level dialect leakage in `@tsir/telemetry` and `@tsir/pennant`.
+
+Substrate profiles and the hybrid story (Workers → RDS via Hyperdrive) are in
+[`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md)
+§ 12; this document owns the engine and connection semantics.
