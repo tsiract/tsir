@@ -94,15 +94,20 @@ jobs:
       - name: make check
         run: |
           set +e
-          make check 2>&1 | tee check.log
-          status=${PIPESTATUS[0]}
+          make check > check.log 2>&1
+          status=$?
           if [ "$status" -ne 0 ]; then
-            # `lint` alone prints two lines per package (33 of them), so a short tail can miss
-            # the failing check entirely — the first attempt at this used 25 and reported only
-            # the previous steps' successes.
-            tail -n 120 check.log | while IFS= read -r line; do
-              [ -n "$line" ] && printf '::error::%s\n' "$line"
+            # GitHub keeps at most 10 error annotations per step, so annotate the lines that
+            # identify the failure instead of a blind tail (the first attempt annotated a tail of
+            # 25/120 lines and spent the whole budget on `lint`'s per-package progress lines).
+            {
+              grep -nE "✗|error TS|error:|Error [0-9]|make: \*\*\*|Killed|FATAL|Out of memory" check.log | head -n 6
+              echo "── last 3 lines of make check ──"
+              tail -n 3 check.log
+            } | while IFS= read -r line; do
+              [ -n "$line" ] && printf '::error::%s\n' "${line}" | cut -c1-900
             done
+            tail -n 40 check.log
           fi
           exit "$status"
       - run: make test
