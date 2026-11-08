@@ -44,7 +44,7 @@ ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check test test-unit test-watch test-integration clean clean-cache \
         db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
@@ -70,7 +70,8 @@ help: ## Show available targets
 	@printf '  \033[36mmake coverage\033[0m        per-package coverage gate (line ≥ 90 %%, funcs ≥ 85 %%)\n'
 	@printf '\n  \033[1mbuild\033[0m\n'
 	@printf '  \033[36mmake build\033[0m           compile the framework packages into %s/ (core build)\n' "$(BUILD_DIR)"
-	@printf '  \033[36mmake dist\033[0m            generate the self-contained distribution into dist/ (gitignored)\n'
+	@printf '  \033[36mmake dist\033[0m            configure (wizard) and build the distribution into dist/\n'
+	@printf '  \033[36mmake dist-build\033[0m      assemble from the committed config, no questions\n'
 	@printf '  \033[36mmake dist-check\033[0m      assert the distribution boundary holds\n'
 	@printf '  \033[36mmake verify-dist\033[0m     prove dist/ boots, tree-shakes, and bundles for Workers/Lambda\n'
 	@printf '  \033[36mmake release-pack\033[0m    build both release artifacts (dist/ tree + per-package tarballs)\n'
@@ -220,10 +221,26 @@ clean-cache: clean ## Also drop the bun install cache this workspace used
 	@rm -rf "$(BUN_INSTALL_CACHE_DIR)"
 	@printf '  \033[32m✓\033[0m removed $(BUN_INSTALL_CACHE_DIR)/\n'
 
-dist: ## Build the distributable source tree into dist/ (gitignored)
+# Distribution engineering: configure what the product offers, then build it.
+#
+#   make dist                     wizard when a terminal is attached, then build
+#   make dist DIST_YES=1          build with the committed tsir.dist.config.json, never prompt
+#   make dist FRONTEND=none …     build with one answer overridden
+#   make dist DIST_CONFIG_ONLY=1  write the configuration and stop (review before committing)
+#
+# The assembler itself is dist.ts; the wizard and the configuration contract live beside it.
+dist: ## Configure (interactively) and build the distribution into dist/ (gitignored)
+	@$(BUN) src/tools/dist-cli.ts $(if $(DIST_YES),--no-interactive) \
+		$(if $(DIST_CONFIG_ONLY),--config-only) \
+		$(if $(FRONTEND),--frontend $(FRONTEND)) \
+		$(if $(PACKAGE_MANAGER),--package-manager $(PACKAGE_MANAGER)) \
+		$(if $(STYLING),--styling $(STYLING)) \
+		$(if $(DIST_OUT),--out $(DIST_OUT))
+
+dist-build: ## Assemble the distribution from the committed config (no wizard; used by CI)
 	@$(BUN) src/tools/dist.ts
 
-verify-dist: dist ## Prove dist/ boots, tree-shakes, and bundles for Workers/Lambda
+verify-dist: dist-build ## Prove dist/ boots, tree-shakes, and bundles for Workers/Lambda
 	@$(BUN) src/tools/verify-dist.ts
 
 release-pack: verify-dist ## Build both release artifacts: dist/ tree + per-package tarballs

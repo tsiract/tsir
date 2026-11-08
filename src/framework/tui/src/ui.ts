@@ -12,6 +12,15 @@
  * ```
  */
 
+/**
+ * The renderer type, re-exported.
+ *
+ * A caller that hands a renderer to a prompt needs the type and nothing else; without this it would
+ * have to depend on `@opentui/core` directly, which would put the renderer in *its* dependency list
+ * and make the swap in ADR-0031 a change in three manifests instead of one.
+ */
+export type { CliRenderer } from '@opentui/core';
+
 export * from './session.ts';
 export * from './prompts.ts';
 export * from './branding.ts';
