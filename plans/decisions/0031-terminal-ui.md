@@ -52,21 +52,21 @@ cancel and a signal cannot leave the shell without its cursor.
 
 Measured on this branch, Bun 1.4.4, linux-x64:
 
-| Check                    | Result                                                                        |
-| ------------------------ | ----------------------------------------------------------------------------- |
-| Renders                  | `createCliRenderer` + box/text renders correctly in a real pty                |
-| Keyboard                 | `↑`/`↓` move, default selected, `Enter` accepts, `Esc` cancels (`PromptCancelled`) |
-| Ctrl+C                   | Cancels, exits 0, and the pty log shows `\e[?25h` + `\e[?1049l` (restored)    |
-| Platforms                | Prebuilt natives: darwin-x64/arm64, linux-x64/arm64 (+musl), win32-x64/arm64   |
-| Node compatibility       | `import('@opentui/core')` succeeds under Node 22 via its `node` condition     |
-| Package integrity        | `@opentui/core` MIT; optional platform packages `MIT AND LGPL-2.1-or-later`   |
-| Alternative: Ink 8       | React reconciler for a terminal; no prebuilt binary, but a virtual DOM to maintain |
-| Alternative: Clack 1.8   | Excellent prompts, no layout/focus model for a dashboard-style wizard         |
+| Check                  | Result                                                                             |
+| ---------------------- | ---------------------------------------------------------------------------------- |
+| Renders                | `createCliRenderer` + box/text renders correctly in a real pty                     |
+| Keyboard               | `↑`/`↓` move, default selected, `Enter` accepts, `Esc` cancels (`PromptCancelled`) |
+| Ctrl+C                 | Cancels, exits 0, and the pty log shows `\e[?25h` + `\e[?1049l` (restored)         |
+| Platforms              | Prebuilt natives: darwin-x64/arm64, linux-x64/arm64 (+musl), win32-x64/arm64       |
+| Node compatibility     | `import('@opentui/core')` succeeds under Node 22 via its `node` condition          |
+| Package integrity      | `@opentui/core` MIT; optional platform packages `MIT AND LGPL-2.1-or-later`        |
+| Alternative: Ink 8     | React reconciler for a terminal; no prebuilt binary, but a virtual DOM to maintain |
+| Alternative: Clack 1.8 | Excellent prompts, no layout/focus model for a dashboard-style wizard              |
 
 ### Why OpenTUI despite the LGPL binary
 
 The alternative to a prebuilt renderer is not a simpler binary — it is no renderer at all in this
-project, because writing one is exactly what the task forbids. The LGPL rides on the *optional*
+project, because writing one is exactly what the task forbids. The LGPL rides on the _optional_
 platform package, is statically linked into a separate shared object that is transparently
 replaceable in the published tree, and Tsir consumes it unmodified through its public API. It is
 recorded here, and in `check-deps`' policy, rather than left for a licence scanner to discover.

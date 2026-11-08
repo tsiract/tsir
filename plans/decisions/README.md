@@ -34,6 +34,7 @@ One file per decision. Format: **Status / Context / Decision / Consequences / Al
 | [`0028`](./0028-docs-site-renderer.md)                   | The docs site is rendered from Markdown with `marked`, a build-time dependency      | Accepted |
 | [`0029`](./0029-frontpage-daisyui.md)                    | Compiled DaisyUI Nord/Abyss for the static public site                              | Accepted |
 | [`0030`](./0030-hybrid-cloud-and-workload-substrates.md) | Five deployment profiles over seven runtime seams; hybrid is first-class            | Accepted |
+| [`0031`](./0031-terminal-ui.md)                          | One shared terminal UI layer; OpenTUI behind it, Bubble Tea's shape as the model    | Accepted |
 
 ## Lifecycle
 

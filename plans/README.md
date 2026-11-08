@@ -15,7 +15,7 @@ The product requirements live in the project brief. This directory turns that br
 | `modules/`      | one document per feature area: public surface, failure modes, security, tasks     |
 | `operations/`   | config, developer experience, testing, observability and security practice        |
 | `tasks/`        | the task ledger — one file per area, `PREFIX-NNN` ids, committed acceptance tests |
-| `decisions/`    | ADRs, `0001`–`0030`, each with status, context, decision and consequences         |
+| `decisions/`    | ADRs, `0001`–`0031`, each with status, context, decision and consequences         |
 | `reviews/`      | gate reviews: what was checked, what was waived, who signed off                   |
 
 Nothing outside this directory links into it, and no code imports from it — the ids
@@ -51,6 +51,7 @@ tracker: an RFC is a proposal, never a bug report.
 | Work on modules, boundaries, or developer experience | [`16-modularity.md`](./architecture/16-modularity.md)                               |
 | Choose a substrate, a cloud, or a deployment profile | [`17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md) |
 | Work on the admin app (`admin.product.com`)          | [`16-admin-frontend.md`](./modules/16-admin-frontend.md)                            |
+| Decide what belongs in the core repo vs. `dist/`     | [`18-core-vs-distribution.md`](./architecture/18-core-vs-distribution.md)           |
 
 Task tracking: [`tasks/`](./tasks/README.md). Architectural decisions: [`decisions/`](./decisions/README.md).
 Gate reviews (what was checked, what was waived): [`reviews/`](./reviews/README.md).
@@ -328,16 +329,16 @@ Three rules that follow from it:
 Every document in `plans/` was read for this pass. These were reviewed and deliberately **not**
 edited, so a future reader does not re-do the work:
 
-| Document                                                                                                                                                                        | Verdict                                                                       |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `roadmap/00-foundation.md`                                                                                                                                                      | Accurate; the glossary and exclusion list still match the tree                |
-| `architecture/02-monorepo.md`                                                                                                                                                   | Accurate; the DAG matches `make boundaries`                                   |
-| `modules/03-core.md`, `06-vault.md`, `07-link.md`, `10-frontpage.md`                                                                                                            | Accurate; their status claims match the ledgers                               |
-| `operations/11-dx.md`, `12-testing.md`, `14-security.md`                                                                                                                        | Accurate                                                                      |
-| `decisions/0001`–`0029`                                                                                                                                                         | Untouched by design — accepted ADRs are immutable; `0030` is the only new one |
-| `reviews/2026-10-28-vault-design-review.md`, `2026-10-29-capabilities-review.md`                                                                                                | Historical gate reviews; still the record of those gates                      |
-| `tasks/01-foundation.md`, `06-link.md`, `07-capabilities.md`, `08-dx.md`, `events.md`, `mail.md`, `notify.md`, `policy.md`, `pulse.md`, `queue.md`, `schedule.md`, `storage.md` | Statuses verified against source; all correct                                 |
-| `tasks/14-laravel-decoupling.md`                                                                                                                                                | Planning-only by design and honestly marked; gated on Phase 8                 |
+| Document                                                                                                                                                                        | Verdict                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `roadmap/00-foundation.md`                                                                                                                                                      | Accurate; the glossary and exclusion list still match the tree                             |
+| `architecture/02-monorepo.md`                                                                                                                                                   | Accurate; the DAG matches `make boundaries`                                                |
+| `modules/03-core.md`, `06-vault.md`, `07-link.md`, `10-frontpage.md`                                                                                                            | Accurate; their status claims match the ledgers                                            |
+| `operations/11-dx.md`, `12-testing.md`, `14-security.md`                                                                                                                        | Accurate                                                                                   |
+| `decisions/0001`–`0029`                                                                                                                                                         | Untouched by design — accepted ADRs are immutable; `0030` and `0031` are the only new ones |
+| `reviews/2026-10-28-vault-design-review.md`, `2026-10-29-capabilities-review.md`                                                                                                | Historical gate reviews; still the record of those gates                                   |
+| `tasks/01-foundation.md`, `06-link.md`, `07-capabilities.md`, `08-dx.md`, `events.md`, `mail.md`, `notify.md`, `policy.md`, `pulse.md`, `queue.md`, `schedule.md`, `storage.md` | Statuses verified against source; all correct                                              |
+| `tasks/14-laravel-decoupling.md`                                                                                                                                                | Planning-only by design and honestly marked; gated on Phase 8                              |
 
 The one document that was **wrong about the implementation in the other direction** — claiming less
 than the code does — is `tasks/15-feature-parity-audit.md` (storage), corrected in place on 2026-11-08

@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test';
+import { readdirSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { escapeHtml, exampleOf, highlight, renderFrontpage } from './build.ts';
@@ -8,7 +9,13 @@ const ROOT = process.cwd();
 
 describe('frontpage build (DOC-001, DOC-006, DOC-007)', () => {
   test('every framework package appears once, with a real source and reference', async () => {
-    expect(new Set(packages.map((pkg) => pkg.name)).size).toBe(33);
+    // The inventory is checked against the tree, not a number that has to be remembered each
+    // time a package is added: one card per `src/framework/*` directory, and no card without one.
+    const framework = readdirSync(join(ROOT, 'src/framework'), { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    expect([...new Set(packages.map((pkg) => pkg.name))].sort()).toEqual(framework);
     const html = renderPackages();
     for (const pkg of packages) {
       expect(html.match(new RegExp(`class="pkg">@tsir/${pkg.name}</span>`, 'gu'))).toHaveLength(1);

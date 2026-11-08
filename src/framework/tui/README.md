@@ -5,13 +5,33 @@ The terminal interface shared by Tsir's commands — engineering, distribution a
 The renderer is [`@opentui/core`](https://github.com/anomalyco/opentui); this package is the part that
 must not vary between commands.
 
-| Module        | Responsibility                                                              |
-| ------------- | --------------------------------------------------------------------------- |
+| Module        | Responsibility                                                               |
+| ------------- | ---------------------------------------------------------------------------- |
 | `theme.ts`    | Palette, glyphs, widths. Colour is off under `NO_COLOR`, `TERM=dumb`, pipes. |
 | `session.ts`  | TTY detection, renderer lifetime, and terminal restoration on every exit.    |
 | `prompts.ts`  | `select`, `multiSelect`, `confirm`, `text` — typed async functions.          |
 | `report.ts`   | Headings, checks, tables and summaries with no renderer dependency.          |
 | `branding.ts` | The version and banner every screen shares.                                  |
+
+## Entrypoints
+
+- `@tsir/tui` — `Reporter`, `createPalette`, `frameworkVersion`, `versionLine`. **No renderer.**
+- `@tsir/tui/ui` — `withSession`, `openSession`, `select`, `multiSelect`, `confirm`, `text`,
+  `canPrompt`, `requireInteractive`, `banner`, `NotInteractiveError`, `PromptCancelled`.
+
+## Surface
+
+```ts
+// reporting (no renderer loaded)
+(createPalette, colorDisabled, glyphs, terminalWidth, rule, GLYPHS, STYLE, CONTENT_WIDTH, INDENT);
+(Reporter, wrap);
+(frameworkVersion, versionLine);
+
+// interactive
+(canPrompt, requireInteractive, openSession, withSession, NotInteractiveError);
+(select, multiSelect, confirm, text, PromptCancelled, normalizeKey);
+banner;
+```
 
 ## Interaction contract
 

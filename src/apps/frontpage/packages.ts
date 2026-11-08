@@ -77,6 +77,16 @@ export const packages: readonly PackageCard[] = [
       'Boot the real application in tests with DI overrides, in-process HTTP and a fixed clock.',
   },
   {
+    name: 'tui',
+    title: 'Terminal interface',
+    group: 'foundation',
+    phase: 1,
+    status: 'implemented',
+    icon: 'terminal',
+    description:
+      'One prompt/wizard layer for the CLI, the distribution tooling and the framework commands: shared keys, terminal restoration on every exit, and a reporting path that works in a pipe.',
+  },
+  {
     name: 'router',
     title: 'Typed routing',
     group: 'http',
