@@ -44,7 +44,7 @@ ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check test test-unit test-watch test-integration clean clean-cache \
         db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
@@ -108,11 +108,28 @@ install: ## Install workspace dependencies
 
 # ─── Development ─────────────────────────────────────────────────────────────
 
-dev: ## Cleanup, then start the dev environment
+dev: preflight ## Cleanup, then start the dev environment
 	@printf '  \033[2m→ make kill-owned\033[0m\n'
 	@$(MAKE) --no-print-directory kill-owned
-	@printf '  \033[2m→ bun src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)\033[0m\n'
+	@printf '  \033[2m→ src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)\033[0m\n'
 	@$(BUN) src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)
+
+# The tools and state `dev` needs before it starts, checked rather than assumed. A missing runtime or
+# an uninstalled workspace used to surface as a shell error ("bun: command not found") or as a
+# module-resolution stack from somewhere inside the server, neither of which says what to do.
+preflight: ## Check the tools and workspace state `make dev` needs
+	@command -v "$(firstword $(BUN))" >/dev/null 2>&1 || { \
+		printf '  \033[31m✗\033[0m bun is not on PATH\n'; \
+		printf '  \033[2m  install it: https://bun.sh  (this workspace pins 1.4.x)\033[0m\n'; \
+		exit 3; }
+	@test -d node_modules || { \
+		printf '  \033[31m✗\033[0m workspace dependencies are not installed\n'; \
+		printf '  \033[2m  run: make install\033[0m\n'; \
+		exit 3; }
+	@$(BUN) -e 'process.exit(0)' >/dev/null 2>&1 || { \
+		printf '  \033[31m✗\033[0m the runtime is not usable\n'; \
+		exit 3; }
+	@printf '  \033[32m✓\033[0m tools and workspace ready\n'
 
 kill: kill-owned kill-ports ## Stop what we started, then free every unprotected listening port
 	@printf '  \033[32m✓\033[0m kill complete\n'
