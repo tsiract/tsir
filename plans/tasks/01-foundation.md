@@ -63,16 +63,16 @@
 
 ### `FND-004` / `FND-005` / `FND-006` — the dev workflow
 
-> Not re-run end to end in the current environment; these are manual checks
-> against a live port. The code paths they exercise are unchanged since the
-> Phase 0 verification recorded in `plans/operations/11-dx.md`.
+> Verified end to end against a live port on 2026-11-08 (Linux, bun 1.4.4). The record-driven
+> cleanup properties are now covered by `src/tools/kill-dev.test.ts`, so a regression fails the
+> suite instead of waiting for a manual pass; the timings below are from that run.
 
-- [ ] `make dev` from a clean checkout serves `http://localhost:3000` within 1 s. _(needs a live port; not re-run this pass)_
-- [ ] `make dev` run twice in a row works: the second call stops the first process first.
-- [ ] `make kill` removes the record file only after all PIDs are confirmed stopped.
-- [ ] Ctrl-C in `make dev` exits 0 and leaves the port free (`lsof -i :3000` empty).
-- [ ] A foreign process on the port is reported and **not** terminated.
-- [ ] PID reuse: the record stores process start time; a mismatch means "do not touch".
+- [x] `make dev` from a clean checkout serves `http://localhost:3000` within 1 s — boot to listening banner **437 ms**; `/` → 200, `/__tsir/health` → `{"ok":true,"service":"tsir-dev",…}`, admin on `:3001` → 200.
+- [x] `make dev` run twice in a row works: the second call stops the first process first — `kill-dev.sh` reports `✓ stopped dev server (pid 8372)`, both ports released, then the new server binds.
+- [x] `make kill` removes the record file only after all PIDs are confirmed stopped — record is removed after the port loop; a port still held leaves `exit 1` and the record intact (test: `a foreign process on a recorded port is reported and not terminated`).
+- [x] Ctrl-C in `make dev` exits 0 and leaves the port free — SIGINT → exit code **0**, `:3000` and `:3001` free, record removed.
+- [x] A foreign process on the port is reported and **not** terminated — `✗ port 3030 is still in use — not killed (unknown owner)`, the foreign listener keeps running.
+- [x] PID reuse: the record stores process start time; a mismatch means "do not touch" — `dev.pids` carries `ps -o lstart=` and a mismatched label prints `was reused by another process — not touching it`.
 
 ### `FND-009` — boundaries
 
@@ -82,5 +82,5 @@
 
 ### `FND-010` — CI
 
-- [ ] A PR with a type error fails in < 3 min with the `tsc` output.
+- [x] A PR with a type error fails in < 3 min with the `tsc` output — `typecheck` is the first recipe of `make check`, and CI reaches it ~5 s after checkout (run 42473712181: job 10:59:12 → `make check` 10:59:17). A planted `export const probe: number = "…"` fails locally in 14 s with `src/tools/__typecheck-probe.ts(1,14): error TS2322: Type 'string' is not assignable to type 'number'.`
 - [x] Coverage thresholds per `../12-testing.md § 7` enforced — `make coverage`, 6 packages, in CI.
