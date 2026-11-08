@@ -47,5 +47,6 @@ Both commands must exit 0. Record the result as `C8:` in `07-deploy-cloud-checks
 
 ## 5. Environment notes
 
-- `make check` passes with exit 0 on the last run. `buf` 1.47.2 was installed in this session, and `make proto-check` passes with it. CI should keep installing `buf` so the check runs there too.
+- `make check` passes with exit 0 on the last run. `make proto-check` passes with `buf` 1.75.0 (run it with `BUF=<path>` when the binary is not on PATH).
+- **`proto-check` in CI.** No workflow installed `buf`, so the check printed its skip note and passed — the "contracts are current" line was never produced by a runner. The workflow now installs `buf` from the npm distribution into a throwaway prefix and runs `make check` with `REQUIRE_BUF=1`, which turns the skip into a failure.
 - Full-repo `eslint .` does not fit in 2 GB of memory. Use `make lint`, which runs one ESLint process per framework package, plus one each for `src/tools`, `src/apps` and `src/apps/frontpage`.

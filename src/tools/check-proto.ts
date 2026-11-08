@@ -8,8 +8,8 @@
  *   · identical → the committed contract is current;
  *   · different → fail and say which files drifted;
  *   · `buf` not installed → **skip with a note**, because `make check` has to work on a
- *     laptop that has never seen a Go binary. CI installs `buf`, which is
- *     what makes the skip safe rather than a hole.
+ *     laptop that has never seen a Go binary. With `REQUIRE_BUF=1` — which the workflow
+ *     sets — the skip becomes a failure, so CI cannot pass without actually running this.
  *
  * Usage: bun src/tools/check-proto.ts [--quiet]
  */
@@ -52,8 +52,24 @@ function walk(dir: string, base = dir): string[] {
 
 const buf = findBuf();
 if (buf === undefined) {
+  // A skip is correct on a laptop that has never seen a Go binary, but it must not be silent in
+  // CI: nothing installed `buf` there, so the "contracts are current" claim below was never made
+  // by a runner — the check printed this note and passed. `REQUIRE_BUF` turns the skip into a
+  // failure, and the workflow sets it, so the guarantee the header promises is actually enforced.
+  //
+  // Deliberately **not** named `TSIR_REQUIRE_BUF`: every `TSIR_`-prefixed name is a config key, and
+  // an unknown one fails in strict-env mode. Using that prefix here broke `tsir start` tests
+  // (`APP_MANIFEST_MISSING` began exiting 3 instead of 1) because the stray key made the load look
+  // like a configuration error. Tool switches stay outside the reserved namespace.
+  if (process.env['REQUIRE_BUF'] === '1') {
+    process.stderr.write(
+      '\nproto contracts were not checked: `buf` is required here (REQUIRE_BUF=1) and is not installed\n\n' +
+        '  Install it: `bun add -d @bufbuild/buf` (the npm distribution ships the binary) or set BUF=<path>.\n\n',
+    );
+    process.exit(1);
+  }
   process.stdout.write(
-    '  · proto contracts not checked: `buf` is not installed (CI installs it; the committed contracts are unchanged)\n',
+    '  · proto contracts not checked: `buf` is not installed (CI requires it via REQUIRE_BUF)\n',
   );
   process.exit(0);
 }

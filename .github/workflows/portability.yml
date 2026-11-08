@@ -81,6 +81,16 @@ jobs:
           printf 'not a conventional commit\n' > "$message"
           if .git/hooks/commit-msg "$message"; then echo 'invalid commit was accepted'; exit 1; fi
           rm "$message"
+      - name: Install buf
+        # `make check` runs `proto-check`, which regenerates the committed gRPC contracts and diffs
+        # them. It skips when `buf` is missing — the right call on a laptop, a hole in CI — so the
+        # runner installs it and sets `REQUIRE_BUF`, which turns that skip into a failure.
+        # The npm distribution ships the binary, so this needs no Go toolchain. Installed into a
+        # throwaway prefix rather than with `bun add`, because that would edit `package.json` and
+        # `bun.lock` and trip the frozen-install reproducibility check that runs after this.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/buf" --no-save @bufbuild/buf
+          echo "BUF=$RUNNER_TEMP/buf/node_modules/@bufbuild/buf/bin/buf" >> "$GITHUB_ENV"
       - run: make help doctor kill-ports-dry
       - name: Test cleanup without touching host processes
         run: |
@@ -94,7 +104,7 @@ jobs:
       - name: make check
         run: |
           set +e
-          make check > check.log 2>&1
+          REQUIRE_BUF=1 make check > check.log 2>&1
           status=$?
           if [ "$status" -ne 0 ]; then
             # GitHub keeps at most 10 error annotations per step, so annotate the lines that
