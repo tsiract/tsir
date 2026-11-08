@@ -10,15 +10,23 @@ import { frameworkVersion, versionLine } from './branding.ts';
 // `tui-interactive` check in `make check`). Everything here is the deterministic part: the rules
 // that decide *whether* a prompt may run, and the text that a non-interactive run produces.
 
+// `env: {}` everywhere: these tests are about the rule, and the rule reads `process.env` when no
+// environment is injected. Under `CI=true` — which is where `make check` runs them, because
+// `readme-badges` runs the suite before it will publish a passing-tests badge — the ambient
+// environment would refuse every case and the assertions below would test nothing.
+const NO_ENV = { env: {} } as const;
+
 describe('interactivity is a capability', () => {
   test('needs both a stdin and a stdout terminal', () => {
-    expect(canPrompt({ stdinIsTTY: true, stdoutIsTTY: true })).toBe(true);
-    expect(canPrompt({ stdinIsTTY: true, stdoutIsTTY: false })).toBe(false);
-    expect(canPrompt({ stdinIsTTY: false, stdoutIsTTY: true })).toBe(false);
+    expect(canPrompt({ ...NO_ENV, stdinIsTTY: true, stdoutIsTTY: true })).toBe(true);
+    expect(canPrompt({ ...NO_ENV, stdinIsTTY: true, stdoutIsTTY: false })).toBe(false);
+    expect(canPrompt({ ...NO_ENV, stdinIsTTY: false, stdoutIsTTY: true })).toBe(false);
   });
 
   test('an explicit --no-interactive wins over a real terminal', () => {
-    expect(canPrompt({ requested: false, stdinIsTTY: true, stdoutIsTTY: true })).toBe(false);
+    expect(canPrompt({ ...NO_ENV, requested: false, stdinIsTTY: true, stdoutIsTTY: true })).toBe(
+      false,
+    );
   });
 
   test('CI is treated as a refusal even with a pseudo-terminal attached', () => {
@@ -30,16 +38,16 @@ describe('interactivity is a capability', () => {
   });
 
   test('an explicit --interactive still requires a terminal rather than pretending', () => {
-    expect(canPrompt({ requested: true, stdinIsTTY: false })).toBe(false);
-    expect(canPrompt({ requested: true, stdinIsTTY: true })).toBe(true);
+    expect(canPrompt({ ...NO_ENV, requested: true, stdinIsTTY: false })).toBe(false);
+    expect(canPrompt({ ...NO_ENV, requested: true, stdinIsTTY: true })).toBe(true);
   });
 
   test('requireInteractive names the command and the way out', () => {
     expect(() =>
-      requireInteractive('the wizard', 'pass --frontend svelte', { stdinIsTTY: false }),
+      requireInteractive('the wizard', 'pass --frontend svelte', { ...NO_ENV, stdinIsTTY: false }),
     ).toThrow(NotInteractiveError);
     try {
-      requireInteractive('the wizard', 'pass --frontend svelte', { stdinIsTTY: false });
+      requireInteractive('the wizard', 'pass --frontend svelte', { ...NO_ENV, stdinIsTTY: false });
     } catch (error) {
       expect((error as NotInteractiveError).code).toBe('TUI_NO_TERMINAL');
       expect((error as NotInteractiveError).hint).toBe('pass --frontend svelte');
