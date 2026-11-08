@@ -1,8 +1,35 @@
 /**
+ * The version of the framework the running CLI belongs to.
+ *
+ * Read from `package.json` rather than hard-coded: the manifests are kept in lockstep by
+ * `make version`, and a constant here would be one more place for a release to forget one.
+ *
+ * Two depths, because this same file is shipped in both layouts — the repository keeps the
+ * entry at `src/framework/console/src/index.ts` (manifest one level up), and `make dist` emits
+ * `framework/console/index.js` (manifest beside it). A path that only works in one of them makes
+ * `tsir --version` answer "unknown" exactly where a developer first meets it.
+ */
+function frameworkVersion(): string {
+  for (const relative of ['../package.json', './package.json']) {
+    try {
+      const pkg = JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8')) as {
+        version?: unknown;
+      };
+      if (typeof pkg.version === 'string') return pkg.version;
+    } catch {
+      // Try the next layout.
+    }
+  }
+  return 'unknown';
+}
+
+/**
  * @tsir/console — the CLI.
  *
  * Public surface: `runCli` (used by the bin and by tests) and `COMMANDS`.
  */
+
+import { readFileSync } from 'node:fs';
 
 import { buildCommand, configDumpCommand, devCommand, startCommand } from './commands/lifecycle.ts';
 import { bootstrapCommand } from './commands/bootstrap.ts';
@@ -583,7 +610,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     first === '--version'
   ) {
     if (first === '--version') {
-      info(Bun.version);
+      // The framework's version, with the runtime beside it: a bug report needs both, and printing
+      // only `Bun.version` answered "1.4.4" for a Tsir command — a number that says nothing about
+      // which framework the developer is running.
+      info(`${frameworkVersion()} (bun ${Bun.version})`);
       return EXIT.ok;
     }
     info(helpText());

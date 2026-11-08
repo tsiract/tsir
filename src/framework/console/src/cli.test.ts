@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -52,6 +52,23 @@ describe('CLI-001: entry and help', () => {
     expect(outputs).toContain('usage: tsir');
   });
 });
+
+describe('CLI-001: --version', () => {
+  test('reports the framework version, with the runtime beside it', async () => {
+    expect(await runCli(['--version'])).toBe(EXIT.ok);
+    // `Bun.version` alone answered "1.4.4" for a framework command — a number that identifies the
+    // runtime and not the thing the developer is asking about.
+    expect(outputs.trim()).toBe(`${readVersion()} (bun ${Bun.version})`);
+  });
+});
+
+/** The version declared by this package's manifest — what `--version` is meant to report. */
+function readVersion(): string {
+  const manifest = JSON.parse(readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8')) as {
+    version: string;
+  };
+  return manifest.version;
+}
 
 describe('CLI-003: exit code contract', () => {
   test.each([

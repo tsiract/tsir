@@ -37,6 +37,25 @@ export const RUNTIME_ALLOWLIST: Readonly<Record<string, Policy>> = {
     shaking:
       'ESM with per-entry subpaths (zod/mini, zod/v4/core); sideEffects lists only ./compile.js',
   },
+  '@opentui/core': {
+    rationale:
+      'The terminal renderer behind @tsir/tui (ADR-0031). Chosen over Ink (a React reconciler for a ' +
+      'terminal) and Clack (prompts without a layout or focus model) because the distribution wizard ' +
+      'needs a screen: flexbox layout, focus management and keyboard handling, in TypeScript.',
+    phase: 'P8',
+    // ESM with conditional `bun`/`node` entries and `./testing`; the native half is an optional
+    // platform package that `bun install` resolves to exactly one prebuilt binary.
+    shaking:
+      'ESM, conditional exports (bun/node), prebuilt per-platform native as an optional dependency',
+    // Reached only through the `./ui` subpath, which is what the import graph proves below: the
+    // root entrypoint is the reporting path, so `tsir route:list`, `--json` and a test never load a
+    // renderer or a native binary. The renderer also never reaches a server bundle — only the CLI
+    // imports it, and no deploy target includes the CLI.
+    scope: ['@tsir/tui/ui'],
+    nodeOnly: {
+      why: 'a terminal renderer, imported only by the CLI and never by a Workers/Lambda bundle',
+    },
+  },
   '@bufbuild/protobuf': {
     rationale:
       'Protobuf runtime for the gRPC adapter. Chosen over protobufjs because `protoc-gen-es` ' +

@@ -1,0 +1,26 @@
+{
+  "name": "@tsir/tui",
+  "version": "0.0.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "description": "The terminal interface shared by Tsir commands. The root entrypoint is the dependency-free reporting path, so a command that only prints facts never loads a renderer or a native binary; the renderer, prompts and session live behind ./ui.",
+  "exports": {
+    ".": {
+      "types": "./src/report.ts",
+      "default": "./src/report.ts"
+    },
+    "./ui": {
+      "types": "./src/ui.ts",
+      "default": "./src/ui.ts"
+    },
+    "./theme": {
+      "types": "./src/theme.ts",
+      "default": "./src/theme.ts"
+    }
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@opentui/core": "0.8.3"
+  }
+}

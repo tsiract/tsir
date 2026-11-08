@@ -94,6 +94,10 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   // `nightwatch` is the observability backend (tracing/spans): a port, an in-memory
   // backend, and a bootstrap. Leaf on `container`.
   nightwatch: ['container'],
+  // `tui` is the terminal interface (ADR-0031). It depends on no @tsir package: a prompt must not
+  // be able to reach the router, and a runtime package must never acquire a UI dependency. It is
+  // deliberately **not** runtime-neutral: it reads package.json and owns stdin/stdout.
+  tui: [],
   // `telemetry` is the structured logging/metrics bootstrap. Leaf on `container`.
   telemetry: ['container'],
   // `broadcast` is the realtime channel port: a port, an in-memory broadcaster, and a

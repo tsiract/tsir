@@ -45,6 +45,7 @@ export default {
         'container',
         'config',
         'console',
+        'tui',
         'testing',
         'frontpage',
         'tools',

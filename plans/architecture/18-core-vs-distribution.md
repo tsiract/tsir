@@ -112,6 +112,10 @@ surface.
 - Created by `./tsir new <name>` inside a consumer directory; always
   `apps/<name>/`, never `app/`, never inside `dist/`.
 - Declares `@tsir/*` dependencies that resolve from the distribution through
-  **relative** `file:` overrides, so it survives the distribution being moved and
-  does not depend on the repository.
+  **relative** `link:` overrides, so it survives the distribution being moved,
+  does not depend on the repository, and resolves every `@tsir/*` reference to
+  one directory. `file:` is wrong here even though it installs: bun copies a
+  `file:` dependency once per dependent, and the framework keeps process-local
+  registries (routes, controllers, container) that stop agreeing when there are
+  several copies of a package.
 - Typechecks and boots as generated (no manual fixups).
