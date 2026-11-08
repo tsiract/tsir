@@ -23,7 +23,11 @@ export function controllerTemplate(
   unit?: string,
 ): string {
   const unitOption = unit === undefined ? '' : `, { unit: '${unit}' }`;
-  return renderStub('controller.ts', { className, stem, prefix, unitOption });
+  // The token name is the class name lower-camel with a `Token` suffix:
+  // `OrderController` → `orderControllerToken`. `className` already ends in `Controller`, so the
+  // suffix is `Token`, not `ControllerToken` (which would render `orderControllerControllerToken`).
+  const camel = className.charAt(0).toLowerCase() + className.slice(1);
+  return renderStub('controller.ts', { camel, className, stem, prefix, unitOption });
 }
 
 export async function makeControllerCommand(argv: readonly string[]): Promise<number> {

@@ -1,2 +1,3 @@
 /** The module's public surface. Other modules import from here, and nowhere deeper. */
-export { {{camel}}, registry } from './routes.ts';
+export { {{camel}}, providers } from './routes.ts';
+export { registry } from './registry.ts';

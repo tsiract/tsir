@@ -1,0 +1,11 @@
+import { RouteRegistry } from '@tsir/router';
+
+/**
+ * This module's route table.
+ *
+ * A separate file, not a const in `routes.ts`, because controllers import it: a controller that
+ * imported `routes.ts` while `routes.ts` imported the controller to register its provider would be
+ * a cycle, and the decorator would run before the table existed (`Cannot access 'registry' before
+ * initialization`). Leaf module, one export, no imports of its own.
+ */
+export const registry = new RouteRegistry();

@@ -159,7 +159,7 @@ describe('commands use the engine', () => {
     expect(await runCli(['make:module', 'Orders', '--force'])).toBe(EXIT.ok);
   });
 
-  test('make:module writes the house layout: routes, controller, index, and a test', async () => {
+  test('make:module writes the house layout: registry, routes, controller, index, and a test', async () => {
     expect(await runCli(['make:module', 'Billing'])).toBe(EXIT.ok);
     const moduleDir = join(dir, 'billing');
     const routes = readFileSync(join(moduleDir, 'routes.ts'), 'utf8');
@@ -167,8 +167,20 @@ describe('commands use the engine', () => {
     expect(routes).toContain("name: 'billing'");
     const controller = readFileSync(join(moduleDir, 'http/billing.controller.ts'), 'utf8');
     expect(controller).toContain("@Controller(registry, '/billing')");
+    // The route table lives in its own leaf file: controllers import it, and a `routes.ts` that
+    // both exported it and imported the controller would be a cycle.
+    const registry = readFileSync(join(moduleDir, 'registry.ts'), 'utf8');
+    expect(registry).toContain('export const registry = new RouteRegistry();');
+    expect(controller).toContain("import { registry } from '../registry.ts';");
+    // The controller carries its DI token and the module binds it; without the binding the route
+    // exists but answers CTN_NO_PROVIDER.
+    expect(controller).toContain('BillingControllerToken = token<BillingController>');
+    expect(routes).toContain(
+      "classProvider(BillingControllerToken, BillingController, [], { lifetime: 'scoped' })",
+    );
     const index = readFileSync(join(moduleDir, 'index.ts'), 'utf8');
-    expect(index).toContain('export { billing, registry }');
+    expect(index).toContain('export { billing, providers }');
+    expect(index).toContain("export { registry } from './registry.ts';");
     const test = readFileSync(join(moduleDir, 'billing.test.ts'), 'utf8');
     expect(test).toContain('modules: [_module.module]');
   });

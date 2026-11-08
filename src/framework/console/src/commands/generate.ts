@@ -190,6 +190,7 @@ function moduleFiles(
   const prefix = `/${kebab}`;
   const vars = { base, camel, kebab, prefix };
   return [
+    { name: 'registry.ts', contents: renderStub('module/registry.ts', vars) },
     { name: 'routes.ts', contents: renderStub('module/routes.ts', vars) },
     { name: `http/${kebab}.controller.ts`, contents: renderStub('module/controller.ts', vars) },
     { name: 'index.ts', contents: renderStub('module/index.ts', vars) },
