@@ -16,7 +16,8 @@
  * ## Two entrypoints
  *
  *   `@tsir/tui`       reporting only — theme, `Reporter`, identity. **No renderer dependency**, so a
- *                     command that prints facts never loads a native binary.
+ *                     command that prints facts never loads a native binary. Its output is the same
+ *                     whether a terminal is attached or the results are piped into `grep`.
  *   `@tsir/tui/ui`    the interactive surface — `withSession`, `select`, `multiSelect`, `confirm`,
  *                     `text`, `canPrompt`.
  *
@@ -30,4 +31,4 @@
 
 export * from './theme.ts';
 export * from './report.ts';
-export { frameworkVersion, versionLine } from './branding.ts';
+export { banner, frameworkVersion, versionLine } from './branding.ts';

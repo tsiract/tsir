@@ -124,6 +124,9 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     'container',
     'core',
     'config',
+    // The CLI is what draws: `tsir about`, the `tsir new` name prompt and any future wizard use the
+    // shared terminal interface rather than printing their own way (ADR-0031).
+    'tui',
     // `tsir cache:*` builds the registry from `cache.stores` and probes it (`CACHE-9`).
     'cache',
     // `tsir queue:work|failed|retry` builds `queue.connections` and drains a connection

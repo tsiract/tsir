@@ -22,17 +22,54 @@ import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from
 import { CliError, EXIT, info, ok, style, UsageError, warn } from '../output.ts';
 import { findConfigFile } from '../project.ts';
 import { renderStub } from '../stub.ts';
+import { canPrompt, openSession, text as promptText } from '@tsir/tui/ui';
 import { RACT_MODE, RACT_TEMPLATE } from './project-command.ts';
 import { scopedName, splitAppModule } from './naming.ts';
+
+/**
+ * Asks for the application name, validating as it is typed.
+ *
+ * The same rule the flag path enforces (`^[a-z][a-z0-9-]*$`), asked in the place where a mistake is
+ * cheapest to fix: before the directory exists. The hint names why the rule exists — the name
+ * becomes a directory, a package name and the app name in `config/app.ts`, so it has to be usable as
+ * all three.
+ */
+async function askForName(): Promise<string> {
+  const session = await openSession({ preserveOutput: true });
+  try {
+    const answer = await promptText(session.renderer, {
+      message: 'Application name',
+      hint: 'Lowercase kebab-case. It becomes apps/<name>/, the package name and the app name.',
+      placeholder: 'billing-api',
+      validate: (value) =>
+        /^[a-z][a-z0-9-]*$/.test(value)
+          ? undefined
+          : 'use lowercase letters, digits and dashes, starting with a letter',
+    });
+    session.close();
+    return answer;
+  } catch (error: unknown) {
+    session.close();
+    throw error;
+  }
+}
 
 export async function newCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--force': { type: 'boolean', description: 'overwrite an existing directory' },
     '--dry-run': { type: 'boolean', description: 'print the files that would be written' },
+    '--interactive': { type: 'boolean', description: 'ask for the app name if it was not given' },
+    '--no-interactive': { type: 'boolean', description: 'never prompt; fail if an answer is missing' },
   });
-  const name = args.positionals[0];
+  let name = args.positionals[0];
   if (name === undefined) {
-    throw new UsageError('tsir new <name>', 'the name becomes the directory and the app name');
+    // A missing name is a question, not an error, when a person is watching. With no terminal the
+    // answer cannot arrive, so the usage error is the honest response — never a prompt that hangs.
+    const requested = boolFlag(args, '--interactive') ? true : undefined;
+    if (!canPrompt({ ...(requested === undefined ? {} : { requested }) })) {
+      throw new UsageError('tsir new <name>', 'the name becomes the directory and the app name');
+    }
+    name = await askForName();
   }
   if (!/^[a-z][a-z0-9-]*$/.test(name)) {
     throw new UsageError(`"${name}" is not a valid app name`, 'use lowercase kebab-case');

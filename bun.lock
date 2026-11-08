@@ -191,6 +191,7 @@
         "@tsir/schedule": "workspace:*",
         "@tsir/seed": "workspace:*",
         "@tsir/storage": "workspace:*",
+        "@tsir/tui": "workspace:*",
         "@tsir/validate": "workspace:*",
         "@tsir/vault": "workspace:*",
       },

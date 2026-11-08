@@ -56,6 +56,7 @@ import {
 import { deployBuildCommand } from './commands/deploy-build.ts';
 import { deployValidateCommand } from './commands/deploy-validate.ts';
 import { deployDiffCommand, deployInvokeCommand, deployPlanCommand } from './commands/deploy.ts';
+import { aboutCommand } from './commands/about.ts';
 import { doctorCommand } from './commands/doctor.ts';
 import { openapiGenerateCommand } from './commands/openapi.ts';
 import { makeModuleCommand, newCommand } from './commands/generate.ts';
@@ -134,6 +135,12 @@ export const COMMANDS: readonly Command[] = [
     summary: 'boot the built artifact (run tsir build first)',
     phase: 1,
     run: startCommand,
+  },
+  {
+    name: 'about',
+    summary: 'what this installation is: version, runtime, commands',
+    phase: 1,
+    run: aboutCommand,
   },
   {
     name: 'doctor',
@@ -522,7 +529,7 @@ export async function runProjectCommand(
   }
   const index = argv.findIndex((arg) => arg !== '--json');
   const first = index === -1 ? undefined : argv[index];
-  const META = ['help', '--help', '-h', '--version'];
+  const META = ['help', '--help', '-h', '--version', 'about'];
   if (
     listed !== undefined &&
     first !== undefined &&
@@ -607,8 +614,10 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     first === 'help' ||
     first === '--help' ||
     first === '-h' ||
-    first === '--version'
+    first === '--version' ||
+    first === 'about'
   ) {
+    if (first === 'about') return await aboutCommand(argv);
     if (first === '--version') {
       // The framework's version, with the runtime beside it: a bug report needs both, and printing
       // only `Bun.version` answered "1.4.4" for a Tsir command — a number that says nothing about

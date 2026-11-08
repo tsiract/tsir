@@ -70,6 +70,31 @@ function readVersion(): string {
   return manifest.version;
 }
 
+describe('CLI-001: about', () => {
+  test('works with no project, like help and version', async () => {
+    // A developer who has just installed the distribution is standing in an empty directory. Every
+    // meta command has to answer there, or the first thing they meet is an error about tsir.js.
+    expect(await runCli(['about'])).toBe(EXIT.ok);
+    expect(outputs).toContain('Tsir');
+    expect(outputs).toContain('Runtime');
+    expect(outputs).toContain('tsir new');
+  });
+
+  test('--json is a versioned document, not a bare object', async () => {
+    expect(await runCli(['about', '--json'])).toBe(EXIT.ok);
+    const document = JSON.parse(outputs) as { schemaVersion?: number; version?: string };
+    expect(document.schemaVersion).toBeDefined();
+    expect(document.version).toMatch(/^\d+\.\d+\.\d+/u);
+  });
+
+  test('counts the commands it actually has', async () => {
+    expect(await runCli(['about', '--json'])).toBe(EXIT.ok);
+    const document = JSON.parse(outputs) as { commands: { available: number; planned: number } };
+    expect(document.commands.available).toBeGreaterThan(30);
+    expect(document.commands.planned).toBeGreaterThanOrEqual(0);
+  });
+});
+
 describe('CLI-003: exit code contract', () => {
   test.each([
     ['usage error: unknown command', ['nosuchcommand'], EXIT.usage],
