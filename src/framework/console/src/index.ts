@@ -59,6 +59,7 @@ import { deployDiffCommand, deployInvokeCommand, deployPlanCommand } from './com
 import { aboutCommand } from './commands/about.ts';
 import { doctorCommand } from './commands/doctor.ts';
 import { openapiGenerateCommand } from './commands/openapi.ts';
+import { protoGenerateCommand } from './commands/proto.ts';
 import { makeModuleCommand, newCommand } from './commands/generate.ts';
 import { makeControllerCommand } from './commands/make-controller.ts';
 import { makeModelCommand } from './commands/make-model.ts';
@@ -173,6 +174,12 @@ export const COMMANDS: readonly Command[] = [
     summary: 'emit an OpenAPI 3.1 document',
     phase: 1,
     run: openapiGenerateCommand,
+  },
+  {
+    name: 'proto:generate',
+    summary: "compile this application's .proto contracts into typed TypeScript",
+    phase: 1,
+    run: protoGenerateCommand,
   },
   {
     name: 'make:controller',
