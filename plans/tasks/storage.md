@@ -3,7 +3,9 @@
 > Bytes in, bytes out, and a URL that says whether it is public or signed. The package owns the
 > **key**, the **disk**, the **byte contract** and one **driver set** — `memory`, `local`, `s3`,
 > where R2 is the third of those by endpoint rather than a fourth driver. Reserved in
-> [`_capabilities.md`](./_capabilities.md) as `CAP-STOR-*`.
+> [`_capabilities.md`](./_capabilities.md) as `CAP-STOR-*` — that placeholder file is superseded by
+> [`07-capabilities.md`](./07-capabilities.md) and is kept only for the record; every id below is the
+> live one.
 >
 > **Plan:** [`15-capabilities.md § 6`](../modules/15-capabilities.md) · **Registry:** `CAP-001` (the
 > `storage.disks` half) · **Related:** [`queue.md`](./queue.md) and [`schedule.md`](./schedule.md)

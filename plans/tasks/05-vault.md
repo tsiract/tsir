@@ -36,14 +36,14 @@
 
 ## Rotation
 
-| ID        | Title                                            | Status | Depends | Acceptance criteria (summary)                         |
-| --------- | ------------------------------------------------ | ------ | ------- | ----------------------------------------------------- |
-| `VLT-019` | Rotation ledger table + watermark batching       | `[x]`  | VLT-011 | Unique `(table, pk, column)`; resume-safe             |
-| `VLT-020` | `vault:rotate --batch` resumable runner          | `[x]`  | VLT-019 | Kill mid-run then resume completes without duplicates |
-| `VLT-021` | Concurrency lock per (table, column)             | `[x]`  | VLT-020 | Second runner exits with `VLT_ROTATION_LOCKED`        |
-| `VLT-022` | `vault:rotate:status` (remaining, failures, ETA) | `[x]`  | VLT-020 | `--json` schema documented                            |
-| `VLT-023` | Rotation metrics + spans                         | `[~]`  | VLT-020 | `vault_rotation_remaining` reported per column        |
-| `VLT-024` | Concurrent-writer test during rotation           | `[x]`  | VLT-020 | All rows end on active key; no double processing      |
+| ID        | Title                                            | Status | Depends | Acceptance criteria (summary)                                                                                                                                                                                                                                                                                                      |
+| --------- | ------------------------------------------------ | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VLT-019` | Rotation ledger table + watermark batching       | `[x]`  | VLT-011 | Unique `(table, pk, column)`; resume-safe                                                                                                                                                                                                                                                                                          |
+| `VLT-020` | `vault:rotate --batch` resumable runner          | `[x]`  | VLT-019 | Kill mid-run then resume completes without duplicates                                                                                                                                                                                                                                                                              |
+| `VLT-021` | Concurrency lock per (table, column)             | `[x]`  | VLT-020 | Second runner exits with `VLT_ROTATION_LOCKED`                                                                                                                                                                                                                                                                                     |
+| `VLT-022` | `vault:rotate:status` (remaining, failures, ETA) | `[x]`  | VLT-020 | `--json` schema documented                                                                                                                                                                                                                                                                                                         |
+| `VLT-023` | Rotation metrics + spans                         | `[~]`  | VLT-020 | Emitted per column via an optional sink: `vault_rotation_rows_total`, `vault_rotation_errors_total{code}`, `vault_rotation_remaining` — **done**. Outstanding: an exporter (`OBS-024`/`OBS-026`) and rotation spans. Re-verified 2026-11-08: the metrics half is complete, so this row must not be closed until the exporter lands |
+| `VLT-024` | Concurrent-writer test during rotation           | `[x]`  | VLT-020 | All rows end on active key; no double processing                                                                                                                                                                                                                                                                                   |
 
 ## Blast-radius / extras
 

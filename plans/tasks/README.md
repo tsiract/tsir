@@ -147,3 +147,84 @@ does not belong in three tables.
 ## 4. Definition of done (per task)
 
 Copy from [`../01-roadmap.md § 6`](../roadmap/01-roadmap.md#6-definition-of-done). A task cannot be `[x]` unless every applicable row is satisfied. The reviewer checks the task file's acceptance criteria against the diff, not the other way round.
+
+---
+
+## 5. Execution order (dependency-driven, re-derived 2026-11-08)
+
+The phase tables above order **documents**; this section orders **work**. It is the section to read
+when the question is "what do I do next", and it is derived from the actual `Depends` columns in every
+ledger plus the `INF-*` sequencing graph, not from the phase numbering.
+
+### 5.1 Tier 0 — correctness blockers (do first, in this order)
+
+Nothing else is safe to build on top while these are open. Each is a stated prerequisite of at least
+two other ledgers.
+
+| Order | Task(s)   | Why it is first                                                                          | Blocks                                                                 |
+| ----- | --------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1     | `INF-001` | The Postgres auth path emits `$1` twice; every P2/P3/P4 profile terminates in Postgres   | `DB-023`–`DB-026`, `MIG-016`, `INF-003`, `INF-010`, `INF-011`, `TEL-*` |
+| 2     | `INF-002` | `@tsir/database`'s barrel imports `bun:sqlite`/`node:fs`; no Workers bundle can carry it | `INF-003`, `INF-012`, `INF-016`                                        |
+| 3     | `INF-004` | The default queue driver drops messages on a multi-message batch                         | `INF-020`; any production queue claim                                  |
+| 4     | `INF-005` | The AWS emitter drops three trigger kinds and writes an invalid SAM/WS template          | Gate P8 criterion 6; `DPL-016`                                         |
+| 5     | `INF-003` | Postgres via `tsir.js`, request-scoped Hyperdrive, the MySQL status statement            | `INF-010`, `INF-011`, `INF-017`, `INF-019`                             |
+
+### 5.2 Tier 1 — seams that unblock feature work
+
+| Task(s)              | Unblocks                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `INF-006`            | `INF-009`, `INF-016`; `TEL-*` and `OBS-014` cannot be correct without `waitUntil`                |
+| `INF-007`            | Deployment profile P3 (hybrid); `QUEUE-16`'s SDK-free claim                                      |
+| `INF-008`            | R2 parity for `@tsir/storage`; presigned uploads used by the admin app (`ADM-*`)                 |
+| `INF-009`            | Any multi-instance real-time claim; `AUTH-13`'s cookie/session story is adjacent but independent |
+| `INF-012`            | Deployment profile P5; `INF-015`                                                                 |
+| `HTP-023`, `HTP-024` | `AUTH-13`–`AUTH-15` (CSRF and email verification need cookie primitives and honest client IPs)   |
+| `RTR-013`            | `AUTH-15` (a signed verification URL wants `route(name, params)`)                                |
+
+### 5.3 Tier 2 — features, in dependency order
+
+| Track                                        | Order                                                                        | Gate                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------- |
+| HTTP & routing                               | `HTP-022`, `HTP-023`, `HTP-024`, `RTR-013`, `RTR-014`, `RTR-015`             | Gate P2 completion         |
+| Data                                         | `DB-027`, `DB-028`, then the MySQL block `DB-023` → `DB-026` + `MIG-016`     | after `INF-001`/`INF-003`  |
+| Auth & security                              | `AUTH-13` → `AUTH-14` → `AUTH-15`, then `SEC-015` (rate limiting)            | after `HTP-023`, `RTR-013` |
+| Observability                                | `OBS-014` and `OBS-020`, then `OBS-024`, `OBS-026`–`OBS-028`                 | after `INF-006`            |
+| Telemetry                                    | `TEL-5`–`TEL-9`                                                              | after `INF-010`            |
+| Search / billing / servers / oauth / browser | `SRCH-4`–`SRCH-8`, `BILL-5`, `SRV-6`, `OAUTH-6`–`OAUTH-8`, `BROW-4`–`BROW-6` | all after Tier 0           |
+
+### 5.4 Tier 3 — hardening and release gates
+
+`INF-013` (PBKDF2 on Free), `INF-014` (stale constants), `INF-015` (native-binary attribution),
+`INF-016` (edge-native admin app), `INF-017`/`INF-018` (Redis and workflow decisions),
+`INF-019`/`INF-020` (replicas, queue policy), `SEC-006`, `SEC-007`, `SEC-017`, `SEC-018`,
+`TST-016`, `TST-020`.
+
+### 5.5 Safe parallelism
+
+These sets touch disjoint files and can be reviewed concurrently:
+
+- `INF-001` ‖ `INF-002` ‖ `INF-004` ‖ `INF-005` ‖ `INF-008` ‖ `INF-013` ‖ `INF-014`
+- `SRCH-*` ‖ `BROW-*` ‖ `BILL-*` ‖ `SRV-*` ‖ `OAUTH-*` (five independent packages, one new driver each)
+- `HTP-023` ‖ `RTR-013` ‖ `DB-027` ‖ `DB-028`
+- Docs-only work (`DOC-015`, `DOC-016`, `OBS-028`'s documentation half) ‖ anything
+
+### 5.6 Blocked, and by what
+
+| Task(s)                      | Blocked by                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DB-023`–`DB-026`, `MIG-016` | `INF-001` + `INF-003` — a MySQL adapter written first repeats the placeholder bug with `?`                  |
+| `TEL-5`–`TEL-9`              | `INF-010` — the telemetry package cannot run on D1 or Postgres as it stands                                 |
+| `AUTH-13`–`AUTH-15`          | `HTP-023` (cookie primitives), `AUTH-7` (session store)                                                     |
+| `OBS-014`–`OBS-028`          | `INF-006` for the request-scoped half; cloud drivers additionally need `07-deploy-cloud-checks` credentials |
+| `TST-016`                    | `DPL-024`; the three-target conformance suite needs one artifact per target                                 |
+| Phase 9 (all `RBR-*`)        | Gate P8 closure — decoupling is a rename, and renaming unstable packages is churn                           |
+| Phase 10 docs-only rows      | nothing — the parity tables are already being maintained inside Phase 8                                     |
+
+### 5.7 Reading a `[~]` row
+
+A `[~]` row in this directory means **a branch existed or part of the acceptance criteria is met**,
+never "nearly done". Where a row is `[~]`, the row itself states which half is done and which is
+outstanding — `DPL-013`–`DPL-018` (built and tested, cloud acceptance unproven), `VLT-023` (metrics
+emitted, exporter missing), `CFG-002` (`Bun.env` banned, `process.env` not), `TST-010`/`TST-014`/`TST-015`
+(harness built, matrix incomplete), `CLI-018` (generator built, Windows run unverified). If you find a
+`[~]` whose remaining work is not written down, that is a documentation bug: fix the row first.

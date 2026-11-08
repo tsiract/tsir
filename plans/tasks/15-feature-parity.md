@@ -61,6 +61,14 @@ A feature is **never** `[x]` based on naming similarity, a class/interface
 declaration, a placeholder, a config declaration, a README description, or a
 test that only checks symbol existence.
 
+**How these markers are kept honest (added 2026-11-08).** § 7.1 and § 7.2 are _mechanical counts_ of
+the rows in § 6 — they are regenerated from this file, never typed by hand, so a row and its summary
+cannot disagree. `make plans` does not verify them (it checks links, ids and status words, not
+arithmetic), so the rule is procedural: **a status change edits the row and the two summary blocks in
+the same commit.** `[?]` is currently unused; a row with insufficient evidence is `[ ]` until someone
+re-runs the check, because "unverified" and "not implemented" need different actions and only one of
+them is honest without evidence.
+
 ---
 
 ## 4. Official reference index
@@ -240,9 +248,9 @@ Counterpart: LAR-DB. **Deliberately different: no Eloquent ORM.**
 | Query builder          | `DB::table(...)`      | Drizzle ORM (`createDrizzle`)                         | `drizzle.ts`     | `[x]`                                |
 | Transactions           | `DB::transaction`     | `withTransaction`, savepoints, context propagation    | `database.ts`    | `[x]`                                |
 | Connection health      | —                     | health check with connectivity + latency              | `database.ts`    | `[x]`                                |
-| Pessimistic locking    | `lockForUpdate`       | —                                                     | —                | `[ ]`                                |
+| Pessimistic locking    | `lockForUpdate`       | —                                                     | —                | `[ ]` — `DB-027`                     |
 | Eloquent ORM           | Eloquent              | — (deliberately not implemented)                      | —                | `[D]` deliberate: Drizzle is the ORM |
-| Pagination             | `paginate`            | —                                                     | —                | `[ ]`                                |
+| Pagination             | `paginate`            | —                                                     | —                | `[ ]` — `DB-028`                     |
 | D1 driver              | —                     | `createD1Driver`                                      | `d1.ts`          | `[x]` (extra)                        |
 | Postgres driver        | —                     | `postgres` subpath                                    | `postgres.ts`    | `[x]` (extra)                        |
 | Optimistic concurrency | —                     | `applyOptimistic`, `retryOnConflict`                  | `optimistic.ts`  | `[x]` (extra)                        |
@@ -369,6 +377,13 @@ Counterpart: LAR-FS.
 | Directory listing    | `directories`, `files`    | `directories(prefix)`              | `port.ts`, all drivers      | `[x]`  |
 | Copy/move            | `copy`, `move`            | `copy`, `move`                     | `port.ts`, all drivers      | `[x]`  |
 
+> **Correction (2026-11-08):** the 2026-11-07 parity audit's "`[ ]` confirmed absent" list named
+> `copy`, `move`, `setVisibility` and streaming for this package. All four are in `port.ts` **and**
+> implemented by every shipped driver (`s3.ts`, `memory.ts`, `drivers/adapters/local.ts`), with
+> `copy`/`move` cases in `conformance.ts`. The audit read `disk.ts` and stopped there; the rows above
+> were already `[x]` and were right. The audit is corrected at
+> [`15-feature-parity-audit.md`](./15-feature-parity-audit.md) § storage.
+
 ### 6.14 `@tsir/validate` — Laravel Validation
 
 Counterpart: LAR-VALIDATE.
@@ -436,35 +451,35 @@ Counterpart: LAR-CONTAINER.
 
 Counterpart: LAR-HTTP.
 
-| Feature              | Laravel feature           | @tsir implementation                     | Evidence                  | Status                |
-| -------------------- | ------------------------- | ---------------------------------------- | ------------------------- | --------------------- |
-| Request object       | `Illuminate\Http\Request` | Web `Request`                            | `context.ts`              | `[x]`                 |
-| Response helpers     | `response()`              | `ok`, `created`, `accepted`, `noContent` | `http` package            | `[x]`                 |
-| Problem details      | `abort(404)`              | RFC 9457 problems                        | `problems.ts`             | `[x]`                 |
-| Middleware           | middleware                | pipeline                                 | `pipeline.ts`             | `[x]`                 |
-| Request body parsing | `$request->all()`         | `body.ts`, multipart                     | `body.ts`, `multipart.ts` | `[x]`                 |
-| File uploads         | `$request->file()`        | multipart handling                       | `multipart.ts`            | `[x]`                 |
-| Cookies              | `Cookie` facade           | —                                        | —                         | `[ ]`                 |
-| Session middleware   | `StartSession`            | `@tsir/auth` session                     | —                         | `[x]` (cross-package) |
-| CORS                 | CORS middleware           | CORS preflight handling                  | `http` tests              | `[x]`                 |
-| Trust proxies        | `TrustProxies`            | —                                        | —                         | `[ ]`                 |
-| Maintenance mode     | `CheckForMaintenanceMode` | —                                        | —                         | `[ ]`                 |
+| Feature              | Laravel feature           | @tsir implementation                                                     | Evidence                  | Status                |
+| -------------------- | ------------------------- | ------------------------------------------------------------------------ | ------------------------- | --------------------- |
+| Request object       | `Illuminate\Http\Request` | Web `Request`                                                            | `context.ts`              | `[x]`                 |
+| Response helpers     | `response()`              | `ok`, `created`, `accepted`, `noContent`                                 | `http` package            | `[x]`                 |
+| Problem details      | `abort(404)`              | RFC 9457 problems                                                        | `problems.ts`             | `[x]`                 |
+| Middleware           | middleware                | pipeline                                                                 | `pipeline.ts`             | `[x]`                 |
+| Request body parsing | `$request->all()`         | `body.ts`, multipart                                                     | `body.ts`, `multipart.ts` | `[x]`                 |
+| File uploads         | `$request->file()`        | multipart handling                                                       | `multipart.ts`            | `[x]`                 |
+| Cookies              | `Cookie` facade           | —                                                                        | —                         | `[ ]` — `HTP-023`     |
+| Session middleware   | `StartSession`            | `@tsir/auth` session                                                     | —                         | `[x]` (cross-package) |
+| CORS                 | CORS middleware           | CORS preflight handling                                                  | `http` tests              | `[x]`                 |
+| Trust proxies        | `TrustProxies`            | unconditional `x-forwarded-for` read in `pipeline.ts` (not a trust list) | `pipeline.ts`             | `[ ]` — `HTP-024`     |
+| Maintenance mode     | `CheckForMaintenanceMode` | —                                                                        | —                         | `[ ]`                 |
 
 ### 6.19 `@tsir/router` — Laravel Routing
 
 Counterpart: LAR-ROUTING.
 
-| Feature             | Laravel feature      | @tsir implementation                        | Evidence         | Status           |
-| ------------------- | -------------------- | ------------------------------------------- | ---------------- | ---------------- |
-| Route definition    | `Route::get(...)`    | decorator-based `@Controller`, `@Get`, etc. | `router` package | `[x]`            |
-| Route params        | `{id}`               | route params with typed binding             | `route-args.ts`  | `[x]`            |
-| Route groups        | `Route::group`       | module-owned registries                     | `router`         | `[x]`            |
-| Named routes        | `->name('x')`        | —                                           | —                | `[ ]`            |
-| Route model binding | `Route::model`       | — (explicit binding)                        | —                | `[D]` deliberate |
-| Route caching       | `route:cache`        | `routes.gen.ts` (compiled at build)         | `router`         | `[x]`            |
-| API resource routes | `Route::apiResource` | —                                           | —                | `[ ]`            |
-| Sub-domain routing  | `->domain()`         | —                                           | —                | `[ ]`            |
-| OpenAPI generation  | —                    | OpenAPI 3.1 from route table                | `openapi.ts`     | `[x]` (extra)    |
+| Feature             | Laravel feature      | @tsir implementation                        | Evidence         | Status            |
+| ------------------- | -------------------- | ------------------------------------------- | ---------------- | ----------------- |
+| Route definition    | `Route::get(...)`    | decorator-based `@Controller`, `@Get`, etc. | `router` package | `[x]`             |
+| Route params        | `{id}`               | route params with typed binding             | `route-args.ts`  | `[x]`             |
+| Route groups        | `Route::group`       | module-owned registries                     | `router`         | `[x]`             |
+| Named routes        | `->name('x')`        | —                                           | —                | `[ ]` — `RTR-013` |
+| Route model binding | `Route::model`       | — (explicit binding)                        | —                | `[D]` deliberate  |
+| Route caching       | `route:cache`        | `routes.gen.ts` (compiled at build)         | `router`         | `[x]`             |
+| API resource routes | `Route::apiResource` | —                                           | —                | `[ ]` — `RTR-014` |
+| Sub-domain routing  | `->domain()`         | —                                           | —                | `[ ]` — `RTR-015` |
+| OpenAPI generation  | —                    | OpenAPI 3.1 from route table                | `openapi.ts`     | `[x]` (extra)     |
 
 ### 6.20 `@tsir/console` — Laravel Artisan
 
@@ -694,48 +709,56 @@ The admin app (`src/apps/admin.product.com/client/src/pages/`) is the **only** u
 
 | @tsir package       | Counterpart       | Total features | Verified | Partial | Not impl. | Blocked | Unverified | Deliberately diff. |
 | ------------------- | ----------------- | -------------- | -------- | ------- | --------- | ------- | ---------- | ------------------ |
-| auth                | Auth+Sanctum      | 10             | 6        | 2       | 2         | 0       | 0          | 0                  |
+| auth                | Auth+Sanctum      | 11             | 6        | 2       | 3         | 0       | 0          | 0                  |
 | policy              | Authorization     | 7              | 5        | 0       | 1         | 0       | 0          | 1                  |
 | vault               | Encryption        | 6              | 4        | 0       | 2         | 0       | 0          | 0                  |
-| cache               | Cache             | 9              | 8        | 0       | 0         | 0       | 0          | 1                  |
-| database            | DB                | 10             | 6        | 0       | 2         | 0       | 0          | 2                  |
-| migrate             | Migrations        | 7              | 5        | 0       | 0         | 0       | 0          | 2                  |
+| cache               | Cache             | 9              | 9        | 0       | 0         | 0       | 0          | 0                  |
+| database            | DB                | 10             | 7        | 0       | 2         | 0       | 0          | 1                  |
+| migrate             | Migrations        | 7              | 6        | 0       | 0         | 0       | 0          | 1                  |
 | seed                | Seeders           | 6              | 5        | 0       | 1         | 0       | 0          | 0                  |
-| events              | Events            | 6              | 4        | 1       | 0         | 0       | 0          | 1                  |
+| events              | Events            | 7              | 5        | 1       | 0         | 0       | 0          | 1                  |
 | queue               | Queue             | 12             | 8        | 2       | 2         | 0       | 0          | 0                  |
 | schedule            | Schedule          | 8              | 7        | 1       | 0         | 0       | 0          | 0                  |
 | mail                | Mail              | 9              | 7        | 1       | 1         | 0       | 0          | 0                  |
 | notify              | Notifications     | 8              | 6        | 0       | 2         | 0       | 0          | 0                  |
 | storage             | Filesystem        | 9              | 9        | 0       | 0         | 0       | 0          | 0                  |
 | validate            | Validation        | 8              | 6        | 0       | 2         | 0       | 0          | 0                  |
-| pulse/observability | Logging+Pulse     | 12             | 8        | 1       | 2         | 0       | 0          | 1                  |
+| pulse               | Logging+Pulse     | 23             | 4        | 4       | 14        | 0       | 0          | 1                  |
 | config              | Config            | 5              | 4        | 0       | 0         | 0       | 0          | 1                  |
 | container           | Container         | 7              | 4        | 0       | 1         | 0       | 0          | 2                  |
-| http                | HTTP              | 11             | 7        | 1       | 2         | 0       | 0          | 1                  |
-| router              | Routing           | 9              | 4        | 0       | 3         | 0       | 0          | 2                  |
-| console             | Artisan           | 8              | 7        | 0       | 1         | 0       | 0          | 0                  |
-| deploy              | Vapor             | 7              | 6        | 0       | 0         | 0       | 0          | 1                  |
-| flags/pennant       | Pennant           | 8              | 5        | 1       | 2         | 0       | 0          | 0                  |
-| billing/cashier     | Cashier           | 9              | 8        | 0       | 1         | 0       | 0          | 0                  |
-| servers/forge       | Forge             | 8              | 7        | 0       | 1         | 0       | 0          | 0                  |
-| oauth/socialize     | Socialite         | 8              | 5        | 0       | 3         | 0       | 0          | 0                  |
-| search/scout        | Scout             | 9              | 4        | 0       | 4         | 0       | 0          | 1                  |
+| http                | HTTP              | 11             | 8        | 0       | 3         | 0       | 0          | 0                  |
+| router              | Routing           | 9              | 5        | 0       | 3         | 0       | 0          | 1                  |
+| console             | Artisan           | 9              | 8        | 0       | 1         | 0       | 0          | 0                  |
+| deploy              | Vapor             | 7              | 7        | 0       | 0         | 0       | 0          | 0                  |
+| flags               | Pennant           | 8              | 5        | 1       | 2         | 0       | 0          | 0                  |
+| billing             | Cashier           | 9              | 8        | 0       | 1         | 0       | 0          | 0                  |
+| servers             | Forge             | 8              | 7        | 0       | 1         | 0       | 0          | 0                  |
+| oauth               | Socialite         | 8              | 5        | 0       | 3         | 0       | 0          | 0                  |
+| search              | Scout             | 9              | 4        | 0       | 4         | 0       | 0          | 1                  |
 | broadcast           | Broadcasting      | 10             | 10       | 0       | 0         | 0       | 0          | 0                  |
-| browser/nightwatch  | Dusk              | 6              | 3        | 0       | 3         | 0       | 0          | 0                  |
-| telemetry           | Horizon+Telescope | 8              | 5        | 0       | 3         | 0       | 0          | 0                  |
+| browser             | Dusk              | 6              | 3        | 0       | 3         | 0       | 0          | 0                  |
+| telemetry           | Horizon+Telescope | 9              | 5        | 0       | 4         | 0       | 0          | 0                  |
+| **total (29 pkgs)** | —                 | 255            | 177      | 12      | 56        | 0       | 0          | 10                 |
 
 ### 7.2 Aggregate metrics
 
-- **Total identified features:** 241
-- **Verified parity:** 162 (67.2%)
-- **Partial parity:** 11 (4.6%)
-- **Not implemented:** 44 (18.3%)
-- **Deliberately different:** 12 (5.0%)
-- **Blocked / Unverified:** 0 / 0
+Counted mechanically from the § 6 tables on 2026-11-08 (every row's last cell, package sections only —
+the `@tsir/*` cross-cutting section is counted separately because it is not a package), so this block
+cannot drift from the rows again:
 
-> Calculation: counts are sum of feature rows in § 6. Percentages are verified ÷ total
-> (excluding deliberately-different rows, which are not gaps). Verified-only coverage
-> = 162 / 229 = 70.7%. Including partial = 75.5%.
+- **Total identified features:** 255 (plus 22 cross-cutting rows in § 6.30/§ 6.31)
+- **Verified parity:** 177 (69.4% of 255)
+- **Partial parity:** 12 (4.7%)
+- **Not implemented:** 56 (22.0%)
+- **Deliberately different:** 10 (3.9%)
+- **Not applicable:** 0 here; 2 in the cross-cutting section
+- **Blocked / Unverified:** 0 / 0
+- Excluding deliberately-different rows (not gaps): **72.2% verified**, **77.1%** including partial
+  — Gate P10's ≥ 80 % target is therefore **not yet met**, by about 8 points.
+
+> The earlier "162 / 241" block is superseded: it double-counted the `@tsir/*` cross-cutting rows and
+> pre-dated the schedule (7/8) and broadcast (10/10) closures. § 7.1 above is the same mechanical
+> recount, per package, and its total row sums to this block.
 >
 > **2026-11-07 audit correction:** 8 features were under-reported as `[ ]`/`[~]` but
 > are fully implemented (cache tags/increment/remember, scout in-memory engine,
@@ -751,13 +774,25 @@ The admin app (`src/apps/admin.product.com/client/src/pages/`) is the **only** u
 
 ### 7.3 Highest-priority implementation gaps
 
-1. `@tsir/search` (scout) — Algolia/Meilisearch/Typesense, queue sync (4/9).
-2. `@tsir/auth` — Sanctum SPA cookie auth, CSRF, email verification (6/10).
-3. `@tsir/telemetry` — exception, cache, DB, mail tracking (5/8).
-4. `@tsir/database` — pessimistic locking, pagination (6/10).
-5. `@tsir/router` — named routes, API resource routes, sub-domain routing (4/9).
-6. `@tsir/billing` (cashier) — Paddle provider only (8/9 verified).
-7. `@tsir/servers` (forge) — cloud providers only (7/8 verified).
+Counts are `verified / total` from § 7.1. Every row now names the task that closes it, so a gap is
+never just a number.
+
+| #   | Package                      | Verified | Gap                                                                                                         | Task(s)                                                                      |
+| --- | ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 1   | `@tsir/pulse`                | 4/23     | The whole driver/instrumentation half: per-runtime log drivers and the HTTP/DB/queue/vault instrumentations | `OBS-014`, `OBS-020`, `OBS-024`, `OBS-026`–`OBS-028`                         |
+| 2   | `@tsir/search` (scout)       | 4/9      | Algolia / Meilisearch / Typesense engines, queue sync, engine conformance kit                               | `SRCH-4`–`SRCH-8`                                                            |
+| 3   | `@tsir/telemetry`            | 5/9      | Failed-job detail, exception tracking, cache/DB/mail event tracking                                         | `TEL-5`–`TEL-9`; blocked on `INF-010`                                        |
+| 4   | `@tsir/auth`                 | 6/11     | Sanctum SPA cookie auth, CSRF middleware, email verification                                                | `AUTH-13`–`AUTH-15`; needs `HTP-023`                                         |
+| 5   | `@tsir/router`               | 5/9      | Named routes + URL generation, `apiResource`, sub-domain routing                                            | `RTR-013`–`RTR-015`                                                          |
+| 6   | `@tsir/oauth` (socialize)    | 5/8      | Facebook/X/Apple providers, OAuth 1.0a, stateless handoff                                                   | `OAUTH-6`–`OAUTH-8`                                                          |
+| 7   | `@tsir/browser` (nightwatch) | 3/6      | Assertions, page objects, `testBrowser()` harness                                                           | `BROW-4`–`BROW-6`                                                            |
+| 8   | `@tsir/http`                 | 8/11     | Cookies, trusted proxies, maintenance mode                                                                  | `HTP-023`, `HTP-024` (maintenance mode is `@tsir/schedule`'s, already built) |
+| 9   | `@tsir/database`             | 7/10     | Pessimistic locking, pagination                                                                             | `DB-027`, `DB-028`                                                           |
+| 10  | `@tsir/billing` / `servers`  | 8/9, 7/8 | Paddle provider; cloud-provider drivers                                                                     | `BILL-5`, `SRV-6`                                                            |
+
+**Read this table with `16-infrastructure-hardening.md` beside it.** Two of the largest gaps above are
+not feature gaps at all: `@tsir/telemetry` cannot run on the default database (`INF-010`) and
+`@tsir/pulse`'s drivers are blocked behind the same `waitUntil` seam the admin app needs (`INF-006`).
 
 > `@tsir/storage` is complete (9/9): visibility, streaming, directory listing, and
 > copy/move were implemented across all three drivers (memory, local, s3) with conformance

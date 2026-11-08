@@ -1,13 +1,19 @@
 # Feature Parity Audit — Source Verification
 
-**Audit date:** 2026-11-07
-**Source:** `plans/tasks/15-feature-parity.md` (966 lines)
+**Audit date:** 2026-11-07 · **Corrected:** 2026-11-08 (storage false negatives, aggregate baseline)
+**Source:** `plans/tasks/15-feature-parity.md`
 **Scope:** All 30 `@tsir/*` packages
 **Method:** Deep-read of source files in `src/framework/<name>/src/` for every `[x]` and `[ ]` claim, plus admin app UI coverage cross-check.
 
 ## Executive Summary
 
-The parity doc's aggregate claim (131/241 verified = 54.4%) is **honest in direction** but contains **under-reporting**: several features marked `[ ]` (not implemented) or `[~]` (partial) are in fact fully implemented in source. No `[x]` claim was found to be a pure stub or placeholder.
+**Baseline note (2026-11-08):** this audit originally measured the parity doc at 131/241 verified.
+The doc's own recount is 183/277 including the later schedule and broadcast closures, so the two
+documents disagreed about the same table. The recount in `15-feature-parity.md § 7.2` is the current
+authority; the discrepancy percentages below are still valid in **direction** (the doc under-reported
+six features), but the absolute numbers came from an older snapshot.
+
+The parity doc's aggregate claim is **honest in direction** but contains **under-reporting**: several features marked `[ ]` (not implemented) or `[~]` (partial) are in fact fully implemented in source. No `[x]` claim was found to be a pure stub or placeholder.
 
 **Discrepancies found (doc under-reports reality):**
 
@@ -22,8 +28,7 @@ The parity doc's aggregate claim (131/241 verified = 54.4%) is **honest in direc
 
 **Doc claims that are accurate (`[ ]` confirmed absent):**
 
-- storage: copy/move/setVisibility/streaming
-- router: named routes, API resource routes, sub-domain routing
+- router: named routes, API resource routes, sub-domain routing (`RTR-013`–`RTR-015`)
 - notify: broadcast channel, notification preferences
 - validate: built-in unique/exists rules (only Zod `.refine`)
 - http: cookies, trust-proxy
@@ -258,7 +263,12 @@ All transports declare `capabilities.attachments: true`.
 - Local driver with atomic writes, sidecar metadata, range reads — `drivers/adapters/local.ts`
 - S3 driver with SigV4 — `drivers/s3.ts`, `sigv4.ts`
 
-**`[ ]` confirmed absent:** `copy`, `move`, `setVisibility`, streaming (get returns `Uint8Array`, not a stream).
+**`[ ]` confirmed absent:** none of these. **Corrected 2026-11-08:** this audit originally listed
+`copy`, `move`, `setVisibility` and streaming here. They are declared on `StorageDriver` and `Disk`
+(`port.ts`) and implemented by `s3.ts`, `memory.ts` and `drivers/adapters/local.ts`; `conformance.ts`
+asserts `copy`/`move` round-trips, and `disk.ts` exposes `stream()`. The error came from reading
+`disk.ts` alone and never opening `port.ts`. The parity rows were right and this audit was wrong —
+the honest direction of a discrepancy is not always "the doc under-reports".
 
 **Stubs:** None.
 

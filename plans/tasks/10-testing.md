@@ -31,15 +31,15 @@
 
 ## Matrices & concurrency
 
-| ID        | Title                                                                    | Status | Depends | Acceptance criteria (summary)                 |
-| --------- | ------------------------------------------------------------------------ | ------ | ------- | --------------------------------------------- |
-| `TST-014` | Negative matrix runner (per module table from plans)                     | `[~]`  | TST-006 | Missing row → task cannot be marked done      |
-| `TST-015` | Concurrency suite (container, tx, migration, rotation, queue, scheduler) | `[~]`  | TST-004 | Seeded and repeatable                         |
-| `TST-016` | Deploy conformance suite (3 targets)                                     | `[ ]`  | DPL-024 | Identical assertions                          |
-| `TST-017` | Coverage gates per package                                               | `[x]`  | FND-010 | Thresholds from `12-testing.md § 7`           |
-| `TST-018` | Flake quarantine workflow (label, owner, 7 days)                         | `[x]`  | FND-010 | Overdue flake fails CI                        |
-| `TST-019` | Bench harness integration (`make bench`)                                 | `[x]`  | FND-019 | Baseline comparison with regression threshold |
-| `TST-020` | Mutation testing pilot on `vault` + `container`                          | `[ ]`  | TST-017 | Report committed; decision ADR                |
+| ID        | Title                                                                    | Status | Depends | Acceptance criteria (summary)                                                                                                |
+| --------- | ------------------------------------------------------------------------ | ------ | ------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `TST-014` | Negative matrix runner (per module table from plans)                     | `[~]`  | TST-006 | Missing row → task cannot be marked done                                                                                     |
+| `TST-015` | Concurrency suite (container, tx, migration, rotation, queue, scheduler) | `[~]`  | TST-004 | Seeded and repeatable                                                                                                        |
+| `TST-016` | Deploy conformance suite (3 targets)                                     | `[ ]`  | DPL-024 | Identical assertions across Bun, Workers and Lambda. Cannot pass before `INF-004` (CF batch) and `INF-005` (Lambda triggers) |
+| `TST-017` | Coverage gates per package                                               | `[x]`  | FND-010 | Thresholds from `12-testing.md § 7`                                                                                          |
+| `TST-018` | Flake quarantine workflow (label, owner, 7 days)                         | `[x]`  | FND-010 | Overdue flake fails CI                                                                                                       |
+| `TST-019` | Bench harness integration (`make bench`)                                 | `[x]`  | FND-019 | Baseline comparison with regression threshold                                                                                |
+| `TST-020` | Mutation testing pilot on `vault` + `container`                          | `[ ]`  | TST-017 | Report committed; decision ADR                                                                                               |
 
 ---
 

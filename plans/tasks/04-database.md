@@ -84,6 +84,11 @@ Notes on the items not yet `[x]`:
 - `MIG-012` was the one deploy-shaped row here, and it closed with `DPL-021` (2026-10-28):
   the emitted script calls the same `migrate()` the CLI does, so the idempotence and
   lock-verified behaviour the concurrency test proves is what runs in a deploy.
+- `DB-023`…`DB-026` and `MIG-016` are the MySQL block and they all depend on the same missing adapter:
+  `@tsir/database/mysql` does not exist. They are **not** independently schedulable, and the Postgres
+  correctness work in [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md)
+  (`INF-001`, `INF-003`) must land first — a MySQL adapter written before the `$1`/`?` placeholder
+  discipline is proven would reproduce the same class of bug with a different placeholder.
 - `DB-018` was not in the original list; it exists because `MIG-003` is unsound
   without it. `pg_try_advisory_lock` is session-scoped, so on a pooled client the
   lock and the DDL can land on different connections — a lock that excludes

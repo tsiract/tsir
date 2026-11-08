@@ -62,3 +62,18 @@ composes framework components rather than reimplementing them.
   app decides how to hydrate.
 - No design system enforcement. Styling is CSS-variable based so each app can
   theme.
+
+---
+
+## Status (added 2026-11-08): proposal, not implementation
+
+Nothing in this document is built. There is no `@tsir/ui` package in `src/framework/`, and the admin
+app ships its own Svelte components directly (see the admin frontend plan, `ADM-*`). This document
+is kept because the argument — **a component kit with no shared package will be reimplemented per app**
+— is still the right analysis, and because it is the only place the React/Svelte/Vue adapter shape is
+written down.
+
+It is therefore `[PROPOSED]` under the status taxonomy established by **ADR-0030**. It has no task
+ledger, and that is deliberate: adding `@tsir/ui` would be a new package with three framework
+dependencies, which needs an ADR under **ADR-0012**'s dependency policy before it needs tasks. Do not
+treat a statement here as a description of current behaviour.

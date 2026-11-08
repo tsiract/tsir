@@ -35,6 +35,28 @@ Phases 3 and 4 are ordered because Vault's column codec integrates with `@tsir/d
 The machine-readable copy of the current phase is the root `status.json`: `make readme` reads it
 for the README badge, so this map and the badge cannot disagree.
 
+### 2.1 Where Phase 8 actually is (re-derived 2026-11-08)
+
+Phase 8 is the phase this repository is *in*, and it collects four independent work streams that do
+not share a ledger. This is the authoritative map from stream to ledger to state:
+
+| Stream                                | Ledger                                                                        | State                                                                 |
+| ------------------------------------- | ----------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Production readiness (bench, security, docs, release) | [`12-security.md`](../tasks/12-security.md), [`10-testing.md`](../tasks/10-testing.md), [`09-frontpage.md`](../tasks/09-frontpage.md), [`08-dx.md`](../tasks/08-dx.md) | Partial — `SEC-006`/`SEC-007`/`SEC-015`/`SEC-017`/`SEC-018` open; docs and release mostly landed |
+| Capability completeness (Phase 7 leftovers) | [`07-capabilities.md`](../tasks/07-capabilities.md) + per-module files        | Closed except `TEL-*` and the Phase-7 modules' own open rows          |
+| Feature parity (originally Phase 10)  | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                       | Active — 177/255 verified, under construction rather than planning-only |
+| **Infrastructure hardening**           | [`16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md)   | **Not started — gates Phase 8** (`P0` = `INF-001`–`INF-005`)          |
+
+Two consequences worth stating plainly, because the phase map above does not show them:
+
+1. **Phase 9 (Laravel decoupling) and Phase 10 (feature parity) are no longer strictly "after Phase 8".**
+   Feature parity is being executed *inside* Phase 8 (its ledger has `[x]` rows dated 2026-11-07/08),
+   while decoupling remains genuinely gated. The map keeps its ordering; this section records the
+   deviation rather than pretending the ledger agrees with it.
+2. **`INF-*` is the gate, not a side quest.** A "production readiness" phase that closes with a
+   queue driver that drops messages, an auth bug on the escape-hatch database, and an AWS template
+   that does not validate is not ready. That is why criterion 6 above exists.
+
 ---
 
 ## 3. Phase details
@@ -299,7 +321,7 @@ Caveats that stay open: brute-force protection is not in `@tsir/auth` (CAP-P7 F3
 
 **Goal:** evidence, docs, and release mechanics.
 
-**Scope:** benchmarks, security review, docs site, compatibility policy, upgrade guide, release automation, `src/apps`.
+**Scope:** benchmarks, security review, docs site, compatibility policy, upgrade guide, release automation, `src/apps`, **and infrastructure hardening (`INF-*`)** — added 2026-11-08 by the infrastructure audit, because the audit's P0 findings are production-readiness findings, not a separate phase.
 
 **Exit criteria (Gate P8)**
 
@@ -308,6 +330,10 @@ Caveats that stay open: brute-force protection is not in `@tsir/auth` (CAP-P7 F3
 3. Docs site covers every public package and every error code.
 4. Compatibility policy: SemVer for `1.0`, documented support window, deprecation process.
 5. Release automation publishes **signed** artifacts and generates changelogs. _(Landed early in Phase 1: `.github/workflows/release.yml` + `make release-pack` already build both artifacts — `dist/` tree and per-package tarballs — with checksums, a tag/version guard, and a double-gated npm publish that emits provenance (ADR-0014). Gate P8 still owes artifact signing and generated changelogs.)_
+6. **Every `P0` finding in [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) is closed** (`INF-001`–`INF-005`): the Postgres auth path works, `@tsir/database` bundles without `bun:sqlite`, the Cloudflare Queues consumer does not drop messages, and the SAM template is valid. A phase whose exit criteria are "production readiness" cannot be signed off while the default queue driver loses messages.
+7. **The provider matrix in [`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md) § 16 matches reality**: no row says `[VERIFIED]` unless a test proves it, and every `[PARTIAL]` row names its `INF-*` task.
+
+**Phase 8 state (2026-11-08).** Criteria 1, 2, 3, 4 and 6 are the open ones; 5 is partly landed; 7 is now mechanically checkable because the status register exists. The audit added `INF-001`…`INF-020`; the `P0` set is the gate blocker.
 
 ---
 

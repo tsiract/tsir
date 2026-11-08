@@ -30,13 +30,13 @@
 
 ## Metrics & tracing
 
-| ID        | Title                                       | Status | Depends | Acceptance criteria (summary)                  |
-| --------- | ------------------------------------------- | ------ | ------- | ---------------------------------------------- |
-| `OBS-013` | Metric facade (counter/histogram/gauge)     | `[x]`  | OBS-001 | OTel-compatible exporter interface             |
-| `OBS-014` | HTTP/DB/queue/link/vault instrumentations   | `[ ]`  | OBS-013 | Metric names per `13-observability.md § 4`     |
-| `OBS-015` | Route-template label cardinality guard      | `[x]`  | OBS-014 | Concrete ids never used as labels              |
-| `OBS-016` | Tracing spans + sampling config             | `[x]`  | OBS-013 | Parent-based default; OTel semconv attributes  |
-| `OBS-017` | Export queue with drop-oldest + drop metric | `[x]`  | OBS-016 | Exporter outage does not backpressure requests |
+| ID        | Title                                       | Status | Depends                | Acceptance criteria (summary)                                                                                                                                                                                                           |
+| --------- | ------------------------------------------- | ------ | ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `OBS-013` | Metric facade (counter/histogram/gauge)     | `[x]`  | OBS-001                | OTel-compatible exporter interface                                                                                                                                                                                                      |
+| `OBS-014` | HTTP/DB/queue/link/vault instrumentations   | `[ ]`  | OBS-013, **`INF-006`** | Metric names per `13-observability.md § 4`. The request-scoped half is blocked on `INF-006`: an instrumentation that fires after the response must be registered with the runtime or it is discarded (`16-infrastructure-hardening.md`) |
+| `OBS-015` | Route-template label cardinality guard      | `[x]`  | OBS-014                | Concrete ids never used as labels                                                                                                                                                                                                       |
+| `OBS-016` | Tracing spans + sampling config             | `[x]`  | OBS-013                | Parent-based default; OTel semconv attributes                                                                                                                                                                                           |
+| `OBS-017` | Export queue with drop-oldest + drop metric | `[x]`  | OBS-016                | Exporter outage does not backpressure requests                                                                                                                                                                                          |
 
 ## Health
 
