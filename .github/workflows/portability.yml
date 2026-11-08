@@ -97,7 +97,10 @@ jobs:
           make check 2>&1 | tee check.log
           status=${PIPESTATUS[0]}
           if [ "$status" -ne 0 ]; then
-            tail -n 25 check.log | while IFS= read -r line; do
+            # `lint` alone prints two lines per package (33 of them), so a short tail can miss
+            # the failing check entirely — the first attempt at this used 25 and reported only
+            # the previous steps' successes.
+            tail -n 120 check.log | while IFS= read -r line; do
               [ -n "$line" ] && printf '::error::%s\n' "$line"
             done
           fi
