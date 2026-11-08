@@ -55,6 +55,24 @@ jobs:
           /bin/bash --version | head -n 1
           bun --version
       - run: make install
+      - name: Verify the install is reproducible
+        # Two reproducibility invariants:
+        #   1. the runner's Bun must be the version `packageManager` pins. A different major
+        #      cannot parse `bun.lock` (lockfileVersion 2) and silently re-resolves the whole
+        #      graph instead — reproduced locally with bun 1.2.21, which rewrote bun.lock;
+        #   2. a `--frozen-lockfile` install must leave `bun.lock` byte-identical, so a manifest
+        #      edit that forgot to regenerate the lockfile fails here instead of drifting.
+        # Neither would have caught the 2026-11 admin failure: the lockfile was consistent and
+        # the manifest was incomplete. `make boundaries` now checks that (check-boundaries rule 4).
+        run: |
+          pinned="$(sed -n 's/.*"packageManager": *"bun@\([0-9.]*\)".*/\1/p' package.json)"
+          actual="$(bun --version)"
+          echo "bun pinned=$pinned actual=$actual"
+          test "$pinned" = "$actual" || { echo "::error::Bun $actual is not the pinned $pinned"; exit 1; }
+          git diff --exit-code -- bun.lock || {
+            echo "::error::bun.lock changed during a frozen install; commit the regenerated lockfile"
+            exit 1
+          }
       - name: Verify installed commit hook
         run: |
           message="$(mktemp)"
@@ -76,11 +94,19 @@ jobs:
       - name: Validate archive and checksums
         run: |
           cd dist/release
-          shasum -a 256 -c SHA256SUMS.txt
+          # `sha256sum` on Linux, `shasum` on macOS: the workflow runs on both, and only one of
+          # them is on PATH per runner. `--check` reads the same `SHA256SUMS.txt` either way.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c SHA256SUMS.txt
+          else
+            shasum -a 256 -c SHA256SUMS.txt
+          fi
           tar -tzf tsir-*-dist.tar.gz > archive-contents.txt
-          grep -q '^frontpage/docs/' archive-contents.txt
+          # Applications are nested under `apps/` in the dist tree; the front page is one of them.
+          grep -q '^apps/frontpage/docs/' archive-contents.txt
           grep -q '^tsir$' archive-contents.txt
-          grep -q '^src/apps/admin.product.com/modules/users/' archive-contents.txt
-          grep -q '^src/apps/admin.product.com/modules/auth/' archive-contents.txt
+          # Applications ship at `apps/<name>`; `src/` holds only the baked frontpage/docs.
+          grep -q '^apps/admin.product.com/modules/users/' archive-contents.txt
+          grep -q '^apps/admin.product.com/modules/auth/' archive-contents.txt
           if grep -q 'node_modules/' archive-contents.txt; then echo 'archive contains installed dependencies'; exit 1; fi
           rm archive-contents.txt

@@ -72,6 +72,21 @@ interface SourceManifest {
 
 const KB = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
 
+/**
+ * Files a package needs at run time that the TypeScript compiler does not emit.
+ *
+ * Keyed by **directory name** (`buildPackage` is called with the directory, not the manifest
+ * name); values are paths relative to that package's root. Keep the list small and
+ * justified — every entry is an asset someone can forget to update. `@tsir/console` is the one
+ * package with such an asset: `tsir new` renders its project templates from `stubs/new/*.slug`,
+ * which are data, not code. Without them the distribution ships a `tsir new` that fails with
+ * `ENOENT: … framework/console/stubs/new/tsir.js.slug`, and nothing upstream notices, because a
+ * missing template is not a type error.
+ */
+const RUNTIME_ASSETS: Readonly<Record<string, readonly string[]>> = {
+  console: ['src/stubs'],
+};
+
 async function listFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
   for (const entry of await readdir(dir, { withFileTypes: true })) {
@@ -203,6 +218,20 @@ async function buildPackage(
     await rename(join(emitted, entry.name), join(target, entry.name));
   }
   await rm(emitted, { recursive: true, force: true });
+
+  // **Non-TypeScript runtime assets.** `tsc` emits JavaScript and declarations, so anything a
+  // package reads at run time that is not TypeScript disappears here. `@tsir/console` is the one
+  // such package: `tsir new` renders its project templates from `src/stubs/**/*.slug`, which are
+  // data. Without them the distribution ships a `tsir new` that fails with
+  // `ENOENT: ... framework/console/stubs/new/tsir.js.slug` — the command is half the point of the
+  // distribution, and a missing template is not a type error, so nothing upstream notices.
+  for (const asset of RUNTIME_ASSETS[name] ?? []) {
+    // `asset` is `src/stubs` in the source tree; the distribution has no `src/` level, so the copy
+    // lands beside the emitted JavaScript (`stubs/`), which is where `stub.ts` resolves it from.
+    await cp(join(sourceDir, asset), join(target, asset.replace(/^src\//u, '')), {
+      recursive: true,
+    });
+  }
 
   const files = await listFiles(target);
   // Preserve the source package's export keys (e.g. `@tsir/queue/memory` maps
@@ -376,8 +405,29 @@ async function main(): Promise<void> {
   for (const name of ['admin.product.com']) {
     await cp(join(ROOT, 'src', 'apps', name), join(apps, name), {
       recursive: true,
+      /**
+       * What a *runnable* application needs, not what developing it needs.
+       *
+       * `e2e/` and `playwright.config.ts` are development-only: they drive a browser against a
+       * running server. Shipping them made `tsir test` inside the archive pick up Playwright
+       * specs and fail with "Playwright Test did not expect test.describe() to be called here" —
+       * a distribution that cannot run its own test command. `migrations/meta/` is Drizzle's
+       * local bookkeeping and is regenerated, so it stays behind with the rest.
+       */
       filter: (path) =>
-        !['node_modules', '.tsir', 'dist', 'coverage', '.env', '.build'].includes(basename(path)),
+        ![
+          'node_modules',
+          '.tsir',
+          'dist',
+          'coverage',
+          '.env',
+          '.build',
+          // Development-only test runners and browser suites.
+          'e2e',
+          'playwright.config.ts',
+          // Editor / tooling state.
+          '.eslintcache',
+        ].includes(basename(path)),
     });
     await writeFile(
       join(apps, name, 'README.md'),

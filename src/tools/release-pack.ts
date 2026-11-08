@@ -222,7 +222,11 @@ async function main(): Promise<void> {
       DIST,
       'framework',
       'src',
-      'frontpage',
+      // Every application — including the front page — lives under `apps/` in the dist tree
+      // (`dist.ts`). Listing `frontpage` at the top level made `tar` fail outright, and because
+      // `release-pack` treats a failed archive as fatal, `make release-pack` could not complete:
+      // the archive is the deliverable, so this was the whole gate.
+      'apps',
       'tsir',
       'README.md',
       'LICENSE',
