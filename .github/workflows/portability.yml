@@ -87,7 +87,21 @@ jobs:
           temporary_root="$(mktemp -d)"
           TSIR_ROOT="$temporary_root" make kill-owned
           rm -rf "$temporary_root"
-      - run: make check
+      # `make` exits 2 for *any* failed recipe, so a bare `- run: make check` reports "exit code 2"
+      # and nothing else: the job log is the only place the failing check appears, and it is not
+      # reachable from the API (`--log-failed` returns EOF) or from a fork's annotations. Echoing
+      # the tail as `::error::` lines puts the actual failure in the check annotations.
+      - name: make check
+        run: |
+          set +e
+          make check 2>&1 | tee check.log
+          status=${PIPESTATUS[0]}
+          if [ "$status" -ne 0 ]; then
+            tail -n 25 check.log | while IFS= read -r line; do
+              [ -n "$line" ] && printf '::error::%s\n' "$line"
+            done
+          fi
+          exit "$status"
       - run: make test
       - run: make release-pack # includes verify-dist and installs/boots the tarballs
       - run: make release-pack-fast
