@@ -42,7 +42,9 @@ describe('validation', () => {
       version: 1,
       frontends: [{ ...FRONTEND, styling: ['daisyui'] }],
     });
-    expect(problems).toEqual([{ field: 'frontends[0].styling', message: 'daisyui requires tailwind' }]);
+    expect(problems).toEqual([
+      { field: 'frontends[0].styling', message: 'daisyui requires tailwind' },
+    ]);
   });
 
   test('refuses two templates for the same framework', () => {
@@ -66,7 +68,9 @@ describe('validation', () => {
 
   test('refuses an unknown runtime rather than silently dropping it', () => {
     const { problems } = validateDistConfig({ version: 1, runtimes: ['bun', 'heroku'] });
-    expect(problems).toEqual([{ field: 'runtimes', message: '"heroku" is not one of bun, cloudflare-workers, aws-lambda' }]);
+    expect(problems).toEqual([
+      { field: 'runtimes', message: '"heroku" is not one of bun, cloudflare-workers, aws-lambda' },
+    ]);
   });
 
   test('a version bump is refused, not guessed at', () => {
@@ -78,7 +82,11 @@ describe('validation', () => {
   test('frontend types follow the templates unless stated', () => {
     const withFrontend = validateDistConfig({ version: 1, frontends: [FRONTEND] });
     expect(withFrontend.config?.includeFrontendTypes).toBe(true);
-    const explicit = validateDistConfig({ version: 1, frontends: [FRONTEND], includeFrontendTypes: false });
+    const explicit = validateDistConfig({
+      version: 1,
+      frontends: [FRONTEND],
+      includeFrontendTypes: false,
+    });
     expect(explicit.config?.includeFrontendTypes).toBe(false);
   });
 });
@@ -153,7 +161,10 @@ describe('overrides', () => {
   });
 
   test('an invalid pairing from the command line is refused with the same rule as the wizard', () => {
-    const { problems } = applyOverrides(DEFAULT_DIST_CONFIG, { frontend: 'vue', styling: 'daisyui' });
+    const { problems } = applyOverrides(DEFAULT_DIST_CONFIG, {
+      frontend: 'vue',
+      styling: 'daisyui',
+    });
     expect(problems.map((problem) => problem.message)).toContain('daisyui requires tailwind');
   });
 });

@@ -108,7 +108,10 @@ export interface ConfigProblem {
  * questions, and a config file a person edited by hand should say "defaultPackageManager must be one
  * of packageManagers" rather than print a Zod path.
  */
-export function validateDistConfig(value: unknown): { config?: DistConfig; problems: ConfigProblem[] } {
+export function validateDistConfig(value: unknown): {
+  config?: DistConfig;
+  problems: ConfigProblem[];
+} {
   const problems: ConfigProblem[] = [];
   if (typeof value !== 'object' || value === null) {
     return { problems: [{ field: '', message: 'expected an object' }] };
@@ -131,12 +134,18 @@ export function validateDistConfig(value: unknown): { config?: DistConfig; probl
       problems.push({ field, message: 'expected an array' });
       return [];
     }
-    return input.flatMap((entry) => {
-      if (typeof entry !== 'string' || !(allowed as readonly string[]).includes(entry)) {
-        problems.push({ field, message: `${JSON.stringify(entry)} is not one of ${allowed.join(', ')}` });
+    return input.flatMap((entry): T[] => {
+      // The narrow to `T` happens here, once, after the membership test — a widening cast at the end
+      // of the function would let an unchecked value through.
+      const match = allowed.find((candidate) => candidate === entry);
+      if (match === undefined) {
+        problems.push({
+          field,
+          message: `${JSON.stringify(entry)} is not one of ${allowed.join(', ')}`,
+        });
         return [];
       }
-      return [entry as T];
+      return [match];
     });
   };
 
@@ -155,12 +164,21 @@ export function validateDistConfig(value: unknown): { config?: DistConfig; probl
         }
         const item = entry as Record<string, unknown>;
         const framework = item['framework'];
-        if (typeof framework !== 'string' || !(FRONTENDS as readonly string[]).includes(framework)) {
-          problems.push({ field: `${field}.framework`, message: `expected one of ${FRONTENDS.join(', ')}` });
+        if (
+          typeof framework !== 'string' ||
+          !(FRONTENDS as readonly string[]).includes(framework)
+        ) {
+          problems.push({
+            field: `${field}.framework`,
+            message: `expected one of ${FRONTENDS.join(', ')}`,
+          });
           continue;
         }
         if (frontends.some((existing) => existing.framework === framework)) {
-          problems.push({ field: `${field}.framework`, message: `duplicate template for ${framework}` });
+          problems.push({
+            field: `${field}.framework`,
+            message: `duplicate template for ${framework}`,
+          });
           continue;
         }
         const styling = oneOf(`${field}.styling`, STYLINGS, item['styling']);
@@ -171,7 +189,10 @@ export function validateDistConfig(value: unknown): { config?: DistConfig; probl
         }
         const router = item['router'] ?? 'none';
         if (typeof router !== 'string' || !(ROUTERS as readonly string[]).includes(router)) {
-          problems.push({ field: `${field}.router`, message: `expected one of ${ROUTERS.join(', ')}` });
+          problems.push({
+            field: `${field}.router`,
+            message: `expected one of ${ROUTERS.join(', ')}`,
+          });
         }
         frontends.push({
           framework: framework as Frontend,
@@ -196,7 +217,10 @@ export function validateDistConfig(value: unknown): { config?: DistConfig; probl
       field: 'defaultPackageManager',
       message: `expected one of ${PACKAGE_MANAGERS.join(', ')}`,
     });
-  } else if (packageManagers.length > 0 && !packageManagers.includes(defaultPackageManager as PackageManager)) {
+  } else if (
+    packageManagers.length > 0 &&
+    !packageManagers.includes(defaultPackageManager as PackageManager)
+  ) {
     // The default must be one of the supported managers, or `tsir new` would emit instructions for
     // a manager this distribution did not ship.
     problems.push({
@@ -255,7 +279,10 @@ export interface LoadedDistConfig {
 }
 
 /** Reads the committed config, or falls back to the defaults with `fromFile: false`. */
-export function loadDistConfig(root: string): { value?: LoadedDistConfig; problems: ConfigProblem[] } {
+export function loadDistConfig(root: string): {
+  value?: LoadedDistConfig;
+  problems: ConfigProblem[];
+} {
   const path = join(root, DIST_CONFIG_FILE);
   if (!existsSync(path)) {
     return { value: { config: DEFAULT_DIST_CONFIG, fromFile: false, path }, problems: [] };
@@ -309,7 +336,13 @@ export function applyOverrides(
     } else {
       const styling = (overrides.styling ?? 'plain').split(',');
       next['frontends'] = [
-        { framework: overrides.frontend, bundler: 'vite', typescript: 'strict', styling, router: 'none' },
+        {
+          framework: overrides.frontend,
+          bundler: 'vite',
+          typescript: 'strict',
+          styling,
+          router: 'none',
+        },
       ];
     }
   }
@@ -337,7 +370,10 @@ export function describeDistConfig(config: DistConfig): readonly (readonly [stri
     ['runtimes', config.runtimes.join(', ')],
     [
       'api tooling',
-      [config.apiTooling.openapi ? 'openapi' : undefined, config.apiTooling.protobuf ? 'protobuf' : undefined]
+      [
+        config.apiTooling.openapi ? 'openapi' : undefined,
+        config.apiTooling.protobuf ? 'protobuf' : undefined,
+      ]
         .filter((value): value is string => value !== undefined)
         .join(', ') || 'none',
     ],

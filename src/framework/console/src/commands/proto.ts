@@ -62,7 +62,7 @@ function generatorConfig(outDir: string): string {
   return [
     'version: v2',
     'plugins:',
-    "  # protoc-gen-es is the generator @bufbuild/protobuf ships; it resolves from the",
+    '  # protoc-gen-es is the generator @bufbuild/protobuf ships; it resolves from the',
     "  # application's own node_modules, so it is a devDependency and never a global install.",
     '  - local: ./node_modules/.bin/protoc-gen-es',
     `    out: ${outDir}`,
@@ -132,7 +132,7 @@ export async function protoGenerateCommand(argv: readonly string[]): Promise<num
   if (!existsSync(join(root, 'node_modules', '.bin', 'protoc-gen-es'))) {
     return fail(
       new CliError(
-        "the protoc-gen-es generator is missing",
+        'the protoc-gen-es generator is missing',
         EXIT.environment,
         `add it to this application (bun add -d @bufbuild/protoc-gen-es), then run this again`,
       ),
@@ -206,9 +206,7 @@ export async function protoGenerateCommand(argv: readonly string[]): Promise<num
     info(jsonDocument({ protoFiles: files.length, generated: true, out: relative(root, outDir) }));
     return EXIT.ok;
   }
-  ok(
-    `${String(files.length)} .proto file(s) compiled to ${style.cyan(relative(root, outDir))}`,
-  );
+  ok(`${String(files.length)} .proto file(s) compiled to ${style.cyan(relative(root, outDir))}`);
   info(`  ${style.dim('commit the generated files: a deploy must not need buf')}`);
   return EXIT.ok;
 }

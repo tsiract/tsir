@@ -20,6 +20,7 @@ import { resolve } from 'node:path';
 import { runDistWizard } from './dist-wizard.ts';
 import {
   applyOverrides,
+  DEFAULT_DIST_CONFIG,
   describeDistConfig,
   DIST_CONFIG_FILE,
   loadDistConfig,
@@ -54,12 +55,16 @@ function parseArgs(argv: readonly string[]): Args {
   // `DIST_YES` and `--no-interactive` both mean "do not ask", and so does having an override: a
   // build that was given an answer has nothing to ask about.
   const noInteractive =
-    flag('--no-interactive') || process.env['DIST_YES'] === '1' || process.env['TSIR_NO_INTERACTIVE'] === '1';
+    flag('--no-interactive') ||
+    process.env['DIST_YES'] === '1' ||
+    process.env['TSIR_NO_INTERACTIVE'] === '1';
   return {
     interactive: !noInteractive,
     configOnly: flag('--config-only') || process.env['DIST_CONFIG_ONLY'] === '1',
     ...(value('--frontend') === undefined ? {} : { frontend: value('--frontend') }),
-    ...(value('--package-manager') === undefined ? {} : { 'packageManager': value('--package-manager') }),
+    ...(value('--package-manager') === undefined
+      ? {}
+      : { packageManager: value('--package-manager') }),
     ...(value('--styling') === undefined ? {} : { styling: value('--styling') }),
     ...(value('--out') === undefined ? {} : { out: value('--out') }),
   } as Args;
@@ -84,7 +89,11 @@ function reportConfig(
 
 type Resolution =
   | { readonly kind: 'cancelled' }
-  | { readonly kind: 'resolved'; readonly config: DistConfig; readonly source: 'file' | 'defaults' | 'wizard' };
+  | {
+      readonly kind: 'resolved';
+      readonly config: DistConfig;
+      readonly source: 'file' | 'defaults' | 'wizard';
+    };
 
 async function configure(args: Args): Promise<Resolution | undefined> {
   const loaded = loadDistConfig(ROOT);
@@ -98,10 +107,15 @@ async function configure(args: Args): Promise<Resolution | undefined> {
     return undefined;
   }
 
+  // One binding for the whole function: the branches below all mean "what is on disk".
+  const config = loaded.value?.config ?? DEFAULT_DIST_CONFIG;
+  const fromFile = loaded.value?.fromFile ?? false;
+
   // Overrides are applied to whatever is on disk, which makes `make dist FRONTEND=react` mean
   // "the rest as committed, with this one answer changed".
   if (args.frontend !== undefined || args.packageManager !== undefined) {
-    const applied = applyOverrides(loaded.value!.config, {
+    // `loaded.value` is guaranteed here: the problems branch above returned.
+    const applied = applyOverrides(config, {
       ...(args.frontend === undefined ? {} : { frontend: args.frontend }),
       ...(args.packageManager === undefined ? {} : { packageManager: args.packageManager }),
       ...(args.styling === undefined ? {} : { styling: args.styling }),
@@ -121,18 +135,14 @@ async function configure(args: Args): Promise<Resolution | undefined> {
 
   if (!args.interactive || !canPrompt()) {
     // No terminal, and nothing to ask: build what is committed.
-    return {
-      kind: 'resolved',
-      config: loaded.value!.config,
-      source: loaded.value!.fromFile ? 'file' : 'defaults',
-    };
+    return { kind: 'resolved', config, source: fromFile ? 'file' : 'defaults' };
   }
 
   const session = await openSession({ preserveOutput: true });
   try {
     const outcome = await runDistWizard({
       renderer: session.renderer,
-      existing: loaded.value === undefined ? undefined : loaded.value,
+      existing: { config, fromFile },
     });
     session.close();
     if (outcome.kind === 'cancelled') return { kind: 'cancelled' };

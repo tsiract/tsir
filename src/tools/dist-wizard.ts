@@ -64,8 +64,16 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
       message: 'This repository already has a distribution configuration',
       hint: `${DIST_CONFIG_FILE} is committed. Rebuilding it with the same answers keeps releases comparable.`,
       options: [
-        { value: 'keep', label: 'Rebuild with the saved configuration', description: 'No questions. The file is left as it is.' },
-        { value: 'reconfigure', label: 'Reconfigure the distribution', description: 'Walk the wizard and overwrite the file.' },
+        {
+          value: 'keep',
+          label: 'Rebuild with the saved configuration',
+          description: 'No questions. The file is left as it is.',
+        },
+        {
+          value: 'reconfigure',
+          label: 'Reconfigure the distribution',
+          description: 'Walk the wizard and overwrite the file.',
+        },
       ],
       defaultValue: 'keep',
     });
@@ -79,7 +87,12 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     message: 'Which frontend frameworks should this distribution support?',
     hint: 'This selects the templates dist/ ships. An application still chooses nothing — it is created with one.',
     options: [
-      { value: 'svelte', label: 'Svelte', description: FRONTEND_DESCRIPTIONS.svelte, selected: false },
+      {
+        value: 'svelte',
+        label: 'Svelte',
+        description: FRONTEND_DESCRIPTIONS.svelte,
+        selected: false,
+      },
       { value: 'react', label: 'React', description: FRONTEND_DESCRIPTIONS.react },
       { value: 'vue', label: 'Vue', description: FRONTEND_DESCRIPTIONS.vue },
     ],
@@ -95,9 +108,21 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
         message: `Styling for ${framework}`,
         hint: 'Tailwind 4 compiles a single stylesheet; DaisyUI is a Tailwind plugin.',
         options: [
-          { value: 'tailwind', label: 'Tailwind CSS', description: 'Utility classes, one generated stylesheet.' },
-          { value: 'daisyui', label: 'DaisyUI', description: 'Tailwind plugin. Requires Tailwind.' },
-          { value: 'plain', label: 'Plain CSS', description: 'No build-time styling. Smallest template.' },
+          {
+            value: 'tailwind',
+            label: 'Tailwind CSS',
+            description: 'Utility classes, one generated stylesheet.',
+          },
+          {
+            value: 'daisyui',
+            label: 'DaisyUI',
+            description: 'Tailwind plugin. Requires Tailwind.',
+          },
+          {
+            value: 'plain',
+            label: 'Plain CSS',
+            description: 'No build-time styling. Smallest template.',
+          },
         ],
         requireOne: true,
       });
@@ -110,9 +135,21 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
         message: `Client routing for ${framework}`,
         hint: 'A single-page app with no router has no deep links. Server routes are unaffected.',
         options: [
-          { value: 'none', label: 'No client router', description: 'One page. The smallest template.' },
-          { value: 'router', label: 'Framework router', description: 'History-mode routing, client-rendered.' },
-          { value: 'native', label: 'Framework-native approach', description: "Whatever the framework's ecosystem prefers." },
+          {
+            value: 'none',
+            label: 'No client router',
+            description: 'One page. The smallest template.',
+          },
+          {
+            value: 'router',
+            label: 'Framework router',
+            description: 'History-mode routing, client-rendered.',
+          },
+          {
+            value: 'native',
+            label: 'Framework-native approach',
+            description: "Whatever the framework's ecosystem prefers.",
+          },
         ],
         defaultValue: 'none',
       });
@@ -130,20 +167,28 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     message: 'Which package managers should applications support?',
     hint: 'Every application uses exactly one. This list decides what the docs and templates offer.',
     options: [
-      { value: 'bun', label: 'Bun', description: 'Default. The runtime the framework is developed on.', selected: true },
+      {
+        value: 'bun',
+        label: 'Bun',
+        description: 'Default. The runtime the framework is developed on.',
+        selected: true,
+      },
       { value: 'npm', label: 'npm', description: 'Present everywhere Node is.' },
       { value: 'pnpm', label: 'pnpm', description: 'Strict node_modules, fast installs.' },
     ],
     requireOne: true,
   });
-  const defaultManager =
+  // `requireOne` on the multi-select means `managers` has at least one entry; `first` expresses that
+  // without an assertion, and falls back to the schema default if that ever stops being true.
+  const first = managers[0] ?? DEFAULT_DIST_CONFIG.defaultPackageManager;
+  const defaultManager: PackageManager =
     managers.length === 1
-      ? managers[0]!
+      ? first
       : await select<PackageManager>(renderer, {
           palette,
           message: 'Which package manager should `tsir new` use by default?',
           options: managers.map((manager) => ({ value: manager, label: manager })),
-          defaultValue: managers.includes('bun') ? 'bun' : managers[0]!,
+          defaultValue: managers.includes('bun') ? 'bun' : first,
         });
 
   // Step 6 — testing and quality.
@@ -152,7 +197,12 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     message: 'Testing and code quality for generated applications',
     hint: 'A minimal preset stays minimal: these add dev dependencies and config to every app.',
     options: [
-      { value: 'eslint', label: 'ESLint', description: 'Type-aware lint, matching the framework.', selected: true },
+      {
+        value: 'eslint',
+        label: 'ESLint',
+        description: 'Type-aware lint, matching the framework.',
+        selected: true,
+      },
       { value: 'prettier', label: 'Prettier', description: 'Formatting.', selected: true },
       { value: 'vitest', label: 'Vitest', description: 'Unit tests for frontend code.' },
       { value: 'playwright', label: 'Playwright', description: 'Browser end-to-end tests.' },
@@ -166,8 +216,18 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     hint: 'Only targets with an implementation in @tsir/deploy are listed.',
     options: [
       { value: 'bun', label: 'Bun', description: 'Long-running server.', selected: true },
-      { value: 'cloudflare-workers', label: 'Cloudflare Workers', description: 'Fetch handler + D1.', selected: true },
-      { value: 'aws-lambda', label: 'AWS Lambda', description: 'One handler per deploy unit.', selected: true },
+      {
+        value: 'cloudflare-workers',
+        label: 'Cloudflare Workers',
+        description: 'Fetch handler + D1.',
+        selected: true,
+      },
+      {
+        value: 'aws-lambda',
+        label: 'AWS Lambda',
+        description: 'One handler per deploy unit.',
+        selected: true,
+      },
     ],
     requireOne: true,
   });
@@ -178,8 +238,18 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     message: 'API description tooling',
     hint: 'Ships the generator commands and their documentation in this distribution.',
     options: [
-      { value: 'openapi', label: 'OpenAPI', description: '`tsir openapi:generate` from your route contracts.', selected: true },
-      { value: 'protobuf', label: 'Protocol Buffers', description: 'Application-owned .proto files.', selected: true },
+      {
+        value: 'openapi',
+        label: 'OpenAPI',
+        description: '`tsir openapi:generate` from your route contracts.',
+        selected: true,
+      },
+      {
+        value: 'protobuf',
+        label: 'Protocol Buffers',
+        description: 'Application-owned .proto files.',
+        selected: true,
+      },
     ],
   });
 
@@ -242,7 +312,12 @@ function describe(config: DistConfig): readonly (readonly [string, string])[] {
   const frontends =
     config.frontends.length === 0
       ? 'none (backend only)'
-      : config.frontends.map((frontend) => `${frontend.framework}${frontend.styling.length > 0 ? ` + ${frontend.styling.join(' + ')}` : ''}`).join(', ');
+      : config.frontends
+          .map(
+            (frontend) =>
+              `${frontend.framework}${frontend.styling.length > 0 ? ` + ${frontend.styling.join(' + ')}` : ''}`,
+          )
+          .join(', ');
   return [
     ['frontends', frontends],
     ['package managers', config.packageManagers.join(', ')],
@@ -251,7 +326,10 @@ function describe(config: DistConfig): readonly (readonly [string, string])[] {
     ['runtimes', config.runtimes.join(', ')],
     [
       'api tooling',
-      [config.apiTooling.openapi ? 'openapi' : undefined, config.apiTooling.protobuf ? 'protobuf' : undefined]
+      [
+        config.apiTooling.openapi ? 'openapi' : undefined,
+        config.apiTooling.protobuf ? 'protobuf' : undefined,
+      ]
         .filter((value): value is string => value !== undefined)
         .join(', ') || 'none',
     ],
@@ -265,7 +343,9 @@ export function wizardBanner(palette: Palette = createPalette()): string {
     title: 'tsir',
     subtitle: 'Distribution configuration',
     version: frameworkVersion(new URL('../../framework/tui/src/index.ts', import.meta.url).href),
-    notes: ['Answers are written to tsir.dist.config.json and committed. Nothing is built until you confirm.'],
+    notes: [
+      'Answers are written to tsir.dist.config.json and committed. Nothing is built until you confirm.',
+    ],
   });
 }
 

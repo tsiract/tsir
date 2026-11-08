@@ -152,12 +152,14 @@ export async function openSession(options: SessionOptions = {}): Promise<Session
  * consistent message rather than each prompt inventing its own.
  */
 export async function withSession<T>(
-  options: SessionOptions & InteractivityOptions & { readonly hint?: string; readonly what?: string },
+  options: SessionOptions &
+    InteractivityOptions & { readonly hint?: string; readonly what?: string },
   work: (renderer: CliRenderer) => Promise<T>,
 ): Promise<T> {
   requireInteractive(
     options.what ?? 'this command',
-    options.hint ?? 'pass the equivalent flags, or set TSIR_NO_INTERACTIVE=0 with a terminal attached',
+    options.hint ??
+      'pass the equivalent flags, or set TSIR_NO_INTERACTIVE=0 with a terminal attached',
     options,
   );
   const session = await openSession(options);

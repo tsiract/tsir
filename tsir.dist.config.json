@@ -1,21 +1,10 @@
 {
   "version": 1,
   "frontends": [],
-  "packageManagers": [
-    "bun",
-    "npm",
-    "pnpm"
-  ],
+  "packageManagers": ["bun", "npm", "pnpm"],
   "defaultPackageManager": "bun",
-  "testing": [
-    "eslint",
-    "prettier"
-  ],
-  "runtimes": [
-    "bun",
-    "cloudflare-workers",
-    "aws-lambda"
-  ],
+  "testing": ["eslint", "prettier"],
+  "runtimes": ["bun", "cloudflare-workers", "aws-lambda"],
   "apiTooling": {
     "openapi": true,
     "protobuf": true

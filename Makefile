@@ -21,7 +21,7 @@
 #   make check      → typecheck + lint + boundaries + frontpage + license + deps
 #                     + links + surface + version + format
 #
-# The boundary contract is plans/architecture/18-core-vs-distribution.md.
+# The boundary contract is recorded as ADR-0031 and enforced by `make dist-check`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SHELL       := /bin/bash
@@ -45,7 +45,7 @@ HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
-        coercion crypto logs modules codegen-check test test-unit test-watch test-integration clean clean-cache \
+        coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
         db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
@@ -91,6 +91,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake version\033[0m         manifests are in lockstep\n'
 	@printf '  \033[36mmake codegen-check\033[0m   generated contracts match their sources\n'
 	@printf '  \033[36mmake proto\033[0m            regenerate gRPC contracts from proto/ (buf)\n'
+	@printf '  \033[36mmake tui-check\033[0m        drive the interactive prompts through a real pty\n'
 	@printf '\n  \033[1mdocs and release\033[0m\n'
 	@printf '  \033[36mmake docs-site\033[0m       build the docs as static HTML in build/docs-site\n'
 	@printf '  \033[36mmake docs-packages\033[0m   every framework package has a current reference page\n'
@@ -148,7 +149,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
@@ -164,6 +165,10 @@ proto: ## Regenerate gRPC contracts from proto/ (needs buf; commit the output)
 proto-check: ## Committed gRPC contracts match proto/ (LNK-012; skips without buf)
 	@printf '  \033[2m→ bun src/tools/check-proto.ts\033[0m\n'
 	@$(BUN) src/tools/check-proto.ts
+
+tui-check: ## Drive the interactive prompts through a real pty (ADR-0031)
+	@printf '  \033[2m→ bun src/tools/check-tui.ts\033[0m\n'
+	@$(BUN) src/tools/check-tui.ts
 
 crypto: ## Cryptography inventory + prohibited-practices lint (SEC-005)
 	@printf '  \033[2m→ bun src/tools/check-crypto.ts\033[0m\n'
@@ -333,7 +338,7 @@ deps: ## Enforce the third-party dependency policy (ADR-0012)
 # The sample application lives in `src/apps/` and is used to prove the framework end to end.
 # These targets exist for **that** — a spike fixture the framework is developed against — not as
 # an application workflow. A developer's `migrate`, `seed`, `route:*` and `deploy:*` commands are
-# `dist/tsir` commands (see plans/architecture/18-core-vs-distribution.md).
+# `dist/tsir` commands (see ADR-0031).
 app-route-compile: ## Compile the sample app's routes (the committed-artifact drift check)
 	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
 
@@ -371,7 +376,7 @@ db-down: ## Stop local Postgres (keeps its data volume; DXS-009)
 # The sample app under `src/apps/` is a fixture the framework is developed and
 # validated against. The targets below exist to keep its committed generated
 # artifacts honest; they are not an application workflow, which lives behind
-# `dist/tsir` (see plans/architecture/18-core-vs-distribution.md).
+# `dist/tsir` (see ADR-0031).
 SAMPLE_APP := $(ADMIN_APP)
 
 codegen-check: ## Fail if a committed generated artefact is stale (part of `make check`)

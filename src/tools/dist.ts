@@ -425,7 +425,9 @@ async function main(): Promise<void> {
         `  ${result.name.padEnd(width)}  ${KB(result.bytes).padStart(9)}   ${String(result.exports.length)} export(s)\n`,
       );
     }
-    process.stdout.write(`\n  ✓ ${DIST}/framework/ — packages only (\`make dist\` assembles the distribution)\n\n`);
+    process.stdout.write(
+      `\n  ✓ ${DIST}/framework/ — packages only (\`make dist\` assembles the distribution)\n\n`,
+    );
     return;
   }
 

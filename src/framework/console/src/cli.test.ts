@@ -64,7 +64,9 @@ describe('CLI-001: --version', () => {
 
 /** The version declared by this package's manifest — what `--version` is meant to report. */
 function readVersion(): string {
-  const manifest = JSON.parse(readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8')) as {
+  const manifest = JSON.parse(
+    readFileSync(join(import.meta.dir, '..', 'package.json'), 'utf8'),
+  ) as {
     version: string;
   };
   return manifest.version;

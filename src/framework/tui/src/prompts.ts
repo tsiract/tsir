@@ -99,6 +99,11 @@ export interface TextOptions extends PromptBase<string> {
   readonly placeholder?: string;
 }
 
+/** Wraps an index into a non-empty list, so navigation is total and needs no assertion. */
+function at<T>(list: readonly T[], index: number): T | undefined {
+  return list[index];
+}
+
 /** The key legend every prompt footer shows. */
 function legend(mode: 'select' | 'multi' | 'confirm' | 'text'): string {
   const parts =
@@ -124,7 +129,13 @@ interface Frame {
  * plus text around it is simpler to reason about than a nested layout, and keeps every prompt
  * visually identical no matter which one is running.
  */
-function frame(options: { message: string; hint?: string; body: readonly string[]; footer: string; palette: Palette }): Frame {
+function frame(options: {
+  message: string;
+  hint?: string;
+  body: readonly string[];
+  footer: string;
+  palette: Palette;
+}): Frame {
   const { palette } = options;
   const glyph = glyphs();
   const lines: string[] = [
@@ -142,11 +153,13 @@ function frame(options: { message: string; hint?: string; body: readonly string[
 }
 
 function stripAnsi(value: string): string {
-  // eslint-disable-next-line no-control-regex -- stripping escapes is the whole point
   return value.replace(/\u001B\[[0-9;]*m/gu, '');
 }
 
-function optionLine<T>(option: PromptOption<T>, state: { active: boolean; checked: boolean; multi: boolean }): string {
+function optionLine<T>(
+  option: PromptOption<T>,
+  state: { active: boolean; checked: boolean; multi: boolean },
+): string {
   const palette = createPalette();
   const glyph = glyphs();
   const marker = state.active ? palette.paint('brand', glyph.arrow) : ' ';
@@ -166,7 +179,9 @@ function optionLine<T>(option: PromptOption<T>, state: { active: boolean; checke
 function descriptionLine(option: PromptOption<unknown>): string {
   const palette = createPalette();
   const text =
-    option.disabled === undefined ? option.description : `${option.description ?? ''} — ${option.disabled}`;
+    option.disabled === undefined
+      ? option.description
+      : `${option.description ?? ''} — ${option.disabled}`;
   return text === undefined || text === '' ? '' : `      ${palette.paint('muted', text)}`;
 }
 
@@ -180,7 +195,10 @@ async function drive<T>(options: {
   ) => { done: true; value: T } | { done: false; rerender: boolean } | { done: 'cancel' };
   initialState: { cursor: number; checked: Set<number> };
 }): Promise<T> {
-  const state = { cursor: options.initialState.cursor, checked: new Set(options.initialState.checked) };
+  const state = {
+    cursor: options.initialState.cursor,
+    checked: new Set(options.initialState.checked),
+  };
   let error: string | undefined;
   const container = new BoxRenderable(options.renderer, {
     id: 'prompt',
@@ -192,7 +210,10 @@ async function drive<T>(options: {
   const draw = (): void => {
     const built = options.frame({ ...state, ...(error === undefined ? {} : { error }) });
     if (text === undefined) {
-      text = new TextRenderable(options.renderer, { id: 'prompt-text', content: built.lines.join('\n') });
+      text = new TextRenderable(options.renderer, {
+        id: 'prompt-text',
+        content: built.lines.join('\n'),
+      });
       container.add(text);
     } else {
       text.content = built.lines.join('\n');
@@ -224,13 +245,13 @@ async function drive<T>(options: {
 }
 
 /** Single choice. `Enter` accepts the highlighted option; `Esc` cancels the whole wizard. */
-export async function select<T>(
-  renderer: CliRenderer,
-  options: SelectOptions<T>,
-): Promise<T> {
+export async function select<T>(renderer: CliRenderer, options: SelectOptions<T>): Promise<T> {
   const palette = options.palette ?? createPalette();
-  const enabled = options.options.map((option, index) => ({ option, index })).filter(({ option }) => option.disabled === undefined);
-  if (enabled.length === 0) throw new PromptCancelled(`no selectable options for "${options.message}"`);
+  const enabled = options.options
+    .map((option, index) => ({ option, index }))
+    .filter(({ option }) => option.disabled === undefined);
+  if (enabled.length === 0)
+    throw new PromptCancelled(`no selectable options for "${options.message}"`);
   const initialValue = options.defaultValue;
   const initialIndex = Math.max(
     0,
@@ -238,27 +259,37 @@ export async function select<T>(
   );
   return await drive<T>({
     renderer,
-    initialState: { cursor: enabled[initialIndex]!.index, checked: new Set() },
+    initialState: { cursor: at(enabled, initialIndex)?.index ?? 0, checked: new Set() },
     frame: ({ cursor }) =>
       frame({
         message: options.message,
         ...(options.hint === undefined ? {} : { hint: options.hint }),
-        body: options.options.flatMap((option, index) => {
-          const line = optionLine(option, { active: index === cursor, checked: false, multi: false });
-          return option.disabled === undefined ? [line, descriptionLine(option)] : [`${line}`, descriptionLine(option)];
-        }).filter((line, index, all) => line !== '' || all[index - 1] !== ''),
+        body: options.options
+          .flatMap((option, index) => {
+            const line = optionLine(option, {
+              active: index === cursor,
+              checked: false,
+              multi: false,
+            });
+            return option.disabled === undefined
+              ? [line, descriptionLine(option)]
+              : [`${line}`, descriptionLine(option)];
+          })
+          .filter((line, index, all) => line !== '' || all[index - 1] !== ''),
         footer: legend('select'),
         palette,
       }),
     onKey: (key, state) => {
       if (key.name === 'up' || key.name === 'k') {
         const position = enabled.findIndex(({ index }) => index === state.cursor);
-        state.cursor = enabled[(position - 1 + enabled.length) % enabled.length]!.index;
+        const next = at(enabled, (position - 1 + enabled.length) % enabled.length);
+        if (next !== undefined) state.cursor = next.index;
         return { done: false, rerender: true };
       }
       if (key.name === 'down' || key.name === 'j') {
         const position = enabled.findIndex(({ index }) => index === state.cursor);
-        state.cursor = enabled[(position + 1) % enabled.length]!.index;
+        const next = at(enabled, (position + 1) % enabled.length);
+        if (next !== undefined) state.cursor = next.index;
         return { done: false, rerender: true };
       }
       if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
@@ -278,18 +309,33 @@ export async function multiSelect<T>(
   options: MultiSelectOptions<T>,
 ): Promise<readonly T[]> {
   const palette = options.palette ?? createPalette();
-  const enabled = options.options.map((option, index) => ({ option, index })).filter(({ option }) => option.disabled === undefined);
-  if (enabled.length === 0) throw new PromptCancelled(`no selectable options for "${options.message}"`);
+  const enabled = options.options
+    .map((option, index) => ({ option, index }))
+    .filter(({ option }) => option.disabled === undefined);
+  if (enabled.length === 0)
+    throw new PromptCancelled(`no selectable options for "${options.message}"`);
   const preselected = new Set(
     options.options.flatMap((option, index) => (option.selected === true ? [index] : [])),
   );
-  const frameFor = ({ cursor, checked, error }: { cursor: number; checked: ReadonlySet<number>; error?: string }): Frame =>
+  const frameFor = ({
+    cursor,
+    checked,
+    error,
+  }: {
+    cursor: number;
+    checked: ReadonlySet<number>;
+    error?: string;
+  }): Frame =>
     frame({
       message: options.message,
       ...(options.hint === undefined ? {} : { hint: options.hint }),
       body: [
         ...options.options.flatMap((option, index) => [
-          optionLine(option, { active: index === cursor, checked: checked.has(index), multi: true }),
+          optionLine(option, {
+            active: index === cursor,
+            checked: checked.has(index),
+            multi: true,
+          }),
           descriptionLine(option),
         ]),
         ...(error === undefined ? [] : ['', palette.paint('danger', error)]),
@@ -299,17 +345,19 @@ export async function multiSelect<T>(
     });
   return await drive<readonly T[]>({
     renderer,
-    initialState: { cursor: enabled[0]!.index, checked: preselected },
+    initialState: { cursor: at(enabled, 0)?.index ?? 0, checked: preselected },
     frame: frameFor,
     onKey: (key, state) => {
       if (key.name === 'up' || key.name === 'k') {
         const position = enabled.findIndex(({ index }) => index === state.cursor);
-        state.cursor = enabled[(position - 1 + enabled.length) % enabled.length]!.index;
+        const next = at(enabled, (position - 1 + enabled.length) % enabled.length);
+        if (next !== undefined) state.cursor = next.index;
         return { done: false, rerender: true };
       }
       if (key.name === 'down' || key.name === 'j') {
         const position = enabled.findIndex(({ index }) => index === state.cursor);
-        state.cursor = enabled[(position + 1) % enabled.length]!.index;
+        const next = at(enabled, (position + 1) % enabled.length);
+        if (next !== undefined) state.cursor = next.index;
         return { done: false, rerender: true };
       }
       if (key.name === 'space' || key.name === ' ') {
@@ -364,7 +412,9 @@ export async function confirm(renderer: CliRenderer, options: ConfirmOptions): P
       if (key.name === 'y' || key.name === 'Y') return { done: true, value: true };
       if (key.name === 'n' || key.name === 'N') return { done: true, value: false };
       if (key.name === 'return' || key.name === 'enter' || key.name === 'linefeed') {
-        return options.dangerous === true ? { done: false, rerender: false } : { done: true, value: fallback };
+        return options.dangerous === true
+          ? { done: false, rerender: false }
+          : { done: true, value: fallback };
       }
       return { done: false, rerender: false };
     },

@@ -25,9 +25,11 @@ export interface AboutEnvironment {
 
 function environment(): AboutEnvironment {
   const bun = (globalThis as { Bun?: { version?: string } }).Bun;
-  const process = (globalThis as {
-    process?: { versions?: { node?: string }; platform?: string };
-  }).process;
+  const process = (
+    globalThis as {
+      process?: { versions?: { node?: string }; platform?: string };
+    }
+  ).process;
   return {
     ...(bun?.version === undefined ? {} : { bun: bun.version }),
     ...(process?.versions?.node === undefined ? {} : { node: process.versions.node }),
@@ -59,7 +61,9 @@ export async function aboutCommand(argv: readonly string[]): Promise<number> {
   const reporter = new Reporter();
   reporter.line('');
   reporter.line(`  \u001B[1m\u001B[36mTsir\u001B[0m ${frameworkVersion()}`);
-  reporter.line('  \u001B[2mStrictly typed backend framework for Bun, Node, Workers and Lambda.\u001B[0m');
+  reporter.line(
+    '  \u001B[2mStrictly typed backend framework for Bun, Node, Workers and Lambda.\u001B[0m',
+  );
   reporter.blank();
   reporter.section('Runtime');
   reporter.field('bun', env.bun ?? 'not running on Bun');
@@ -69,7 +73,10 @@ export async function aboutCommand(argv: readonly string[]): Promise<number> {
   reporter.section('This installation', {
     note: 'Packages resolve from the distribution that ships this executable.',
   });
-  reporter.field('commands', `${String(available.length)} available · ${String(planned.length)} planned`);
+  reporter.field(
+    'commands',
+    `${String(available.length)} available · ${String(planned.length)} planned`,
+  );
   if (env.distribution !== undefined) reporter.field('distribution', env.distribution);
   reporter.blank();
   reporter.section('Start here');

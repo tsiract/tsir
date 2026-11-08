@@ -83,12 +83,16 @@ describe('tsir new', () => {
 
   test('CLI-018: the script runs the file by path, and prettier ignores ract by name', async () => {
     await newCommand(['shop-api']);
-    const pkg = JSON.parse(readFileSync(join(parent, 'apps', 'shop-api', 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(
+      readFileSync(join(parent, 'apps', 'shop-api', 'package.json'), 'utf8'),
+    ) as {
       scripts: Record<string, string>;
     };
     // `bun ract` in the script would resolve to this same script: Bun prefers a package script to a file.
     expect(pkg.scripts['ract']).toBe('bun ./ract');
-    expect(readFileSync(join(parent, 'apps', 'shop-api', '.prettierignore'), 'utf8')).toBe('ract\n');
+    expect(readFileSync(join(parent, 'apps', 'shop-api', '.prettierignore'), 'utf8')).toBe(
+      'ract\n',
+    );
   });
 
   test('points at the distribution with link:, so there is one copy of each package', async () => {
@@ -107,7 +111,9 @@ describe('tsir new', () => {
       if (previous === undefined) delete process.env['TSIR_DIST'];
       else process.env['TSIR_DIST'] = previous;
     }
-    const pkg = JSON.parse(readFileSync(join(parent, 'apps', 'shop-api', 'package.json'), 'utf8')) as {
+    const pkg = JSON.parse(
+      readFileSync(join(parent, 'apps', 'shop-api', 'package.json'), 'utf8'),
+    ) as {
       dependencies: Record<string, string>;
       overrides: Record<string, string>;
     };
@@ -117,7 +123,8 @@ describe('tsir new', () => {
     for (const [name, range] of Object.entries(pkg.dependencies)) {
       if (name.startsWith('@tsir/')) expect(range).toStartWith('link:../../dist/framework/');
     }
-    for (const range of Object.values(pkg.overrides)) expect(range).toStartWith('link:../../dist/framework/');
+    for (const range of Object.values(pkg.overrides))
+      expect(range).toStartWith('link:../../dist/framework/');
     // Every shipped package is covered, not only the ones the app imports directly — a
     // transitive range with no override is looked up on a registry that has no @tsir packages.
     // (The stand-in distribution above ships three packages; a real one ships all of them, which

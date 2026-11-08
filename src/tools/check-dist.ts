@@ -3,7 +3,7 @@
  *
  * `make dist` produces the product; this proves the product contains only what a
  * developer needs and nothing that belongs to the engineering workspace. It is the
- * executable form of `plans/architecture/18-core-vs-distribution.md`:
+ * executable form of ADR-0031's boundary section (DOC-018):
  *
  *   1. **The launcher exists** and is executable — `tsir` and `bin/tsir`.
  *   2. **The package surface is present** — every `src/framework/*` package has an
@@ -92,7 +92,8 @@ export function boundaryProblems(dist: string): BoundaryProblem[] {
       continue;
     }
     const mode = statSync(path).mode;
-    if ((mode & 0o111) === 0) problems.push({ rule: 'launcher', detail: `${launcher} is not executable` });
+    if ((mode & 0o111) === 0)
+      problems.push({ rule: 'launcher', detail: `${launcher} is not executable` });
   }
 
   // ── 2. package surface
@@ -134,17 +135,24 @@ export function boundaryProblems(dist: string): BoundaryProblem[] {
   for (const path of files) {
     for (const segment of FORBIDDEN_SEGMENTS) {
       if (path.split(/[\\/]/u).includes(segment)) {
-        problems.push({ rule: 'no-internal-assets', detail: `${path} (${segment} belongs to engineering)` });
+        problems.push({
+          rule: 'no-internal-assets',
+          detail: `${path} (${segment} belongs to engineering)`,
+        });
         break;
       }
     }
     const base = path.split(/[\\/]/u).pop() ?? '';
     for (const { pattern, why } of FORBIDDEN_FILES) {
-      if (pattern.test(base)) problems.push({ rule: 'no-internal-assets', detail: `${path} — ${why}` });
+      if (pattern.test(base))
+        problems.push({ rule: 'no-internal-assets', detail: `${path} — ${why}` });
     }
     // A test file that ships is a test file somebody will run from the product.
     if (/\.test\.ts$/u.test(path) && !path.startsWith('apps/')) {
-      problems.push({ rule: 'no-internal-assets', detail: `${path} — framework tests do not ship` });
+      problems.push({
+        rule: 'no-internal-assets',
+        detail: `${path} — framework tests do not ship`,
+      });
     }
   }
 
@@ -162,7 +170,10 @@ export function boundaryProblems(dist: string): BoundaryProblem[] {
   // ── 5. templates and docs travel with the product
   for (const required of ['framework/console/stubs', 'src/docs']) {
     if (!existsSync(join(dist, required))) {
-      problems.push({ rule: 'developer-assets', detail: `${required} is missing — \`tsir new\` needs it` });
+      problems.push({
+        rule: 'developer-assets',
+        detail: `${required} is missing — \`tsir new\` needs it`,
+      });
     }
   }
 
@@ -180,7 +191,7 @@ if (import.meta.main) {
     if (problems.length > 40) {
       process.stderr.write(`  … ${String(problems.length - 40)} more\n`);
     }
-    process.stderr.write('\nSee plans/architecture/18-core-vs-distribution.md.\n\n');
+    process.stderr.write('\nSee the boundary contract in ADR-0031.\n\n');
     process.exit(1);
   }
   process.stdout.write('✓ distribution boundary holds (launcher, packages, no internal assets)\n');

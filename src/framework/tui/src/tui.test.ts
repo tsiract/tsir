@@ -23,12 +23,10 @@ describe('interactivity is a capability', () => {
 
   test('CI is treated as a refusal even with a pseudo-terminal attached', () => {
     // A CI log is not something anyone can arrow through, and a wizard that waits there is a hang.
+    expect(canPrompt({ env: { CI: 'true' }, stdinIsTTY: true, stdoutIsTTY: true })).toBe(false);
     expect(
-      canPrompt({ env: { CI: 'true' }, stdinIsTTY: true, stdoutIsTTY: true }),
+      canPrompt({ env: { TSIR_NO_INTERACTIVE: '1' }, stdinIsTTY: true, stdoutIsTTY: true }),
     ).toBe(false);
-    expect(canPrompt({ env: { TSIR_NO_INTERACTIVE: '1' }, stdinIsTTY: true, stdoutIsTTY: true })).toBe(
-      false,
-    );
   });
 
   test('an explicit --interactive still requires a terminal rather than pretending', () => {
@@ -37,9 +35,9 @@ describe('interactivity is a capability', () => {
   });
 
   test('requireInteractive names the command and the way out', () => {
-    expect(() => requireInteractive('the wizard', 'pass --frontend svelte', { stdinIsTTY: false })).toThrow(
-      NotInteractiveError,
-    );
+    expect(() =>
+      requireInteractive('the wizard', 'pass --frontend svelte', { stdinIsTTY: false }),
+    ).toThrow(NotInteractiveError);
     try {
       requireInteractive('the wizard', 'pass --frontend svelte', { stdinIsTTY: false });
     } catch (error) {

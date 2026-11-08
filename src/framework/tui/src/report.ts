@@ -89,9 +89,7 @@ export class Reporter {
 
   /** A key/value pair, for summaries where the label is not a check. */
   field(label: string, value: string): this {
-    this.lines.push(
-      `${INDENT}${this.palette.paint('muted', label.padEnd(18))}${value}`,
-    );
+    this.lines.push(`${INDENT}${this.palette.paint('muted', label.padEnd(18))}${value}`);
     return this;
   }
 
@@ -103,22 +101,32 @@ export class Reporter {
 
   table(columns: readonly TableColumn[], rows: readonly (readonly string[])[]): this {
     const widths = columns.map((column, index) =>
-      Math.max(
-        column.header.length,
-        ...rows.map((row) => (row[index] ?? '').length),
-      ),
+      Math.max(column.header.length, ...rows.map((row) => (row[index] ?? '').length)),
     );
     const render = (cells: readonly string[], style: (value: string) => string): string =>
       `${INDENT}${columns
         .map((column, index) => {
           const value = cells[index] ?? '';
-          const pad = ' '.repeat(Math.max(0, widths[index]! - value.length));
+          const pad = ' '.repeat(Math.max(0, (widths[index] ?? 0) - value.length));
           return column.align === 'right' ? `${pad}${style(value)}` : `${style(value)}${pad}`;
         })
         .join('  ')
         .trimEnd()}`;
-    this.lines.push(render(columns.map((column) => column.header), (value) => this.palette.paint('muted', value)));
-    this.lines.push(`${INDENT}${this.palette.paint('muted', widths.map((width) => '-'.repeat(width)).join('  ').trimEnd())}`);
+    this.lines.push(
+      render(
+        columns.map((column) => column.header),
+        (value) => this.palette.paint('muted', value),
+      ),
+    );
+    this.lines.push(
+      `${INDENT}${this.palette.paint(
+        'muted',
+        widths
+          .map((width) => '-'.repeat(width))
+          .join('  ')
+          .trimEnd(),
+      )}`,
+    );
     for (const row of rows) this.lines.push(render(row, (value) => value));
     return this;
   }
@@ -131,12 +139,15 @@ export class Reporter {
     readonly next?: readonly string[];
   }): this {
     const parts = [this.palette.paint('success', `${String(options.ok)} ok`)];
-    if ((options.warnings ?? 0) > 0) parts.push(this.palette.paint('warning', `${String(options.warnings)} warning(s)`));
-    if ((options.failures ?? 0) > 0) parts.push(this.palette.paint('danger', `${String(options.failures)} failure(s)`));
+    if ((options.warnings ?? 0) > 0)
+      parts.push(this.palette.paint('warning', `${String(options.warnings)} warning(s)`));
+    if ((options.failures ?? 0) > 0)
+      parts.push(this.palette.paint('danger', `${String(options.failures)} failure(s)`));
     this.lines.push('', `${INDENT}${parts.join(this.palette.paint('muted', ' · '))}`);
     if (options.next !== undefined && options.next.length > 0) {
       this.lines.push('');
-      for (const step of options.next) this.lines.push(`${INDENT}${this.palette.paint('muted', glyphs().arrow)} ${step}`);
+      for (const step of options.next)
+        this.lines.push(`${INDENT}${this.palette.paint('muted', glyphs().arrow)} ${step}`);
     }
     this.lines.push('');
     return this;

@@ -98,9 +98,7 @@ export type GlyphSet = {
   readonly [K in keyof (typeof GLYPHS)['unicode']]: string;
 };
 
-export function glyphs(
-  env: Readonly<Record<string, string | undefined>> = process.env,
-): GlyphSet {
+export function glyphs(env: Readonly<Record<string, string | undefined>> = process.env): GlyphSet {
   if (env['TSIR_TUI'] === 'ascii') return GLYPHS.ascii;
   return GLYPHS.unicode;
 }

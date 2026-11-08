@@ -115,7 +115,7 @@ describe('config · loading', () => {
     );
   });
 
-  test('the toolchain\'s own TSIR_ switches are not reported as application keys', () => {
+  test("the toolchain's own TSIR_ switches are not reported as application keys", () => {
     // `TSIR_DIST` is exported by the distribution's `tsir new`; it tells the CLI where the
     // distribution lives. An application never declares it, so a strict-mode boot must not fail on
     // it either — the same warning appeared in a fresh scaffold's `tsir doctor`.

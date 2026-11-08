@@ -56,8 +56,12 @@ export function banner(options: BannerOptions): string {
   const width = options.width ?? CONTENT_WIDTH;
   const glyph = glyphs();
   const title = palette.paintAll(['bold', 'brand'], ` ${options.title.toUpperCase()} `);
-  const version = options.version === undefined ? '' : palette.paint('muted', `v${options.version}`);
-  const gap = Math.max(1, width - options.title.length - 2 - (options.version === undefined ? 0 : version.length));
+  const version =
+    options.version === undefined ? '' : palette.paint('muted', `v${options.version}`);
+  const gap = Math.max(
+    1,
+    width - options.title.length - 2 - (options.version === undefined ? 0 : version.length),
+  );
   const lines = [
     `${glyph.vertical}${title}${' '.repeat(gap)}${version}${version === '' ? '' : glyph.vertical}`,
     `${glyph.vertical}${INDENT}${palette.paint('dim', options.subtitle)}`,

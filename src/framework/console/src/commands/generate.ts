@@ -59,7 +59,10 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     '--force': { type: 'boolean', description: 'overwrite an existing directory' },
     '--dry-run': { type: 'boolean', description: 'print the files that would be written' },
     '--interactive': { type: 'boolean', description: 'ask for the app name if it was not given' },
-    '--no-interactive': { type: 'boolean', description: 'never prompt; fail if an answer is missing' },
+    '--no-interactive': {
+      type: 'boolean',
+      description: 'never prompt; fail if an answer is missing',
+    },
   });
   let name = args.positionals[0];
   if (name === undefined) {

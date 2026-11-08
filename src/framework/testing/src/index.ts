@@ -158,8 +158,6 @@ export async function createTestApp<S extends ConfigSpec>(
       }
     },
   };
-
-
 }
 
 /** Turns `only` into the filter `createApp` applies to the resolved module set. */
