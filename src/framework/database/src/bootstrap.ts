@@ -13,7 +13,6 @@
  * work without a Cloudflare account.
  */
 
-import { Database as Sqlite } from 'bun:sqlite';
 import { existsSync, mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
 import { token, valueProvider, type Provider, type Token } from '@tsir/container';
@@ -91,17 +90,25 @@ export function createDatabaseBootstrap(
 
   const runtimeBindings: RuntimeBindings = {};
 
-  const bindings = (): RuntimeBindings => {
+  const bindings = async (): Promise<RuntimeBindings> => {
     // 1. Runtime bindings set by the handler from `env`.
     if (Object.keys(runtimeBindings).length > 0) return runtimeBindings;
     // 2. Test / CLI fixture binding.
     const globalBinding = (globalThis as { __binding?: unknown }).__binding;
     if (globalBinding !== undefined) return { DB: globalBinding };
     // 3. Local SQLite fallback so CLI commands work without Cloudflare.
+    //
+    // `bun:sqlite` is imported here rather than at module scope on purpose. It is a **Bun**
+    // builtin, so a static import drags it into the module graph of every bundle that imports
+    // `@tsir/database` — including a Workers bundle, where `Bun.build` rejects it outright
+    // ("Browser build cannot import Bun builtin"). The fallback only ever runs in the CLI, so
+    // the import belongs here, where only the CLI reaches it. `sqlite-binding.ts` already
+    // takes its `bun:sqlite` import as a type for the same reason.
     if (options.sqlitePath !== undefined) {
       try {
         const dbDir = dirname(options.sqlitePath);
         if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
+        const { Database: Sqlite } = await import('bun:sqlite');
         const sqlite = new Sqlite(options.sqlitePath);
         return { DB: createSqliteBinding(sqlite) };
       } catch {

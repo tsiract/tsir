@@ -2,8 +2,14 @@
  * FFmpeg adapter — local video transcoding.
  *
  * Spawns the `ffmpeg` binary. Requires ffmpeg on PATH.
+ *
+ * `node:child_process` is imported **inside** `process()`, not at module scope. This adapter is
+ * reachable from `@tsir/media`'s root entry, so a static import would put a Node builtin in the
+ * module graph of every Worker bundle that imports the package at all — and Workerd has no
+ * `child_process`, so `tsir deploy:build --target cloudflare` refused to bundle an app for
+ * declaring a media provider it never configured. Same reasoning, same shape as the local
+ * provider in `@tsir/forge`.
  */
-import { spawn } from 'node:child_process';
 import { ffmpegFailed } from '../errors.ts';
 import type { MediaAdapter } from '../media.ts';
 
@@ -48,6 +54,8 @@ export function ffmpegAdapter(options: FfmpegAdapterOptions = {}): MediaAdapter 
         args.splice(2, 0, '-vf', scale);
       }
 
+      // Deferred so the builtin stays out of a Worker's module graph (see the header).
+      const { spawn } = await import('node:child_process');
       const proc = spawn(ffmpegPath, args, { stdio: ['pipe', 'pipe', 'ignore'] });
 
       const chunks: Buffer[] = [];

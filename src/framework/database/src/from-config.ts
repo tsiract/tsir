@@ -31,11 +31,17 @@ export type RuntimeBindings = Record<string, unknown>;
  * Either bindings known at construction, or a getter that resolves them later.
  * The getter form is what lets D1 work: the registry is built at boot, but the
  * binding only becomes available on the first request.
+ *
+ * The getter may be **async** because one of its producers has to be: the CLI's local SQLite
+ * fallback loads `bun:sqlite`, which cannot be imported statically without dragging a Bun builtin
+ * into every bundle (`bootstrap.ts`). Every consumer of the resolved value is already a promise
+ * (`query`, `batch`, `health`), so awaiting here costs nothing and keeps the builtin out of the
+ * Workers graph — which is the point of the fallback existing at all.
  */
-export type BindingsSource = RuntimeBindings | (() => RuntimeBindings);
+export type BindingsSource = RuntimeBindings | (() => RuntimeBindings | Promise<RuntimeBindings>);
 
-function resolveBindings(source: BindingsSource): RuntimeBindings {
-  return typeof source === 'function' ? source() : source;
+async function resolveBindings(source: BindingsSource): Promise<RuntimeBindings> {
+  return typeof source === 'function' ? await source() : source;
 }
 
 /**
@@ -54,31 +60,49 @@ function deferredD1Driver(
 ): DbDriver {
   let real: DbDriver | null = null;
 
-  function getDriver(): DbDriver {
+  /**
+   * One promise for the whole process, so concurrent first queries share a single binding
+   * resolution instead of racing to build two drivers.
+   */
+  let pending: Promise<DbDriver> | null = null;
+
+  async function getDriver(): Promise<DbDriver> {
     if (real !== null) return real;
-    const resolved = resolveBindings(bindings);
-    const binding = resolved[bindingName] as D1Like | undefined;
-    if (binding === undefined) {
-      throw driverUnavailable(
-        'd1',
-        'runtime',
-        `binding "${bindingName}" is not available — pass it to the handler's env or provide it at boot`,
-      );
+
+    pending ??= (async () => {
+      const resolved = await resolveBindings(bindings);
+      const binding = resolved[bindingName] as D1Like | undefined;
+      if (binding === undefined) {
+        throw driverUnavailable(
+          'd1',
+          'runtime',
+          `binding "${bindingName}" is not available — pass it to the handler's env or provide it at boot`,
+        );
+      }
+      real = createD1Driver({ binding, statementTimeoutMs });
+      return real;
+    })();
+
+    try {
+      return await pending;
+    } catch (error: unknown) {
+      // A failed resolution must not be cached: the binding may arrive on the next request,
+      // which is exactly the sequence `deferred` exists to survive.
+      pending = null;
+      throw error;
     }
-    real = createD1Driver({ binding, statementTimeoutMs });
-    return real;
   }
 
   return {
     capabilities: D1_CAPABILITIES,
-    query(statement: DbStatement): Promise<DbResult> {
-      return getDriver().query(statement);
+    async query(statement: DbStatement): Promise<DbResult> {
+      return (await getDriver()).query(statement);
     },
-    batch(statements: readonly DbStatement[]): Promise<readonly DbResult[]> {
-      return getDriver().batch(statements);
+    async batch(statements: readonly DbStatement[]): Promise<readonly DbResult[]> {
+      return (await getDriver()).batch(statements);
     },
-    health(): Promise<DbHealth> {
-      return getDriver().health();
+    async health(): Promise<DbHealth> {
+      return (await getDriver()).health();
     },
     close(options?: { readonly timeoutMs?: number }): Promise<void> {
       return real?.close(options) ?? Promise.resolve();

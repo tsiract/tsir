@@ -116,6 +116,27 @@ const RUNTIME_TARGET: Readonly<Record<DeployTarget, 'bun' | 'browser' | 'node'>>
 };
 
 /**
+ * Packages that must never be bundled for workerd, because they are native modules.
+ *
+ * These are imported **dynamically** by the framework (`@tsir/media`'s sharp adapter) exactly so
+ * they stay optional — the adapter's own header says it "throws at process time, not import time".
+ * A dynamic import is enough for Node and Bun, but Bun's browser target still resolves and bundles
+ * it, and `sharp` pulls `detect-libc` → `node:child_process`, so simply *importing* `@tsir/media`
+ * made `tsir deploy:build --target cloudflare` fail with "Browser build cannot require() Node.js
+ * builtin: child_process" — for an app that never processed an image.
+ *
+ * Marking them external keeps them as the runtime dynamic import the adapter already promised:
+ * unreachable code in a Worker, a working import on Bun and Lambda. The alternative — refusing the
+ * build — would be refusing an app for declaring a capability it configures for another target.
+ */
+const NATIVE_ONLY: readonly string[] = ['sharp'];
+
+/** Externals for one target. Only workerd needs any: it is the one with no Node builtins. */
+function externalsFor(target: DeployTarget): readonly string[] {
+  return target === 'cloudflare' ? NATIVE_ONLY : [];
+}
+
+/**
  * Which adapter triggers a unit needs, from the triggers the graph recorded.
  *
  * `websocket` is a `fetch` with an `Upgrade` header on Workers, and `admin` is HTTP with a
@@ -532,6 +553,7 @@ async function emitUnit(resolved: ResolvedBuild, job: EmitJob): Promise<Artifact
     target: RUNTIME_TARGET[target],
     format: 'esm',
     minify: resolved.minify,
+    external: [...externalsFor(target)],
     // Cloudflare Workers use the `workerd` export condition so packages like
     // `postgres` ship their edge-compatible entry (no `tls`/`net` builtins).
     ...(target === 'cloudflare'
