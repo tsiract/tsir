@@ -14,8 +14,8 @@
  * module.
  */
 
-import { chmodSync, existsSync, realpathSync } from 'node:fs';
-import { isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { chmodSync, existsSync, readdirSync, realpathSync } from 'node:fs';
+import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 import { boolFlag, parseArgs } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
@@ -39,7 +39,17 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   }
 
   const force = boolFlag(args, '--force');
-  const root = resolve(process.cwd(), name);
+  // Applications live in `apps/<name>/`. The workspace root is the directory the developer is
+  // working in — or, when they are already inside it, the one that owns `apps/`. Without that
+  // second case, running `tsir new` from `apps/` produced `apps/apps/<name>` and every relative
+  // `file:` reference below was then computed from the wrong place.
+  //
+  // Never `app/`, never the distribution root (the guard below refuses that), and never a core
+  // source tree.
+  const here = resolve(process.cwd());
+  const workspaceRoot = basename(here) === 'apps' ? resolve(here, '..') : here;
+  const appsDir = resolve(workspaceRoot, 'apps');
+  const root = resolve(appsDir, name);
   // Distribution builds replace their entire output directory. Do not let a user
   // accidentally create an application where the next build will delete it.
   const distRoot = process.env['TSIR_DIST'];
@@ -75,22 +85,74 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   if (packages !== undefined && !existsSync(join(packages, 'console', 'package.json'))) {
     throw new CliError('TSIR_DIST is not a valid Tsir distribution', EXIT.environment);
   }
+  // How the application reaches the framework.
+  //
+  // The packages are not on a registry yet, so the application points at the distribution that
+  // created it. Two rules make that a contract rather than an accident:
+  //
+  //   1. **Relative**, not absolute. The old scaffold wrote `"workspaces": ["/abs/path/dist/framework/*"]`
+  //      into `package.json`, which named the machine that scaffolded the app: move the
+  //      distribution and the application stops resolving. The reference below is derived from the
+  //      application's own location (`apps/<name>/` → `../../dist/framework/<pkg>`), so it survives
+  //      a moved or renamed checkout.
+  //   2. **`link:`**, not `file:`. A `file:` dependency is *copied* (bun hardlinks it into
+  //      `node_modules`), and the copy is made once per dependent, so `@tsir/router` ends up
+  //      present several times over — `node_modules/@tsir/router` for the application,
+  //      `node_modules/@tsir/testing/node_modules/@tsir/router` for the harness, and so on. The
+  //      framework keeps process-local registries (routes, controllers, the container), so two
+  //      copies are two registries: the application registers a route in one and the harness
+  //      looks for it in another, which showed up as `TEST_UNKNOWN_MODULE` in a fresh scaffold.
+  //      `link:` symlinks instead, so every reference resolves to the single package directory.
+  //   3. **`overrides`**, not a workspace. A `workspace:*` range resolves only inside the
+  //      distribution's own Bun workspace, and only while the app lives inside it. An override
+  //      applies to the dependency *and* to every transitive `@tsir/*` range, which is what a
+  //      standalone `bun install` needs.
+  const parts = [
+    'console',
+    'config',
+    'container',
+    'core',
+    'database',
+    'http',
+    'migrate',
+    'router',
+    'testing',
+    'validate',
+  ] as const;
+  const appDir = resolve(workspaceRoot, 'apps', name);
+  const frameworkRoot =
+    packages === undefined ? undefined : relative(appDir, packages).split(sep).join('/');
   const dependencies = Object.fromEntries(
-    [
-      'console',
-      'config',
-      'container',
-      'core',
-      'database',
-      'http',
-      'migrate',
-      'router',
-      'testing',
-      'validate',
-    ].map((part) => [`@tsir/${part}`, packages === undefined ? '0.0.0' : 'workspace:*']),
+    parts.map((part) => [
+      `@tsir/${part}`,
+      frameworkRoot === undefined ? '0.0.0' : `link:${frameworkRoot}/${part}`,
+    ]),
   );
+  // A `file:` dependency covers what the application imports. It does **not** cover what the
+  // framework packages import from each other: those ranges are version strings, and with nothing
+  // on a registry `bun install` fails to resolve every transitive `@tsir/*`. Overrides apply to the
+  // whole tree, which is what makes a standalone install work while the packages are unpublished.
+  // The ranges stay version-shaped (`0.0.0`) so removing this block, once the packages are on a
+  // registry, is a one-line change with no other edits.
+  const overrides =
+    packages === undefined || frameworkRoot === undefined
+      ? undefined
+      : Object.fromEntries(
+          // Every package the distribution ships, not only the ones the application imports
+          // directly: the framework packages depend on each other, and a transitive range that is
+          // not overridden is looked up on a registry that has no @tsir packages yet.
+          readdirSync(packages, { withFileTypes: true })
+            .filter((entry) => entry.isDirectory())
+            .map((entry) => entry.name)
+            .sort()
+            .map((dir) => [`@tsir/${dir}`, `link:${frameworkRoot}/${dir}`]),
+        );
   // Drizzle is the ORM the database bootstrap exposes; it is not a @tsir package.
   dependencies['drizzle-orm'] = '0.45.4';
+  // The tsconfig above names `bun` in `types`, and the generated sources use Bun/Node globals.
+  // Shipping the tsconfig without the package it references is what made a fresh scaffold fail to
+  // typecheck.
+  const devDependencies = { '@types/bun': 'latest' };
 
   const stubVars = { name };
   const files: readonly (readonly [string, string])[] = [
@@ -106,7 +168,8 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
           type: 'module',
           scripts: { ract: 'bun ./ract' },
           dependencies,
-          ...(packages === undefined ? {} : { workspaces: [`${packages}/*`] }),
+          devDependencies,
+          ...(overrides === undefined ? {} : { overrides }),
         },
         null,
         2,
@@ -123,11 +186,17 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     ['home/http/home.controller.ts', renderStub('new/home/http/home.controller.ts', stubVars)],
     // Empty migrations directory — `tsir make:migration` adds the first one.
     ['migrations/.gitkeep', ''],
-    ['.gitignore', 'node_modules/\n.env\n.tsir/\n'],
+    ['.gitignore', 'node_modules/\n.env\n.tsir/\ndist/\n'],
     [
       'tsconfig.json',
       JSON.stringify(
         {
+          // A Bun application needs Bun's globals and Node's builtin types: the generated
+          // `app.ts` imports `node:async_hooks`, `database.ts` uses `node:path` and
+          // `import.meta.dir`, and `@tsir/database` references `bun:sqlite`. Without `types` and
+          // `skipLibCheck` the scaffold failed its own typecheck on a clean machine
+          // (`TS2591: Cannot find name 'node:async_hooks'`, `TS2339: Property 'dir' does not exist
+          // on type 'ImportMeta'`, and dozens of errors inside `drizzle-orm`'s own `.d.ts` files).
           compilerOptions: {
             target: 'ESNext',
             module: 'ESNext',
@@ -135,6 +204,9 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
             strict: true,
             noEmit: true,
             allowImportingTsExtensions: true,
+            // Declaration files from dependencies are not this project's to fix.
+            skipLibCheck: true,
+            types: ['bun'],
           },
         },
         null,
@@ -163,8 +235,8 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   chmodSync(join(root, 'ract'), RACT_MODE);
 
   info('');
-  info(`  created ${style.bold(name)} — next steps:`);
-  info(`    ${style.cyan(`cd ${name}`)}`);
+  info(`  created ${style.bold(`apps/${name}`)} — next steps:`);
+  info(`    ${style.cyan(`cd apps/${name}`)}`);
   info(`    ${style.cyan('bun install')}   ${style.dim('install the application dependencies')}`);
   info(`    ${style.cyan('tsir dev')}      ${style.dim('serve the application')}`);
   if (dist === undefined) {

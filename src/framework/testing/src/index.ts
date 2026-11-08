@@ -92,6 +92,29 @@ export async function createTestApp<S extends ConfigSpec>(
   );
   const scope = [...named.values()];
 
+  /**
+   * The module's own table, or everything this app declares.
+   *
+   * Declared as a local function, not a method on the returned object: a method body is a closure
+   * over that object's *own* properties, so `routes` resolved `scope` and `named` to
+   * `this.scope`/`this.named`... which for an object literal means the properties of the literal,
+   * read before the literal finished evaluating. The observable symptom was a silent one:
+   * `routes('home')` threw `TEST_UNKNOWN_MODULE` with "declared modules: (none)" while `routes()`
+   * answered with an empty table — a per-module test that proved nothing.
+   */
+  function routes(name?: string): RouteTable {
+    if (name === undefined) return compileRoutes(collectRouteEntries(scope));
+    const declared = named.get(name);
+    if (declared === undefined) {
+      throw new TsirError('TEST_UNKNOWN_MODULE', `no route module named "${name}"`, {
+        kind: 'internal',
+        hint: `declared modules: ${[...named.keys()].join(', ') || '(none)'}`,
+        context: { module: name },
+      });
+    }
+    return declared.routes();
+  }
+
   return {
     app: created,
     get<T>(token: Token<T>): T {
@@ -136,18 +159,7 @@ export async function createTestApp<S extends ConfigSpec>(
     },
   };
 
-  function routes(name?: string): RouteTable {
-    if (name === undefined) return compileRoutes(collectRouteEntries(scope));
-    const declared = named.get(name);
-    if (declared === undefined) {
-      throw new TsirError('TEST_UNKNOWN_MODULE', `no route module named "${name}"`, {
-        kind: 'internal',
-        hint: `declared modules: ${[...named.keys()].join(', ') || '(none)'}`,
-        context: { module: name },
-      });
-    }
-    return declared.routes();
-  }
+
 }
 
 /** Turns `only` into the filter `createApp` applies to the resolved module set. */

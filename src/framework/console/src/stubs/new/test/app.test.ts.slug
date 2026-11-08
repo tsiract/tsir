@@ -1,11 +1,10 @@
 import { describe, expect, test } from 'bun:test';
+
+import app, { handler } from '../app.ts';
 import { createTestApp } from '@tsir/testing';
 
-import app from '../app.ts';
-import { appNameToken } from '../home/routes.ts';
-
 describe('{{name}}', () => {
-  test('boots through the production path', async () => {
+  test('boots through the production path and stops cleanly', async () => {
     const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
     expect(harness.app.state.kind).toBe('ready');
     await harness.dispose();
@@ -13,11 +12,15 @@ describe('{{name}}', () => {
   });
 
   test('serves the welcome message with the app name', async () => {
-    const harness = await createTestApp(app, { env: { APP_ENV: 'test' } });
-    try {
-      expect(harness.get(appNameToken)).toBe('{{name}}');
-    } finally {
-      await harness.dispose();
-    }
+    // Assert the **response** the application actually serves, through the same `handler` the
+    // platform calls. That matters for more than style: controllers are constructed by the
+    // container, and this entry wires up `resolveController` so a controller receives its
+    // dependencies. A test that calls `createFetchHandler` directly on a route table gets the
+    // pipeline's default `new Controller()` — no injection, so the app name arrives as
+    // `undefined` and the assertion below would fail against a *correct* application.
+    const response = await handler(new Request('http://localhost/'));
+    expect(response.status).toBe(200);
+    const body = (await response.json()) as { message?: string };
+    expect(body.message).toBe('Welcome to {{name}} app!');
   });
 });

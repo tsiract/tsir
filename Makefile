@@ -1,20 +1,27 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Tsir — developer entry point
+# Tsir — framework engineering workspace
+#
+# This repository is the source of the Tsir framework. It is **not** a Tsir
+# application: nothing here is run with `make` on behalf of an application's
+# developer. Application workflows live behind `dist/tsir`, the executable the
+# distribution ships; `make dist` is the boundary between the two.
 #
 # Every target is a thin dispatcher: it prints what it runs and delegates.
-# Logic lives in src/tools/ or in the `tsir` CLI, never in Make.
+# Logic lives in src/tools/ or in the console package, never in Make.
 #
 # Target naming: the CLI namespaces with colons (`tsir migrate:status`), Make
 # targets use hyphens (`make migrate-status`), because a colon in a Make target
 # name is parsed as a prerequisite separator.
 #
 #   make            → help
-#   make dev        → stop owned processes, then start the dev environment
+#   make dev        → stop owned processes, then start the core dev environment
 #   make kill       → stop processes started by `make dev`
+#   make build      → compile the framework packages (core build)
+#   make dist       → assemble the developer distribution in dist/
 #   make check      → typecheck + lint + boundaries + frontpage + license + deps
 #                     + links + surface + version + format
 #
-# The full contract is the target list below and the CLI in src/framework/console/.
+# The boundary contract is plans/architecture/18-core-vs-distribution.md.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SHELL       := /bin/bash
@@ -31,56 +38,68 @@ HTTP_EXAMPLE := src/apps/frontpage
 ADMIN_APP    := src/apps/admin.product.com
 BASH  ?= bash
 TSIR  ?= $(BUN) src/framework/console/src/cli.ts
+BUILD_DIR ?= .build
 PORT  ?= 3000
 ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor tsir example check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package dist verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
-        coercion crypto logs modules test test-watch test-integration build start clean clean-cache \
-        db-up db-down migrate migrate-status seed \
-        deploy-plan deploy-diff deploy-build deploy-validate route-list route-compile codegen-check openapi \
-        make-%
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+        coercion crypto logs modules codegen-check test test-unit test-watch test-integration clean clean-cache \
+        db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
 help: ## Show available targets
-	@printf '\n  \033[1mtsir\033[0m — development commands\n\n'
+	@printf '\n  \033[1mtsir\033[0m — framework engineering workspace\n'
+	@printf '  \033[2mThis repository builds the framework. Applications live in a distribution: use\n'
+	@printf '  `./dist/tsir new <name>`, not a target here.\033[0m\n'
+	@printf '\n  \033[1mdevelop\033[0m\n'
 	@printf '  \033[36mmake install\033[0m         install workspace dependencies (bun install)\n'
-	@printf '  \033[36mmake dev\033[0m             cleanup, then serve frontpage + app\n'
-	@printf '  \033[36mmake kill\033[0m            stop processes started by `make dev`\n'
+	@printf '  \033[36mmake dev\033[0m             stop what we started, then serve frontpage + docs + admin\n'
+	@printf '  \033[36mmake kill\033[0m            stop processes started here and free their ports\n'
 	@printf '  \033[36mmake doctor\033[0m          diagnose env, config, ports, versions\n'
-	@printf '  \033[36mmake tsir ARGS="…"\033[0m run the tsir CLI (e.g. ARGS="config:dump")\n'
-	@printf '  \033[36mmake example\033[0m         boot the frontpage app and report its lifecycle\n'
-	@printf '  \033[36mmake boundaries\033[0m      enforce the package dependency graph\n'
-	@printf '  \033[36mmake frontpage\033[0m       fail if the marketing page overstates what exists\n'
-	@printf '  \033[36mmake license\033[0m         verify MIT across every manifest\n'
-	@printf '  \033[36mmake deps\033[0m            enforce the dependency policy (tree-shakeable only)\n'
-	@printf '  \033[36mmake dist\033[0m            build the distributable into dist/ (gitignored)\n'
-	@printf '  \033[36mmake verify-dist\033[0m     prove dist/ boots + tree-shakes + fits Workers/Lambda\n'
+	@printf '\n  \033[1mverify\033[0m\n'
 	@printf '  \033[36mmake check\033[0m           typecheck + lint + boundaries + frontpage + license + deps + format\n'
 	@printf '  \033[36mmake typecheck\033[0m       tsc --noEmit across the workspace\n'
 	@printf '  \033[36mmake lint\033[0m            eslint (type-aware)\n'
-	@printf '  \033[36mmake format\033[0m          prettier --write\n'
-	@printf '  \033[36mmake test\033[0m            bun test\n'
-	@printf '  \033[36mmake proto\033[0m          regenerate gRPC contracts from proto/ (buf)\n'
+	@printf '  \033[36mmake format\033[0m          prettier --write (\033[36mmake format-check\033[0m to verify only)\n'
+	@printf '  \033[36mmake test\033[0m            bun test — unit + integration across the source packages\n'
+	@printf '  \033[36mmake test-unit\033[0m       unit tests only\n'
+	@printf '  \033[36mmake test-integration\033[0m database-backed tests (skips cleanly without DATABASE_URL)\n'
 	@printf '  \033[36mmake coverage\033[0m        per-package coverage gate (line ≥ 90 %%, funcs ≥ 85 %%)\n'
+	@printf '\n  \033[1mbuild\033[0m\n'
+	@printf '  \033[36mmake build\033[0m           compile the framework packages into %s/ (core build)\n' "$(BUILD_DIR)"
+	@printf '  \033[36mmake dist\033[0m            generate the self-contained distribution into dist/ (gitignored)\n'
+	@printf '  \033[36mmake dist-check\033[0m      assert the distribution boundary holds\n'
+	@printf '  \033[36mmake verify-dist\033[0m     prove dist/ boots, tree-shakes, and bundles for Workers/Lambda\n'
+	@printf '  \033[36mmake release-pack\033[0m    build both release artifacts (dist/ tree + per-package tarballs)\n'
+	@printf '  \033[36mmake clean\033[0m           remove %s/ and dist/ — both are generated\n' "$(BUILD_DIR)"
+	@printf '  \033[36mmake clean-cache\033[0m     also remove the bun install cache\n'
+	@printf '\n  \033[1mconstraints\033[0m\n'
+	@printf '  \033[36mmake boundaries\033[0m      enforce the package dependency graph\n'
 	@printf '  \033[36mmake modules\033[0m         application-module boundaries (deep imports, shared/)\n'
+	@printf '  \033[36mmake deps\033[0m            enforce the dependency policy (tree-shakeable only)\n'
+	@printf '  \033[36mmake surface\033[0m         public API matches src/docs/api-surface.json\n'
+	@printf '  \033[36mmake error-codes\033[0m     codes are registered, append-only and documented (ERR-002, ERR-004)\n'
 	@printf '  \033[36mmake plan-refs\033[0m       no path into the internal design plans leaks (DOC-016)\n'
 	@printf '  \033[36mmake plans\033[0m           the plan set is indexed, linked and complete (DOC-017)\n'
-	@printf '  \033[36mmake error-codes\033[0m     codes are registered, append-only and documented (ERR-002, ERR-004)\n'
+	@printf '  \033[36mmake frontpage\033[0m       fail if the marketing page overstates what exists\n'
+	@printf '  \033[36mmake license\033[0m         verify MIT across every manifest\n'
 	@printf '  \033[36mmake links\033[0m           every relative link + anchor in src/ resolves\n'
-	@printf '  \033[36mmake surface\033[0m         public API matches src/docs/api-surface.json\n'
+	@printf '  \033[36mmake version\033[0m         manifests are in lockstep\n'
+	@printf '  \033[36mmake codegen-check\033[0m   generated contracts match their sources\n'
+	@printf '  \033[36mmake proto\033[0m            regenerate gRPC contracts from proto/ (buf)\n'
+	@printf '\n  \033[1mdocs and release\033[0m\n'
 	@printf '  \033[36mmake docs-site\033[0m       build the docs as static HTML in build/docs-site\n'
 	@printf '  \033[36mmake docs-packages\033[0m   every framework package has a current reference page\n'
-	@printf '  \033[36mmake version\033[0m         manifests are in lockstep\n'
-	@printf '  \033[36mmake changeset\033[0m       record a changeset (SUMMARY="..." BUMP=minor)\n'
-	@printf '  \033[36mmake bench\033[0m           micro-benchmarks vs bench/baseline.json\n'
-	@printf '  \033[36mmake new-package\033[0m     scaffold a package (NAME=... KIND=framework)\n'
 	@printf '  \033[36mmake deps-doc\033[0m        regenerate src/docs/dependencies.md\n'
-	@printf '  \033[36mmake build\033[0m           alias of `make dist`\n'
-	@printf '  \033[36mmake clean\033[0m           remove dist/ and runtime state\n'
-	@printf '\n  Database and deploy targets: see make db-up, migrate, deploy-plan and deploy-build.\n\n'
+	@printf '  \033[36mmake changeset\033[0m       record a changeset (SUMMARY="..." BUMP=minor)\n'
+	@printf '  \033[36mmake release-version\033[0m apply recorded changesets to the manifests\n'
+	@printf '  \033[36mmake bench\033[0m           micro-benchmarks vs bench/baseline.json\n'
+	@printf '\n  \033[2mSample applications in src/apps are fixtures for these targets — they are not\n'
+	@printf '  a development workflow: make app-route-compile, app-deploy-plan etc. See\n'
+	@printf '  make deploy-sample.\033[0m\n\n'
 
 install: ## Install workspace dependencies
 	@printf '  \033[2m→ bun install\033[0m\n'
@@ -108,12 +127,6 @@ kill-ports-dry: ## Show what `make kill-ports` would free, touching nothing
 
 doctor: ## Diagnose the local environment
 	@$(BUN) src/tools/doctor.ts
-
-tsir: ## Run the tsir CLI: make tsir ARGS="config:dump"
-	@$(TSIR) $(ARGS)
-
-example: ## Boot the frontpage app and report its lifecycle (exits after boot)
-	@cd src/apps/frontpage && $(BUN) ../../framework/console/src/cli.ts doctor
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
@@ -175,8 +188,11 @@ format-check: ## Verify formatting without writing
 
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
-test: ## Run unit tests
+test: ## Run the whole framework test suite (unit + integration)
 	@$(BUN) test
+
+test-unit: ## Run the fast unit tests only (the inner development loop)
+	@$(BUN) test --testPathIgnorePatterns '(^|/)integration/'
 
 coverage: ## Per-package coverage gate (line ≥ 90 %, funcs ≥ 85 %)
 	@$(BUN) src/tools/coverage-gate.ts src/framework/cache src/framework/console src/framework/testing src/framework/queue src/framework/events src/framework/schedule src/framework/storage src/framework/mail src/framework/notify src/framework/policy src/framework/auth src/framework/pulse src/framework/container src/framework/config src/framework/core src/framework/database src/framework/deploy src/framework/migrate src/framework/seed src/framework/router src/framework/http src/framework/validate src/framework/vault src/framework/link
@@ -189,7 +205,20 @@ test-watch: ## Run tests in watch mode
 
 # ─── Build / run ─────────────────────────────────────────────────────────────
 
-build: dist ## Build artifacts (alias of `make dist`)
+build: ## Compile the framework packages (core build; not the distribution)
+	@printf '  \033[2m→ bun src/tools/dist.ts --packages --out $(BUILD_DIR)\033[0m\n'
+	@$(BUN) src/tools/dist.ts --packages --out "$(BUILD_DIR)"
+
+dist-check: ## Assert the distribution boundary (no internal assets leak, no absolute paths)
+	@$(BUN) src/tools/check-dist.ts
+
+clean: ## Remove the generated build outputs; both are recreated by their targets
+	@rm -rf "$(BUILD_DIR)" dist .tsir
+	@printf '  \033[32m✓\033[0m removed $(BUILD_DIR)/ dist/ .tsir/\n'
+
+clean-cache: clean ## Also drop the bun install cache this workspace used
+	@rm -rf "$(BUN_INSTALL_CACHE_DIR)"
+	@printf '  \033[32m✓\033[0m removed $(BUN_INSTALL_CACHE_DIR)/\n'
 
 dist: ## Build the distributable source tree into dist/ (gitignored)
 	@$(BUN) src/tools/dist.ts
@@ -267,27 +296,29 @@ test-integration: ## Database-backed tests; skips cleanly when DATABASE_URL is u
 deps: ## Enforce the third-party dependency policy (ADR-0012)
 	@$(BUN) src/tools/check-deps.ts
 
-start: ## Boot the built application (APP=path; run `tsir build` in the app first)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" start $(ARGS)
+# The sample application lives in `src/apps/` and is used to prove the framework end to end.
+# These targets exist for **that** — a spike fixture the framework is developed against — not as
+# an application workflow. A developer's `migrate`, `seed`, `route:*` and `deploy:*` commands are
+# `dist/tsir` commands (see plans/architecture/18-core-vs-distribution.md).
+app-route-compile: ## Compile the sample app's routes (the committed-artifact drift check)
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
 
-clean-cache: ## Delete caches and generated dirs that would bloat the workspace
-	@rm -rf "$(CURDIR)/.cache" "$(CURDIR)/.bun" "$(CURDIR)/.tsir" "$(CURDIR)/dist" \
-	        "$(CURDIR)/coverage" "$(CURDIR)/.coverage" "$(CURDIR)/.verify" \
-	        "$(CURDIR)/bench/latest.json"
-	@printf '  \033[32m✓\033[0m caches cleared\n'
+app-deploy-plan: ## Check the sample app's deploy plan is current
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
 
-clean: ## Remove build output and runtime state (guarded)
-	@test "$(CURDIR)" != "/" || { echo "refusing to clean /"; exit 1; }
-	@rm -rf "$(CURDIR)/dist" "$(CURDIR)/.tsir"
-	@find "$(CURDIR)" -maxdepth 3 -name '*.tsbuildinfo' -delete 2>/dev/null || true
-	@printf '  \033[32m✓\033[0m cleaned dist/ and runtime state\n'
+app-deploy-build: ## Emit the sample app's deploy units for both targets
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
 
-# ─── Reserved: implemented in later phases ─────────────────────────────────
+app-deploy-validate: ## Scan the emitted units for leaked secrets
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
 
-# Either Compose: the v2 plugin (`docker compose`) or the standalone v1 binary (`docker-compose`).
-COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; fi)
+deploy-sample: app-deploy-build app-deploy-validate ## Build and validate the sample app's deploy units
+	@printf '  \033[32m✓\033[0m sample deploy units are valid\n'
 
-db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
+soap-check: ## Fail if a committed WSDL-derived module is stale
+	@$(BUN) src/framework/console/src/cli.ts link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
+
+db-up: ## Start local Postgres for the framework's database tests (needs Docker; DXS-009)db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
 	@test -n "$(COMPOSE)" || { echo '  ✗ no Compose found: install the docker compose plugin or docker-compose'; exit 1; }
 	$(COMPOSE) -f compose.yaml up -d postgres
 	@for attempt in {1..60}; do \
@@ -301,69 +332,15 @@ db-down: ## Stop local Postgres (keeps its data volume; DXS-009)
 	# Stopping needs no password, but Compose validates every variable in the file first.
 	POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-unused} $(COMPOSE) -f compose.yaml down
 
-# The database commands run inside an application, because that is where the
-# `Database` and the seeders are exported from (an application owns its client —
-# ADR-0009). So they need `APP=`: there is no sensible repository-wide default,
-# and guessing one would run migrations against whatever happened to be checked out.
-APP ?=
-
-migrate: ## Apply pending migrations (APP=path)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate $(ARGS)
-
-migrate-status: ## Show applied, pending and drifted migrations (APP=path)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate:status $(ARGS)
-
-seed: ## Run the application's seeders for APP_ENV (APP=path, ARGS=--class X)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" db:seed $(ARGS)
-
-deploy-plan: ## Resolve and print the deploy unit graph (ARGS=--explain|--json|--write)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:plan $(ARGS)
-
-deploy-diff: ## Compare the unit graph to the committed snapshot (ARGS=--json)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:diff $(ARGS)
-
-deploy-build: ## Emit Workers/Lambda artifacts (ARGS=--target cloudflare,lambda --minify)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:build $(ARGS)
-
-deploy-validate: ## Gate a release: budgets, secret scan, capabilities (ARGS=--json)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:validate $(ARGS)
-
-route-list: ## List compiled routes (APP=path, ARGS=--json for machine output)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" route:list $(ARGS)
-
-route-compile: ## Generate routes.gen.ts (ARGS=--check to fail on drift)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) ../../framework/console/src/cli.ts route:compile $(ARGS)
+# ─── Sample application (core validation only) ───────────────────────────────
+#
+# The sample app under `src/apps/` is a fixture the framework is developed and
+# validated against. The targets below exist to keep its committed generated
+# artifacts honest; they are not an application workflow, which lives behind
+# `dist/tsir` (see plans/architecture/18-core-vs-distribution.md).
+SAMPLE_APP := $(ADMIN_APP)
 
 codegen-check: ## Fail if a committed generated artefact is stale (part of `make check`)
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
+	@$(MAKE) --no-print-directory app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check
 	@rm -rf "$(CURDIR)/.verify/deploy"; rmdir "$(CURDIR)/.verify" 2>/dev/null || true
-	@$(TSIR) link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
-openapi: ## Generate the OpenAPI 3.1 document of an app (APP=path, ARGS="--out openapi.json")
-	@test -n "$(APP)" || { echo "  · set APP=<application path>"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" openapi:generate $(ARGS)
-
-# ─── Code generators (`tsir make:*`) ──────────────────────────────────────────
-#
-# Scaffold modules, controllers, models, services, and every other artefact
-# through the framework's own generators. Never hand-write a file that
-# `tsir make:*` can produce — the generated shape is what the rest of the
-# framework (routes, DI, deploy graph) expects.
-#
-#   make make-module     ARGS="shop"
-#   make make-controller ARGS="order shop"
-#   make make-model      ARGS="order shop"
-#   make make-migration  ARGS="create-orders shop"
-#   make make-seeder     ARGS="shop"
-#
-# Run from the app directory (APP=path) or from the workspace root; the CLI
-# resolves the nearest `tsir.js`.
-
-make-%: ## Run `tsir make:<name>` — e.g. `make make-controller ARGS="order shop"`
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" make:$* $(ARGS)

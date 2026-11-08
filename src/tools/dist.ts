@@ -20,7 +20,13 @@
  * `import { token } from '@tsir/container'` cost ~1 KiB instead of the whole
  * container. `make verify-dist` proves that with a real bundler run.
  *
- * Usage: bun src/tools/dist.ts [--out dist] [--no-frontpage]
+ * `--packages` cuts the build short after the packages themselves: no application copy, no docs
+ * site, no launcher, no root manifest, no `bun install`. That is the core engineering build
+ * (`make build`) — proving the framework compiles and emits — while the full run is the
+ * distribution assembly (`make dist`). One tool, one compile, two products, so the two can never
+ * disagree about how a package is emitted.
+ *
+ * Usage: bun src/tools/dist.ts [--out dist] [--no-frontpage] [--packages]
  */
 
 import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
@@ -31,6 +37,8 @@ const ROOT = resolve(import.meta.dir, '..', '..');
 const FRAMEWORK_DIR = join(ROOT, 'src', 'framework');
 const DIST = resolve(ROOT, argValue(Bun.argv.slice(2), '--out', 'dist'));
 const WITH_FRONTPAGE = !Bun.argv.includes('--no-frontpage');
+/** Emit the packages only: the core build. The full run assembles the distribution. */
+const PACKAGES_ONLY = Bun.argv.includes('--packages');
 
 function argValue(argv: readonly string[], flag: string, fallback: string): string {
   const index = argv.indexOf(flag);
@@ -86,6 +94,9 @@ const KB = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
 const RUNTIME_ASSETS: Readonly<Record<string, readonly string[]>> = {
   console: ['src/stubs'],
 };
+
+/** Directories inside a package that exist only for framework development. */
+const ENGINEERING_ONLY_DIRECTORIES: readonly string[] = ['commands/fixtures'];
 
 async function listFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -231,6 +242,15 @@ async function buildPackage(
     await cp(join(sourceDir, asset), join(target, asset.replace(/^src\//u, '')), {
       recursive: true,
     });
+  }
+
+  // **Engineering-only emitted output.** `tsconfig.dist.json` compiles every `.ts` under a
+  // package, which includes the fixtures and the tests' helpers — those exist so the framework can
+  // be *developed*, and a distribution that ships them ships a product containing its own test
+  // harness (`make dist-check` catches it, and this is what removes it). `*.test.ts` is already
+  // excluded from the compile; these directories are the part tsc cannot know about.
+  for (const engineeringOnly of ENGINEERING_ONLY_DIRECTORIES) {
+    await rm(join(target, engineeringOnly), { recursive: true, force: true });
   }
 
   const files = await listFiles(target);
@@ -397,6 +417,18 @@ async function main(): Promise<void> {
   const results: { name: string; bytes: number; exports: string[] }[] = [];
   for (const name of names) results.push(await buildPackage(name));
 
+  if (PACKAGES_ONLY) {
+    const width = Math.max(...results.map((result) => result.name.length));
+    process.stdout.write('\n  framework packages\n\n');
+    for (const result of results) {
+      process.stdout.write(
+        `  ${result.name.padEnd(width)}  ${KB(result.bytes).padStart(9)}   ${String(result.exports.length)} export(s)\n`,
+      );
+    }
+    process.stdout.write(`\n  ✓ ${DIST}/framework/ — packages only (\`make dist\` assembles the distribution)\n\n`);
+    return;
+  }
+
   const frontpageBytes = WITH_FRONTPAGE ? await bakeFrontpage() : 0;
 
   // Ship the actual applications. They are runnable TypeScript examples, not
@@ -470,8 +502,11 @@ The distribution is generated. Copy an example elsewhere before making changes: 
     }
   }
 
+  // No timestamp: two runs over the same sources must produce the same tree, or `make dist` cannot
+  // be checked and a release cannot be reproduced. What a consumer needs from this file is *which*
+  // packages and how big, all of which are inputs already. The build time is available from the
+  // filesystem (`stat dist/manifest.json`) and would only differ between otherwise-identical runs.
   const summary = {
-    generatedAt: new Date().toISOString(),
     packages: results.map((result) => ({
       name: result.name,
       bytes: result.bytes,
