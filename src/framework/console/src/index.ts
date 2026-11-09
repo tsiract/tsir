@@ -1,3 +1,6 @@
+/** Injected by `bun build --compile --define …`; absent when the CLI runs from source. */
+declare const TSIR_BUILT_VERSION: string | undefined;
+
 /**
  * The version of the framework the running CLI belongs to.
  *
@@ -10,6 +13,14 @@
  * `tsir --version` answer "unknown" exactly where a developer first meets it.
  */
 function frameworkVersion(): string {
+  // A compiled single-file executable has no manifest to read: its module graph is inside the
+  // binary, so `readFileSync` below finds nothing and the CLI answers "unknown" — exactly where a
+  // developer first meets it. The version is therefore baked in at build time with
+  // `--define TSIR_BUILT_VERSION='"0.0.0"'` and read back here. That define rewrites an *identifier*,
+  // which is why this is `typeof` and not a `globalThis` lookup: on a source run the identifier is
+  // undeclared, `typeof` says so without throwing, and the two manifest layouts below still answer.
+  if (typeof TSIR_BUILT_VERSION === 'string' && TSIR_BUILT_VERSION !== '')
+    return TSIR_BUILT_VERSION;
   for (const relative of ['../package.json', './package.json']) {
     try {
       const pkg = JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8')) as {

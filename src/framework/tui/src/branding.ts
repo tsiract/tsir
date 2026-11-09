@@ -17,9 +17,19 @@ import { type Palette, CONTENT_WIDTH, INDENT, glyphs } from './theme.ts';
  * Read from the nearest `package.json` rather than a constant: `make version` keeps the manifests in
  * lockstep, and a constant here would be one more place a release could forget. Two depths are
  * tried because this package is emitted in two layouts — the repository keeps it at
- * `src/framework/tui/src/`, and `make dist` writes `framework/tui/`.
+ * `src/framework/tui/src/`, and `make dist` writes `framework/tui/`. A *compiled* distribution has
+ * neither, which is the case the define above covers.
  */
+/** Injected by `bun build --compile --define …`; absent when the CLI runs from source. */
+declare const TSIR_BUILT_VERSION: string | undefined;
+
 export function frameworkVersion(from: string = import.meta.url): string {
+  // A compiled single-file executable has no `package.json` to read: its module graph is inside
+  // the binary, so `--define TSIR_BUILT_VERSION='"0.0.0"'` bakes the answer in at build time.
+  // `typeof` rather than a `globalThis` lookup because `--define` rewrites an identifier, and
+  // because an undeclared identifier is `undefined` here instead of a ReferenceError.
+  if (typeof TSIR_BUILT_VERSION === 'string' && TSIR_BUILT_VERSION !== '')
+    return TSIR_BUILT_VERSION;
   for (const relative of ['../package.json', './package.json']) {
     try {
       const url = new URL(relative, from);
