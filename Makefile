@@ -34,7 +34,6 @@ BUN_INSTALL_CACHE_DIR ?= $(CURDIR)/.cache/bun
 export BUN_INSTALL_CACHE_DIR
 
 BUN   ?= bun
-HTTP_EXAMPLE := src/apps/frontpage
 ADMIN_APP    := src/apps/admin.product.com
 BASH  ?= bash
 TSIR  ?= $(BUN) src/framework/console/src/cli.ts
@@ -43,10 +42,35 @@ PORT  ?= 3000
 ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
+# The reader's overrides: `make dist FRONTEND=react`, `make changeset SUMMARY="…" BUMP=minor`.
+#
+# Every one of these is read back by a target below, and each is declared here rather than left
+# to make's habit of expanding an undefined variable to the empty string. That habit is the whole
+# reason this block exists: `$(COMPOSE)` lost its detection line in a refactor while `db-up` kept
+# reading it, so `make db-up` announced "no Compose found" on a machine that had Docker. Make calls
+# that an empty string, not an error, and no shell check can tell it from a real absence.
+#
+# `make make-check` refuses an undefined read and an unused definition, so the block stays honest.
+#
+# COMPOSE is detected rather than defaulted: both spellings exist in the wild, and the target's
+# guard (`test -n "$(COMPOSE)"`) is only meaningful when the value means "one was found".
+COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; fi)
+DIST_YES        ?=
+DIST_CONFIG_ONLY ?=
+DIST_OUT        ?=
+FRONTEND        ?=
+PACKAGE_MANAGER ?=
+STYLING         ?=
+KILL_ARGS       ?=
+SUMMARY         ?=
+BUMP            ?=
+NAME            ?=
+KIND            ?=
+
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -149,7 +173,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
@@ -181,6 +205,9 @@ logs: ## Run the suite and fail on any secret or canary in its output (VLT-027)
 boundaries: ## Enforce the package dependency graph (ADR-0008)
 	@printf '  \033[2m→ bun src/tools/check-boundaries.ts\033[0m\n'
 	@$(BUN) src/tools/check-boundaries.ts
+
+make-check: ## The Makefile and the docs that name its targets agree (DXS-015)
+	@$(BUN) src/tools/check-make.ts
 
 modules: ## Enforce application-module boundaries (MOD-003)
 	@printf '  \033[2m→ bun src/tools/check-modules.ts\033[0m\n'
@@ -357,7 +384,7 @@ deploy-sample: app-deploy-build app-deploy-validate ## Build and validate the sa
 soap-check: ## Fail if a committed WSDL-derived module is stale
 	@$(BUN) src/framework/console/src/cli.ts link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
-db-up: ## Start local Postgres for the framework's database tests (needs Docker; DXS-009)db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
+db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
 	@test -n "$(COMPOSE)" || { echo '  ✗ no Compose found: install the docker compose plugin or docker-compose'; exit 1; }
 	$(COMPOSE) -f compose.yaml up -d postgres
 	@for attempt in {1..60}; do \

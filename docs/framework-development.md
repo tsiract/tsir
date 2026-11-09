@@ -1,8 +1,10 @@
 # Working on Tsir itself
 
 The short version: this repository builds the framework. It is not an application, and `make` is not
-a way to run one. If you find yourself wanting `make start` or `make migrate`, the answer is that
-those are application verbs and they live behind `dist/tsir` — see [distribution.md](./distribution.md).
+a way to run one. If you find yourself wanting an application's `start` or `migrate`, the answer is
+that those are application verbs and they live behind `dist/tsir` — see
+[distribution.md](./distribution.md). The root `Makefile` has no application verbs, and
+`make make-check` fails if one comes back.
 
 ## The loop
 
@@ -16,8 +18,12 @@ make check      # everything CI runs
 `make check` is the gate. It runs: `typecheck`, `lint`, `boundaries`, `docs-pr`, `modules`,
 `frontpage`, `license`, `deps`, `plan-refs`, `plans`, `error-codes`, `docs-packages`, `docs-site`,
 `links`, `surface`, `readme-check`, `version`, `format-check`, `codegen-check`, `coercion`, `crypto`,
-`flakes`, `proto-check`. Most of those are constraints rather than tests, and each one exists because
-something broke once.
+`flakes`, `proto-check`, `tui-check`, `make-check`. Most of those are constraints rather than tests,
+and each one exists because something broke once.
+
+`make-check` is the one that guards this file. It refuses a `make <target>` in `README.md`, `docs/`
+or `src/docs/` that names no target in the Makefile — a guard against prose that goes on
+instructing a target long after it was removed.
 
 ## Where a change belongs
 

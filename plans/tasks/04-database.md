@@ -166,19 +166,19 @@ Notes on the items not yet `[x]`:
 
 ## Seeders (`@tsir/seed`)
 
-| ID        | Title                                                             | Status | Depends         | Acceptance criteria (summary)                                                                                     |
-| --------- | ----------------------------------------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `SED-001` | `Seeder` contract (`name`, `order`, `idempotent`, `environments`) | `[x]`  | DB-002          | Type errors on missing members                                                                                    |
-| `SED-002` | Runner: ordering, tie detection (`SED_ORDER_AMBIGUOUS`)           | `[x]`  | SED-001         | Ties fail before any insert                                                                                       |
-| `SED-003` | Deterministic context (`Clock`, `Random`)                         | `[x]`  | SED-001         | Two runs produce identical rows                                                                                   |
-| `SED-004` | Idempotency test harness (run twice, counts stable)               | `[x]`  | SED-002         | Fails for non-idempotent seeders                                                                                  |
-| `SED-005` | Transaction per seeder (opt-out justified)                        | `[x]`  | SED-002         | Failure rolls back the seeder only                                                                                |
-| `SED-006` | Environment gating + production refusal                           | `[x]`  | SED-001         | `APP_ENV=production` → `SED_PRODUCTION_REFUSED`                                                                   |
-| `SED-007` | `--class` selection and `--all`                                   | `[x]`  | SED-002         | Selecting unknown class → clear error                                                                             |
-| `SED-008` | Fixture helpers (builders with overrides)                         | `[x]`  | SED-003         | Fixtures are typed and reusable in tests                                                                          |
-| `SED-009` | Reference-data vs development-fixture separation                  | `[x]`  | SED-006         | `production: true` only for reference seeders                                                                     |
-| `SED-010` | `make seed` target wiring                                         | `[x]`  | SED-002         | `make seed` runs dev fixtures                                                                                     |
-| `SED-011` | `--connection` scoping on seeders                                 | `[x]`  | SED-002, DB-019 | Seeder declares `connections`; undeclared target is refused before the first insert; `ctx.db` is the bound handle |
+| ID        | Title                                                             | Status | Depends         | Acceptance criteria (summary)                                                                                                                                     |
+| --------- | ----------------------------------------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SED-001` | `Seeder` contract (`name`, `order`, `idempotent`, `environments`) | `[x]`  | DB-002          | Type errors on missing members                                                                                                                                    |
+| `SED-002` | Runner: ordering, tie detection (`SED_ORDER_AMBIGUOUS`)           | `[x]`  | SED-001         | Ties fail before any insert                                                                                                                                       |
+| `SED-003` | Deterministic context (`Clock`, `Random`)                         | `[x]`  | SED-001         | Two runs produce identical rows                                                                                                                                   |
+| `SED-004` | Idempotency test harness (run twice, counts stable)               | `[x]`  | SED-002         | Fails for non-idempotent seeders                                                                                                                                  |
+| `SED-005` | Transaction per seeder (opt-out justified)                        | `[x]`  | SED-002         | Failure rolls back the seeder only                                                                                                                                |
+| `SED-006` | Environment gating + production refusal                           | `[x]`  | SED-001         | `APP_ENV=production` → `SED_PRODUCTION_REFUSED`                                                                                                                   |
+| `SED-007` | `--class` selection and `--all`                                   | `[x]`  | SED-002         | Selecting unknown class → clear error                                                                                                                             |
+| `SED-008` | Fixture helpers (builders with overrides)                         | `[x]`  | SED-003         | Fixtures are typed and reusable in tests                                                                                                                          |
+| `SED-009` | Reference-data vs development-fixture separation                  | `[x]`  | SED-006         | `production: true` only for reference seeders                                                                                                                     |
+| `SED-010` | ~~`make seed` target wiring~~                                     | `[x]`  | SED-002         | **Withdrawn by ADR-0031** — seeding is an application verb, so it is `tsir db:seed` in the distribution, not a root target. The wiring it asked for exists there. |
+| `SED-011` | `--connection` scoping on seeders                                 | `[x]`  | SED-002, DB-019 | Seeder declares `connections`; undeclared target is refused before the first insert; `ctx.db` is the bound handle                                                 |
 
 ---
 

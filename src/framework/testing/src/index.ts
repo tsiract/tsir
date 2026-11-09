@@ -27,7 +27,7 @@ export interface TestApp {
    *
    * ```ts
    * const harness = await createTestApp(app, { only: ['users'] });
-   * const handler = createFetchHandler({ routes: harness.routes('users') });
+   * const handler = createFetchHandler(harness.routes('users'));
    * ```
    */
   routes(name: string): RouteTable;

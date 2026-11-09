@@ -1,6 +1,6 @@
 # Core development vs. developer distribution
 
-_Status: audit complete; corrections in progress. This document is the boundary
+_Status: audit complete; every violation closed or narrowed to the registry question (Q72/Q73). This document is the boundary
 contract between the two environments. It is the source of truth for what belongs
 where, and it is written before the code so the code can be checked against it._
 
@@ -27,7 +27,7 @@ surface.
 | `make help dev kill doctor`                           | `src/tools/dev.ts`, `kill-dev.sh`        | core development environment (docs site + admin app)                                                       |
 | `make test`, `make coverage`                          | `bun test`, `src/tools/coverage-gate.ts` | tests the **source** packages                                                                              |
 | `make typecheck lint format-check`                    | `tsc`, `src/tools/lint.ts`               | whole workspace, including tools                                                                           |
-| `make boundaries modules plan-refs plans`             | `src/tools/check-*.ts`                   | repository-only invariants                                                                                 |
+| `make boundaries modules plan-refs plans make-check`  | `src/tools/check-*.ts`                   | repository-only invariants                                                                                 |
 | `make error-codes links surface version license deps` | `src/tools/*`                            | publishable-metadata invariants                                                                            |
 | `make frontpage docs-site docs-packages readme`       | `src/tools/*`, `src/apps/frontpage`      | the marketing site and generated docs                                                                      |
 | `make crypto coercion flakes`                         | `src/tools/*`                            | security/quality scans                                                                                     |
@@ -37,13 +37,13 @@ surface.
 
 ### B. Distribution engineering — assembles the product
 
-| Tool                    | Where                              | Notes                                                          |
-| ----------------------- | ---------------------------------- | -------------------------------------------------------------- |
-| `make dist`             | `src/tools/dist.ts`                | emits `dist/framework/*`, templates, docs, launcher            |
-| `make verify-dist`      | `src/tools/verify-dist.ts`         | boots and tree-shakes the emitted packages                     |
-| `make release-pack`     | `src/tools/release-pack.ts`        | tarballs + archive + independent journey                       |
-| (new) `make dist-check` | `src/tools/check-dist.ts`          | asserts the boundary: no internal-only assets, no leaked paths |
-| `tsir new`              | `console/src/commands/generate.ts` | the scaffold a developer starts from                           |
+| Tool                | Where                              | Notes                                                          |
+| ------------------- | ---------------------------------- | -------------------------------------------------------------- |
+| `make dist`         | `src/tools/dist.ts`                | emits `dist/framework/*`, templates, docs, launcher            |
+| `make verify-dist`  | `src/tools/verify-dist.ts`         | boots and tree-shakes the emitted packages                     |
+| `make release-pack` | `src/tools/release-pack.ts`        | tarballs + archive + independent journey                       |
+| `make dist-check`   | `src/tools/check-dist.ts`          | asserts the boundary: no internal-only assets, no leaked paths |
+| `tsir new`          | `console/src/commands/generate.ts` | the scaffold a developer starts from                           |
 
 ### C. Application developer experience — lives **only** in the distribution
 
@@ -58,39 +58,20 @@ surface.
 | `deploy:*` (5)                                                                   | console                           | present |
 | `queue:*`, `schedule:*`, `cache:*`, `mail:*`, `notify:*`, `vault:*`, `storage:*` | console                           | present |
 
-## 3. Violations found
+## 3. Violations found, and what closed them
 
-1. **The root `Makefile` carries an application workflow.** `start`, `migrate`,
-   `migrate-status`, `seed`, `openapi`, `route-list`, `route-compile`,
-   `deploy-plan`, `deploy-diff`, `deploy-build`, `deploy-validate` all `cd` into
-   an application (`APP=…`) and drive it with the core CLI. They are category C in
-   a category A file. `make help` even advertises them.
-2. **Application code generation is a core gate.** `make codegen-check` (inside
-   `make check`) runs `route:compile --check` and `deploy:plan --check` against
-   `src/apps/admin.product.com`. Core validation depends on an application build.
-3. **`make build` is an alias of `make dist`.** Core has no notion of building
-   "the framework" separately from assembling a distribution; `make build` reads
-   as an application verb.
-4. **`tsir new` scaffolds into `cwd/<name>`, and the only supported "workspace"
-   is the distribution's own `apps/`.** Generated applications depend on
-   `workspace:*` ranges that resolve only inside the distribution's Bun workspace
-   and record that workspace as an **absolute path** in the generated
-   `package.json` (`"workspaces": ["/abs/path/to/dist/framework/*"]`). The
-   application therefore resolves framework code through an absolute path into
-   whichever `dist/` happened to exist at scaffold time — not a distribution
-   contract, and broken if the distribution moves.
-5. **The distribution is unusable unless it is kept as a Bun workspace.** It
-   works today only because `dist/` sits beside `node_modules` in the repository.
-   A published distribution (`@tsir/*` at version ranges) cannot install at all —
-   the packages are not on a registry, so `bun install` inside `dist/` fails to
-   resolve every `@tsir/*` dependency, and `tsir new` then refuses to run.
-6. **The generated application does not typecheck.** Its `tsconfig.json` omits
-   the `types`/`lib` a Bun application needs (`bun:sqlite`, `node:*`), and the
-   generated `app.ts`/`database.ts` rely on `import.meta.dir` (`Bun`/Node types).
-7. **`proto/` generation is correctly framework-internal** but was reachable only
-   through a tool that skipped in CI; that is now enforced. There is **no
-   `proto:generate` for applications**, and inventing one would violate the
-   "no speculative commands" rule — `@tsir/link` consumes committed contracts.
+The audit found seven violations. They are kept here with their disposition, because a contract
+section with no history reads as a contract nobody ever had to enforce.
+
+| #   | Violation                                                                            | Disposition                                                                                                                                                                                                                                        |
+| --- | ------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | The root `Makefile` carried an application workflow (`start`, `migrate`, `seed`, …). | **Closed.** Those targets are gone; the verbs live behind `dist/tsir`. `make make-check` (`DXS-015`) fails if one reappears or if a document tells the reader to run it.                                                                           |
+| 2   | Application codegen was a core gate, driven by an `APP=` variable.                   | **Closed.** `make codegen-check` is still a gate, but only over the sample application the framework is validated against, and its targets are named `app-*` so they cannot be mistaken for a workflow.                                            |
+| 3   | `make build` was an alias of `make dist`.                                            | **Closed.** `make build` compiles the framework packages into `.build/`; `make dist` is the only product-producing target.                                                                                                                         |
+| 4   | `tsir new` recorded an absolute `workspaces` path into whichever `dist/` existed.    | **Closed.** The scaffold emits a relative `link:` plus version-shaped `overrides`, so a moved checkout still resolves and every `@tsir/*` reference lands on one directory.                                                                        |
+| 5   | The distribution was usable only as a Bun workspace beside `node_modules`.           | **Partly open (registry).** A standalone `bun install` of a generated app works through the relative `link:` overrides; installing from `@tsir/*` version ranges still needs the packages on a registry. That is Q72/Q73, not a Makefile question. |
+| 6   | The generated application did not typecheck.                                         | **Closed.** The tsconfig carries the `types`/`lib` a Bun application needs, and four journey runs typecheck a fresh scaffold as it is emitted.                                                                                                     |
+| 7   | `proto/` generation was reachable only through a tool that skipped in CI.            | **Closed by design.** `proto` is correctly framework-internal; `make proto-check` fails when the committed contracts drift and skips with a note when `buf` is absent. There is no `proto:generate` for applications.                              |
 
 ## 4. The contract
 
@@ -124,7 +105,7 @@ surface.
 
 | Failure                                                        | Why it happens                                        | The guard                                                                                              |
 | -------------------------------------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| The Makefile grows an application verb again                   | it is the shortest path to "just run it here"         | `check-dist` + review; category C lives behind `dist/tsir` only                                        |
+| The Makefile grows an application verb again                   | it is the shortest path to "just run it here"         | `make make-check` (it reads the docs too) + `check-dist`; category C lives behind `dist/tsir` only     |
 | The distribution ships a copy of the monorepo                  | assembling with a recursive copy is two lines shorter | `make dist-check` rejects tooling, tests, plans and CI config by path segment                          |
 | An application resolves the framework through an absolute path | the scaffold records where `dist/` happened to be     | `check-dist` rejects an absolute path in a distributed manifest; the scaffold emits a relative `link:` |
 | Two copies of `@tsir/router` in one process                    | `file:` overrides copy per dependent                  | `link:` + `overrides`; `verify-dist` boots the tree that was emitted                                   |
