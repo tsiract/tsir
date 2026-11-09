@@ -65,17 +65,22 @@ export function typecheckScript(framework: string): string {
 /** The output directory `vite build` writes, as a template's README promises. */
 export const BUILD_DIR = 'dist';
 
+/** The runtime to drive the templates with — the same one `make` uses, not a second guess. */
+const BUN = process.env['BUN'] ?? 'bun';
+
+/** Streams the step so CI has a log even when the step fails; returns the exit code. */
+function step(name: string, argv: readonly string[], cwd: string): number {
+  process.stdout.write(`    $ ${argv.join(' ')}  (${name})\n`);
+  const result = Bun.spawnSync([...argv], { cwd, stdout: 'inherit', stderr: 'inherit' });
+  return result.exitCode;
+}
+
 function run(argv: readonly string[], cwd: string): { code: number; output: string } {
   const result = Bun.spawnSync([...argv], { cwd, stdout: 'pipe', stderr: 'pipe' });
   return {
     code: result.exitCode,
     output: `${result.stdout.toString()}${result.stderr.toString()}`.trim(),
   };
-}
-
-/** The last lines of a failed step: enough to identify it, short enough for an annotation. */
-function tail(output: string, lines = 12): string {
-  return output.split('\n').slice(-lines).join('\n');
 }
 
 /**
@@ -91,19 +96,35 @@ export async function verifyTemplate(
   const failures: TemplateFailure[] = [];
   const typecheck = typecheckScript(framework);
 
-  const install = run(['bun', 'install'], directory);
-  if (install.code !== 0) {
-    return { failures: [{ framework, phase: 'install', detail: tail(install.output) }] };
+  // Streamed rather than captured. The captured form was written so a failure could be summarised,
+  // and its cost was the whole log: a step that fails on a runner sends only the last 12 lines to an
+  // annotation, and the annotations here say "exit code 2" and nothing else. A gate whose failure
+  // cannot be diagnosed from CI is a gate that gets re-run until it passes by accident.
+  const install = step('install', [BUN, 'install', '--no-summary'], directory);
+  if (install !== 0) {
+    return {
+      failures: [{ framework, phase: 'install', detail: 'see the `$ bun install` output above' }],
+    };
   }
 
-  const types = run(['bun', 'run', ...typecheck.split(' ')], directory);
-  if (types.code !== 0) {
-    failures.push({ framework, phase: 'typecheck', detail: tail(types.output) });
+  // `bun run <script>` rather than `bun x`, so the template's own pinned binary is what runs. The
+  // package is invoked for the same reason `npm run` would: it puts the step's output *last* in the
+  // log, and the last lines are the only ones a failure annotation can carry.
+  const [typecheckBinary = 'tsc', ...typecheckArgs] = typecheck.split(' ');
+  if (step('typecheck', [BUN, 'run', typecheckBinary, ...typecheckArgs], directory) !== 0) {
+    failures.push({
+      framework,
+      phase: 'typecheck',
+      detail: `typecheck failed — see the output above`,
+    });
   }
 
-  const build = run(['bun', 'run', 'build'], directory);
-  if (build.code !== 0) {
-    failures.push({ framework, phase: 'build', detail: tail(build.output) });
+  if (step('build', [BUN, 'run', 'build'], directory) !== 0) {
+    failures.push({
+      framework,
+      phase: 'build',
+      detail: '`vite build` failed — see the output above',
+    });
   }
 
   const output = join(directory, BUILD_DIR);
