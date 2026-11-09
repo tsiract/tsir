@@ -6,7 +6,12 @@ import { join } from 'node:path';
 export async function verifyAppJourney(archive: string): Promise<void> {
   const root = await mkdtemp(join(tmpdir(), 'tsir app journey '));
   const distribution = join(root, 'distribution');
-  const app = join(root, 'hello');
+  // `tsir new <name>` scaffolds into `apps/<name>/` (`CLI-016`, unchanged since the distribution
+  // layout correction), never beside the workspace root. This path was `root/hello`, which does not
+  // exist: every `bun install`/`bun add` below ran with a working directory that was not there, and
+  // Bun reports a missing `cwd` as `ENOENT: … posix_spawn '<the runtime binary>'` — so the failure
+  // named the one file that demonstrably existed.
+  const app = join(root, 'apps', 'hello');
   const cli = join(distribution, 'tsir');
   /**
    * The file the `tsir` shim ends up executing, or `undefined` if it is not there.
