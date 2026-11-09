@@ -177,6 +177,95 @@ export function boundaryProblems(dist: string): BoundaryProblem[] {
     }
   }
 
+  // ── 6. every configured frontend is actually shipped, and each one is a frontend
+  //
+  // The wizard has always offered Svelte/React/Vue; for a while the build emitted none of them, so
+  // the configuration described a product that did not exist. This checks the other direction too:
+  // a template directory nobody configured is a file someone will maintain by accident.
+  const templatesDir = join(dist, 'templates');
+  const configured = (() => {
+    try {
+      const config = JSON.parse(readFileSync(join(dist, 'manifest.json'), 'utf8')) as {
+        templates?: { framework?: unknown }[];
+      };
+      return new Set(
+        (config.templates ?? [])
+          .map((entry) => entry.framework)
+          .filter((framework): framework is string => typeof framework === 'string'),
+      );
+    } catch {
+      return new Set<string>();
+    }
+  })();
+  if (existsSync(templatesDir)) {
+    const shipped = readdirSync(templatesDir, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name);
+    for (const framework of shipped) {
+      if (!configured.has(framework)) {
+        problems.push({
+          rule: 'templates',
+          detail: `templates/${framework} ships but \`manifest.json\` does not list it`,
+        });
+      }
+      for (const file of [
+        'index.html',
+        'package.json',
+        'tsconfig.json',
+        'vite.config.ts',
+        'src/api.ts',
+      ]) {
+        if (!existsSync(join(templatesDir, framework, file))) {
+          problems.push({ rule: 'templates', detail: `templates/${framework}/${file} is missing` });
+        }
+      }
+      const manifestPath = join(templatesDir, framework, 'package.json');
+      if (existsSync(manifestPath)) {
+        const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as {
+          private?: boolean;
+          dependencies?: Record<string, string>;
+          devDependencies?: Record<string, string>;
+          name?: string;
+        };
+        if (manifest.private !== true) {
+          problems.push({
+            rule: 'templates',
+            detail: `templates/${framework}/package.json is not private — a template must not be publishable`,
+          });
+        }
+        // A template is a frontend in front of a backend. If it depended on the framework it would
+        // be a second application, which is the thing the boundary forbids.
+        for (const dependency of Object.keys(manifest.dependencies ?? {})) {
+          if (dependency.startsWith('@tsir/')) {
+            problems.push({
+              rule: 'templates',
+              detail: `templates/${framework} depends on ${dependency} — a template is a frontend, not an application`,
+            });
+          }
+        }
+        if (manifest.name === undefined) {
+          problems.push({
+            rule: 'templates',
+            detail: `templates/${framework}/package.json has no name`,
+          });
+        }
+      }
+    }
+    for (const framework of configured) {
+      if (!shipped.includes(framework)) {
+        problems.push({
+          rule: 'templates',
+          detail: `\`manifest.json\` lists ${framework} but templates/${framework} was not emitted`,
+        });
+      }
+    }
+  } else if (configured.size > 0) {
+    problems.push({
+      rule: 'templates',
+      detail: `\`manifest.json\` lists ${[...configured].join(', ')} but templates/ was not emitted`,
+    });
+  }
+
   return problems;
 }
 

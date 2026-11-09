@@ -32,6 +32,8 @@
 import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { buildDocs } from './docs-site.ts';
+import { readDistConfigOrDefault, type DistConfig } from './dist-config.ts';
+import { emitFrontendTemplates, type EmittedTemplate } from './frontend-templates.ts';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const FRAMEWORK_DIR = join(ROOT, 'src', 'framework');
@@ -39,6 +41,16 @@ const DIST = resolve(ROOT, argValue(Bun.argv.slice(2), '--out', 'dist'));
 const WITH_FRONTPAGE = !Bun.argv.includes('--no-frontpage');
 /** Emit the packages only: the core build. The full run assembles the distribution. */
 const PACKAGES_ONLY = Bun.argv.includes('--packages');
+
+/**
+ * What this build should ship.
+ *
+ * `tsir.dist.config.json` is the contract (`dist-config.ts`): the wizard writes it, this reads it.
+ * An invalid committed file is a hard failure rather than a silent fall back to defaults — the
+ * difference between the two is a release that quietly stops shipping something it used to ship.
+ * With no file at all, the documented defaults apply, so a fresh checkout still builds.
+ */
+const CONFIG: DistConfig = readDistConfigOrDefault(ROOT);
 
 function argValue(argv: readonly string[], flag: string, fallback: string): string {
   const index = argv.indexOf(flag);
@@ -433,6 +445,10 @@ async function main(): Promise<void> {
 
   const frontpageBytes = WITH_FRONTPAGE ? await bakeFrontpage() : 0;
 
+  // The frontends the configuration says this distribution supports. An empty list writes nothing:
+  // the wizard having offered a choice that produces no files is exactly the gap this closes.
+  const templates: readonly EmittedTemplate[] = await emitFrontendTemplates(DIST, CONFIG.frontends);
+
   // Ship the actual applications. They are runnable TypeScript examples, not
   // published framework packages.
   const apps = join(DIST, 'apps');
@@ -513,6 +529,15 @@ The distribution is generated. Copy an example elsewhere before making changes: 
       name: result.name,
       bytes: result.bytes,
       exports: result.exports,
+    })),
+    // Which frontends this distribution ships, and what each one contains. A consumer can read
+    // this instead of guessing from a directory listing, and `check-dist` cross-checks it.
+    templates: templates.map((template) => ({
+      framework: template.framework,
+      files: template.files,
+      bytes: template.bytes,
+      styling: template.styling,
+      router: template.router,
     })),
     frontpage: frontpageBytes,
   };
@@ -656,6 +681,11 @@ exec "$(dirname -- "$0")/bin/tsir" "$@"
   }
   if (frontpageBytes > 0) {
     process.stdout.write(`  ${'frontpage'.padEnd(width)}  ${KB(frontpageBytes).padStart(9)}\n`);
+  }
+  for (const template of templates) {
+    process.stdout.write(
+      `  ${`templates/${template.framework}`.padEnd(width)}  ${KB(template.bytes).padStart(9)}   ${String(template.files)} file(s)\n`,
+    );
   }
   process.stdout.write(`\n  ✓ ${DIST}/ (gitignored — rebuild with \`make dist\`)\n`);
   process.stdout.write(

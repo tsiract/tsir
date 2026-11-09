@@ -85,13 +85,35 @@ dist/
 ├── tsir                    # the developer executable
 ├── bin/tsir                # same thing, for PATH
 ├── framework/<package>/    # every @tsir/* package: JS, .d.ts, exports map, README
+├── templates/<framework>/  # the frontends this distribution supports (see § 2.1)
 ├── apps/                   # maintained example applications
 ├── src/docs/               # developer documentation
 ├── package.json bun.lock   # the distribution's own workspace
-└── manifest.json           # what was built: packages, sizes, exports
+└── manifest.json           # what was built: packages, sizes, exports, templates
 ```
 
-`make dist-check` proves five properties and fails the build otherwise:
+### What a template contains
+
+Each `templates/<framework>/` is a complete Vite project: `index.html`, `src/main.*`, a strict
+`tsconfig.json`, `vite.config.ts`, `src/api.ts` and a README. It is **a frontend, not an
+application** — the API it calls is your `tsir dev`, reached through the dev-server proxy at
+`/api`:
+
+```ts
+// vite.config.ts
+server: { proxy: { '/api': { target: 'http://127.0.0.1:3000', changeOrigin: true } } }
+```
+
+Three properties are checked rather than promised: the entry file `index.html` names exists, the
+manifest is `private` and depends on no `@tsir/*` package (a template that imported the framework
+would be a second application), and every framework in `manifest.json` has a directory — and vice
+versa, so a template nobody configured cannot accumulate.
+
+Styling (`tailwind`, `daisyui` on top of it, or nothing at all) and client routing are per
+template, because they are answers the wizard asks for rather than defaults. The committed
+configuration ships all three frontends with Tailwind, and DaisyUI for Svelte.
+
+`make dist-check` proves these properties and fails the build otherwise:
 
 1. the launcher exists and is executable
 2. every `src/framework/*` package has an emitted directory with a distributable manifest
@@ -99,6 +121,8 @@ dist/
 3. no engineering asset leaked — no tests, fixtures, CI config, benchmarks or plans
 4. no manifest names an absolute path on the machine that built it
 5. templates and docs travel, checked by identity against the source
+6. every configured frontend is emitted, and each template is a private Vite project that depends on
+   no `@tsir/*` package
 
 The build is **reproducible**: two runs over the same sources produce the same tree. That is why
 `manifest.json` carries no timestamp.
@@ -123,6 +147,7 @@ bun x tsc --noEmit                 # typechecks as generated
 ../dist/tsir dev                   # serves the exported handler
 ../dist/tsir build                 # writes .tsir/manifest.json + drivers.gen.ts
 ../dist/tsir clean                 # removes that build output and nothing else
+cp -r ../dist/templates/svelte ./web  # a frontend in front of this app (see § 2.1)
 ```
 
 Creating an application **inside `dist/`** is refused: the next `make dist` replaces that directory.
@@ -155,8 +180,10 @@ breaking:
 
 ## 5. Known limitations
 
-- Frontend templates are configured but not yet emitted: the config accepts `svelte`, `react` and
-  `vue`, and the committed baseline is deliberately backend-only until the templates exist.
+- The templates are validated by installing, typechecking and building them locally; that is not
+  yet a CI step, because it needs the registry and CI runs offline for this repository.
+- A template is a starting point, not a maintained application: it has one screen and one API call,
+  and no tests of its own.
 - `tsir proto:generate` requires `buf` and a `protoc-gen-es` devDependency in the application. It
   says so, with the install command, rather than failing obscurely.
 - Package managers other than Bun are expressed in configuration and documentation; the generated

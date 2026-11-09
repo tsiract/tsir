@@ -21,6 +21,8 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { TsirError } from '../framework/container/src/index.ts';
+
 /** The path, relative to the repository root. */
 export const DIST_CONFIG_FILE = 'tsir.dist.config.json';
 
@@ -378,4 +380,26 @@ export function describeDistConfig(config: DistConfig): readonly (readonly [stri
         .join(', ') || 'none',
     ],
   ];
+}
+
+/**
+ * The configuration a build should use, with an invalid file as a hard failure.
+ *
+ * `dist.ts` is run directly by CI (`make dist-build`) as well as by the CLI, so it must not depend
+ * on the wizard having run: no file means the documented defaults, an invalid file means the build
+ * stops and says which field is wrong. Falling back to defaults on an invalid file would ship a
+ * distribution that silently differs from the one that was reviewed.
+ */
+export function readDistConfigOrDefault(root: string): DistConfig {
+  const loaded = loadDistConfig(root);
+  if (loaded.value !== undefined) return loaded.value.config;
+  const details = loaded.problems.map((problem) => `  · ${problem.field}: ${problem.message}`);
+  throw new TsirError(
+    'DIST_CONFIG_INVALID',
+    `${DIST_CONFIG_FILE} is invalid, so nothing was built`,
+    {
+      kind: 'config',
+      hint: `${details.join('\n')}\n  run \`make dist DIST_CONFIG_ONLY=1\` to regenerate it`,
+    },
+  );
 }

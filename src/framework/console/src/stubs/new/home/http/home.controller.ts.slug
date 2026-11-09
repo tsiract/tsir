@@ -9,8 +9,17 @@ export const homeControllerToken = token<HomeController>('HomeController');
 export class HomeController {
   constructor(private readonly appName: string) {}
 
+  // `/` is the browser's landing page; `/api/welcome` is the contract the shipped frontend
+  // templates call. Both exist because they answer different questions — "is this running" and
+  // "can a separate frontend reach the API" — and a template that had to scrape HTML would not be
+  // an integration over an API contract.
   @Get('/')
   index(): { message: string } {
     return { message: `Welcome to ${this.appName} app!` };
+  }
+
+  @Get('/api/welcome')
+  welcome(): { message: string; app: string } {
+    return { message: `Welcome to ${this.appName} app!`, app: this.appName };
   }
 }

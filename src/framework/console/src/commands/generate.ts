@@ -280,6 +280,25 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   info(`    ${style.cyan(`cd apps/${name}`)}`);
   info(`    ${style.cyan('bun install')}   ${style.dim('install the application dependencies')}`);
   info(`    ${style.cyan('tsir dev')}      ${style.dim('serve the application')}`);
+  // The distribution ships frontend templates beside its packages. Point at them from the scaffold
+  // rather than from a document the developer has not read yet: this is the moment the question
+  // "how do I put a UI on this" occurs to someone.
+  const templates = distRoot === undefined ? undefined : join(resolve(distRoot), 'templates');
+  if (templates !== undefined && existsSync(templates)) {
+    const shipped = readdirSync(templates, { withFileTypes: true })
+      .filter((entry) => entry.isDirectory())
+      .map((entry) => entry.name)
+      .sort();
+    if (shipped.length > 0) {
+      info('');
+      info(
+        `  ${style.dim('frontends ship with the distribution:')} ${shipped.join(', ')} ${style.dim(`(dist/templates/)`)}`,
+      );
+      info(
+        `    ${style.dim('copy one beside this app, then')} ${style.cyan('bun install && bun run dev')} ${style.dim('— it proxies /api here')}`,
+      );
+    }
+  }
   if (dist === undefined) {
     warn(
       'No distribution was detected. @tsir packages are not yet published; use the distribution launcher to scaffold an installable app.',
