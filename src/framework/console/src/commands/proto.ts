@@ -22,7 +22,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } fr
 import { join, relative, resolve } from 'node:path';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { CliError, EXIT, fail, info, jsonDocument, ok, style } from '../output.ts';
+import { CliError, EXIT, fail, info, jsonDocument, ok, style, symbols } from '../output.ts';
 import { loadProject } from '../project.ts';
 
 /** Where an application keeps its compiled contracts, by convention. */
@@ -114,7 +114,7 @@ export async function protoGenerateCommand(argv: readonly string[]): Promise<num
       info(jsonDocument({ protoFiles: 0, generated: false, reason: 'no .proto files' }));
       return EXIT.ok;
     }
-    info(`  ${style.yellow('!')} no .proto files under proto/ — nothing to generate`);
+    info(`  ${style.yellow(symbols.warn)} no .proto files under proto/ — nothing to generate`);
     return EXIT.ok;
   }
 

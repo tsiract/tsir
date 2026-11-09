@@ -51,12 +51,16 @@ Nine questions, each with a default, every answer revisitable, and a review scre
 is written:
 
 1. which frontend frameworks the distribution ships templates for
-2. per-template styling (Tailwind, DaisyUI, plain CSS) and client routing
-3. which package managers applications may use, and which is the default
-4. testing and code-quality tooling
-5. runtime targets (only ones `@tsir/deploy` actually implements)
-6. API tooling (OpenAPI, Protocol Buffers)
-7. the review
+2. per-template styling (Tailwind, DaisyUI, plain CSS)
+3. per-template client routing
+4. which package managers applications may use
+5. which of those is the default
+6. testing and code-quality tooling
+7. runtime targets (only ones `@tsir/deploy` actually implements)
+8. API tooling (OpenAPI, Protocol Buffers)
+9. the review
+
+Questions 2 and 3 repeat per chosen framework, so a single-framework distribution asks seven.
 
 Keys are the same on every screen: arrows navigate, `Enter` accepts, `Space` toggles, `Esc` cancels,
 `Ctrl+C` cancels. The terminal is restored on every exit path — completion, an exception, or a
@@ -117,6 +121,8 @@ bun install                        # or npm / pnpm, per the distribution's defau
 bun x tsc --noEmit                 # typechecks as generated
 ../dist/tsir test                  # the scaffold's tests pass as generated
 ../dist/tsir dev                   # serves the exported handler
+../dist/tsir build                 # writes .tsir/manifest.json + drivers.gen.ts
+../dist/tsir clean                 # removes that build output and nothing else
 ```
 
 Creating an application **inside `dist/`** is refused: the next `make dist` replaces that directory.

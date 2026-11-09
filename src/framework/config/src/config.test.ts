@@ -130,6 +130,23 @@ describe('config · loading', () => {
     ).not.toThrow();
   });
 
+  test('the terminal switches are toolchain switches too, not unknown application keys', () => {
+    // `TSIR_TUI=ascii` and `TSIR_NO_INTERACTIVE=1` are read by `@tsir/tui`, never by the
+    // application. A developer who runs `tsir doctor` with either set must not be told their
+    // configuration is wrong — that warning named the toolchain's own variable.
+    for (const env of ['TSIR_TUI', 'TSIR_NO_INTERACTIVE']) {
+      const warnings: string[] = [];
+      loadConfig(spec, {
+        env: { DATABASE_URL: 'x', [env]: '1' },
+        onWarning: (message) => warnings.push(message),
+      });
+      expect(warnings).toHaveLength(0);
+      expect(() =>
+        loadConfig(spec, { env: { DATABASE_URL: 'x', [env]: '1' }, strictEnv: true }),
+      ).not.toThrow();
+    }
+  });
+
   test('unrelated env vars are ignored', () => {
     const config = loadConfig(spec, {
       env: { DATABASE_URL: 'x', PATH: '/usr/bin', HOME: '/root' },

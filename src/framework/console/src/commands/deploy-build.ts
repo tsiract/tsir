@@ -61,7 +61,7 @@ import {
 } from '@tsir/deploy/wrangler';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, warn, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, warn, jsonDocument, symbols } from '../output.ts';
 import { targetsOf, loadDeployInput } from './deploy.ts';
 
 /** Where the artifacts go, relative to the project root. */
@@ -905,7 +905,7 @@ export function formatBuild(result: BuildResult): string {
     const over = artifact.gzipBytes > artifact.budget;
     const near =
       !over && artifact.gzipBytes > artifact.budget * SIZE_WARNING_RATIO ? ' (near budget)' : '';
-    const mark = over ? style.red('✗') : style.green('✓');
+    const mark = over ? style.red(symbols.cross) : style.green(symbols.check);
     return (
       `  ${mark} ${artifact.file.padEnd(fileWidth)}  ${kibibytes(artifact.bytes).padStart(10)}` +
       `  ${kibibytes(artifact.gzipBytes).padStart(10)} gz  ${budget}${over ? ' — over' : near}`
@@ -984,7 +984,7 @@ export async function build(argv: readonly string[], cwd: string): Promise<numbe
       info(jsonDocument({ ok: false, problems: blocking }));
     } else {
       for (const problem of blocking) {
-        info(`  ${style.red('✗')} ${problem.code} · ${problem.message}`);
+        info(`  ${style.red(symbols.cross)} ${problem.code} · ${problem.message}`);
         info(`    ${problem.hint}`);
       }
     }
@@ -1020,7 +1020,7 @@ export async function build(argv: readonly string[], cwd: string): Promise<numbe
     if (over.length > 0) {
       for (const artifact of over) {
         info(
-          `  ${style.red('✗')} DPL_SIZE_BUDGET · ${artifact.file} is ${kibibytes(artifact.gzipBytes)} gzipped, budget ${kibibytes(artifact.budget)}`,
+          `  ${style.red(symbols.cross)} DPL_SIZE_BUDGET · ${artifact.file} is ${kibibytes(artifact.gzipBytes)} gzipped, budget ${kibibytes(artifact.budget)}`,
         );
       }
       info(

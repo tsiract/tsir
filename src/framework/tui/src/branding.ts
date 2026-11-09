@@ -8,6 +8,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
+import { wrap } from './report.ts';
 import { type Palette, CONTENT_WIDTH, INDENT, glyphs } from './theme.ts';
 
 /**
@@ -39,7 +40,10 @@ export interface BannerOptions {
   readonly subtitle: string;
   /** Printed at the right of the title line. Omitted when undefined. */
   readonly version?: string;
-  /** Extra lines under the subtitle, already formatted. */
+  /**
+   * Extra lines under the subtitle. Wrapped to the content width, because a note longer than the
+   * frame is what actually looks broken — a version string that is one column off does not.
+   */
   readonly notes?: readonly string[];
   readonly width?: number;
 }
@@ -53,20 +57,24 @@ export interface BannerOptions {
  */
 export function banner(options: BannerOptions): string {
   const { palette } = options;
+  // `width` is the box width in **cells**, borders included, and the rule below spans the same
+  // cells. Everything before this comment measured the painted string, which made the gap shrink by
+  // the length of the SGR escapes — the box only misaligned when colour was on.
   const width = options.width ?? CONTENT_WIDTH;
   const glyph = glyphs();
   const title = palette.paintAll(['bold', 'brand'], ` ${options.title.toUpperCase()} `);
-  const version =
-    options.version === undefined ? '' : palette.paint('muted', `v${options.version}`);
-  const gap = Math.max(
-    1,
-    width - options.title.length - 2 - (options.version === undefined ? 0 : version.length),
-  );
+  const versionText = options.version === undefined ? undefined : `v${options.version}`;
+  const version = versionText === undefined ? '' : palette.paint('muted', versionText);
+  const titleCells = options.title.length + 2;
+  const versionCells = versionText === undefined ? 0 : versionText.length + 1;
+  const gap = Math.max(1, width - 1 - titleCells - versionCells);
   const lines = [
-    `${glyph.vertical}${title}${' '.repeat(gap)}${version}${version === '' ? '' : glyph.vertical}`,
+    `${glyph.vertical}${title}${' '.repeat(gap)}${version}${versionText === undefined ? '' : glyph.vertical}`,
     `${glyph.vertical}${INDENT}${palette.paint('dim', options.subtitle)}`,
-    ...(options.notes ?? []).map((note) => `${glyph.vertical}${INDENT}${note}`),
-    `${glyph.tee}${palette.paint('muted', glyph.rule.repeat(width))}`,
+    ...(options.notes ?? []).flatMap((note) =>
+      wrap(note, width - 1 - INDENT.length).map((line) => `${glyph.vertical}${INDENT}${line}`),
+    ),
+    `${glyph.tee}${palette.paint('muted', glyph.rule.repeat(width - 1))}`,
   ];
   return lines.join('\n');
 }

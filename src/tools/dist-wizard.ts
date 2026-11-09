@@ -160,7 +160,7 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     throw error;
   }
 
-  // Step 3 — package managers. The default is what a generated application gets; the list is what
+  // Step 4 — package managers. The default is what a generated application gets; the list is what
   // the distribution documents and its templates mention.
   const managers = await multiSelect<PackageManager>(renderer, {
     palette,
@@ -178,8 +178,9 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     ],
     requireOne: true,
   });
-  // `requireOne` on the multi-select means `managers` has at least one entry; `first` expresses that
-  // without an assertion, and falls back to the schema default if that ever stops being true.
+  // Step 5 — the default manager. `requireOne` on the multi-select means `managers` has at least one
+  // entry; `first` expresses that without an assertion, and falls back to the schema default if that
+  // ever stops being true.
   const first = managers[0] ?? DEFAULT_DIST_CONFIG.defaultPackageManager;
   const defaultManager: PackageManager =
     managers.length === 1
@@ -209,7 +210,7 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     ],
   });
 
-  // Step 8 — runtimes. Only what the deploy packages implement.
+  // Step 7 — runtimes. Only what the deploy packages implement.
   const runtimes = await multiSelect<DistConfig['runtimes'][number]>(renderer, {
     palette,
     message: 'Which runtime targets should generated applications support?',
@@ -232,7 +233,7 @@ export async function runDistWizard(options: WizardOptions): Promise<WizardOutco
     requireOne: true,
   });
 
-  // Step 7 — API tooling.
+  // Step 8 — API tooling.
   const apiTooling = await multiSelect<'openapi' | 'protobuf'>(renderer, {
     palette,
     message: 'API description tooling',
@@ -342,7 +343,10 @@ export function wizardBanner(palette: Palette = createPalette()): string {
     palette,
     title: 'tsir',
     subtitle: 'Distribution configuration',
-    version: frameworkVersion(new URL('../../framework/tui/src/index.ts', import.meta.url).href),
+    // Relative to *this file* (`src/tools/`), which is the same tree the wizard imports from. The
+    // previous path climbed one level too far and printed `vunknown` — a version string that is
+    // wrong is worse than none, because it is the first thing a bug report quotes.
+    version: frameworkVersion(new URL('../framework/tui/src/index.ts', import.meta.url).href),
     notes: [
       'Answers are written to tsir.dist.config.json and committed. Nothing is built until you confirm.',
     ],

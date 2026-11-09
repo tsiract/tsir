@@ -4,7 +4,7 @@ import { canPrompt, NotInteractiveError, requireInteractive } from './session.ts
 import { createPalette, colorDisabled, glyphs, GLYPHS } from './theme.ts';
 import { Reporter, wrap } from './report.ts';
 import { normalizeKey, PromptCancelled } from './prompts.ts';
-import { frameworkVersion, versionLine } from './branding.ts';
+import { banner, frameworkVersion, versionLine } from './branding.ts';
 
 // The interactive layer needs a terminal, so it is exercised against a real pty (see the
 // `tui-interactive` check in `make check`). Everything here is the deterministic part: the rules
@@ -52,6 +52,48 @@ describe('interactivity is a capability', () => {
       expect((error as NotInteractiveError).code).toBe('TUI_NO_TERMINAL');
       expect((error as NotInteractiveError).hint).toBe('pass --frontend svelte');
     }
+  });
+});
+
+describe('the banner is a box, not a guess', () => {
+  /** Every line of the banner, with SGR escapes removed, so lengths are cell counts. */
+  const plain = (
+    options: { readonly color?: boolean; readonly version?: string; readonly width?: number } = {},
+  ): string[] =>
+    banner({
+      palette: createPalette({ color: options.color ?? false }),
+      title: 'tsir',
+      subtitle: 'Development environment',
+      ...(options.version === undefined ? {} : { version: options.version }),
+      ...(options.width === undefined ? {} : { width: options.width }),
+    })
+      .replaceAll(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, 'gu'), '')
+      .split('\n');
+
+  test('the title line and the rule are the same width, with and without colour', () => {
+    // The bug this pins: the gap was computed from the *painted* title, so a coloured banner lost
+    // the length of the escape codes and the frame stepped in by that many columns.
+    for (const color of [false, true]) {
+      for (const version of [undefined, '0.1.2', '10.20.30']) {
+        const lines = plain({ color, ...(version === undefined ? {} : { version }) });
+        const title = lines[0] ?? '';
+        const rule = lines[lines.length - 1] ?? '';
+        expect(title.length).toBe(rule.length);
+      }
+    }
+  });
+
+  test('the box honours an explicit width, borders included', () => {
+    const lines = plain({ width: 50, version: '1.0.0' });
+    expect((lines[0] ?? '').length).toBe(50);
+    expect((lines[lines.length - 1] ?? '').length).toBe(50);
+  });
+
+  test('the version is right-aligned against the frame, and absent when unknown', () => {
+    const withVersion = plain({ version: '9.9.9' })[0] ?? '';
+    expect(withVersion.endsWith('v9.9.9│')).toBe(true);
+    const withoutVersion = plain()[0] ?? '';
+    expect(withoutVersion.includes('v')).toBe(false);
   });
 });
 

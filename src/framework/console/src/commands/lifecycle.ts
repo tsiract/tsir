@@ -4,7 +4,8 @@
  * Both boot through the application lifecycle and serve its optional fetch handler.
  */
 
-import { mkdir } from 'node:fs/promises';
+import { existsSync } from 'node:fs';
+import { mkdir, rm } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { configSchemaDocument } from '@tsir/config';
@@ -16,7 +17,7 @@ import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
 import { bootstrapWarnings, readBootstrapRecord, readPresetRecords } from '../bootstrap-record.ts';
 import { DRIVERS_MODULE, planDrivers, renderDriversModule } from '../drivers.ts';
 import { bootProject, loadProject, type BootedProject, type LoadedProject } from '../project.ts';
-import { EXIT, fail, info, jsonDocument, ok, style, UsageError } from '../output.ts';
+import { EXIT, fail, info, jsonDocument, ok, style, UsageError, symbols } from '../output.ts';
 
 export async function devCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
@@ -196,7 +197,7 @@ async function waitForShutdown(app: BootedProject['app'], server?: BunServer): P
           ok('application stopped');
         } catch (error: unknown) {
           info(
-            `  ${style.red('✗')} shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
+            `  ${style.red(symbols.cross)} shutdown failed: ${error instanceof Error ? error.message : String(error)}`,
           );
         } finally {
           resolve();
@@ -224,7 +225,7 @@ export async function buildCommand(argv: readonly string[]): Promise<number> {
     ...(project.config.queue === undefined ? {} : { queue: project.config.queue }),
   });
   if (plan.problems.length > 0) {
-    for (const problem of plan.problems) info(`✗ ${problem.message}`);
+    for (const problem of plan.problems) info(`${style.red(symbols.cross)} ${problem.message}`);
     return fail(
       new Error(
         `${String(plan.problems.length)} driver(s) declared but not shipped — nothing was written`,
@@ -277,6 +278,56 @@ export async function buildCommand(argv: readonly string[]): Promise<number> {
   return EXIT.ok;
 }
 
+/**
+ * `tsir clean` — remove what the build wrote, and nothing else.
+ *
+ * A build output is the only thing this command touches: `.tsir/` (manifest, driver imports,
+ * bootstrap record) and, when the project configured one, the compiled route module. It never
+ * deletes `node_modules`, never touches `migrations/` or `config/`, and it reports every path it is
+ * about to remove before removing it — a `clean` that surprises someone with a deleted file is worse
+ * than no `clean`.
+ */
+export async function cleanCommand(argv: readonly string[]): Promise<number> {
+  const args = parseArgs(argv, {
+    '--dry-run': { type: 'boolean', description: 'list what would be removed' },
+    '--json': { type: 'boolean', description: 'machine-readable output' },
+  });
+  const json = boolFlag(args, '--json');
+  const dryRun = boolFlag(args, '--dry-run');
+
+  const project = await loadProject(process.cwd());
+  const targets = [join(project.root, '.tsir')];
+  // The compiled route module lives where `paths.routes` says; it is generated, so it is removed
+  // with the rest of the build output rather than left to drift from the controllers.
+  const routes = join(project.root, 'routes.gen.ts');
+  if (existsSync(routes)) targets.push(routes);
+
+  const present = targets.filter((path) => existsSync(path));
+  if (!dryRun) for (const path of present) await rm(path, { recursive: true, force: true });
+
+  if (json) {
+    info(
+      jsonDocument({
+        ok: true,
+        dryRun,
+        removed: present.map((path) => path.slice(project.root.length + 1)),
+      }),
+    );
+    return EXIT.ok;
+  }
+
+  if (present.length === 0) {
+    info(`  ${style.dim('nothing to clean: no build output in this project')}`);
+    return EXIT.ok;
+  }
+  for (const path of present) {
+    const label = path.slice(project.root.length + 1);
+    if (dryRun) info(`  ${style.dim('would remove')} ${label}`);
+    else ok(`removed ${label}`);
+  }
+  return EXIT.ok;
+}
+
 export async function configDumpCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--json': { type: 'boolean', description: 'machine-readable output' },
@@ -308,7 +359,7 @@ export async function configDumpCommand(argv: readonly string[]): Promise<number
     info(`  ${key.padEnd(22)} ${String(value)}`);
   }
   for (const warning of config.warnings) {
-    info(`  ${style.yellow('!')} ${warning}`);
+    info(`  ${style.yellow(symbols.warn)} ${warning}`);
   }
   info('');
   return EXIT.ok;

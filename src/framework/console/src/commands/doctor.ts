@@ -14,7 +14,7 @@ import { boolFlag, parseArgs } from '../args.ts';
 import { loadProject } from '../project.ts';
 import { loadProjectCommands, unknownConsoleCommands } from './project-command.ts';
 import { repairDeployRegion } from './bootstrap.ts';
-import { info, jsonDocument, style, CliError } from '../output.ts';
+import { info, jsonDocument, style, CliError, symbols } from '../output.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
 
@@ -287,10 +287,10 @@ export async function doctorCommand(
   for (const check of checks) {
     const symbol =
       check.status === 'ok'
-        ? style.green('✓')
+        ? style.green(symbols.check)
         : check.status === 'warn'
-          ? style.yellow('!')
-          : style.red('✗');
+          ? style.yellow(symbols.warn)
+          : style.red(symbols.cross);
     info(`  ${symbol} ${check.name.padEnd(width)}  ${check.detail}`);
     if (check.hint !== undefined) info(`    ${style.dim(`↳ ${check.hint}`)}`);
   }

@@ -10,7 +10,7 @@ import { pathToFileURL } from 'node:url';
 
 import { migrateProject, renderLiteral, type ProjectValue } from '@tsir/config';
 
-import { EXIT, info, jsonDocument, style, UsageError } from '../output.ts';
+import { EXIT, info, jsonDocument, style, UsageError, symbols } from '../output.ts';
 import { findConfigFile } from '../project.ts';
 
 export interface MigrationPlan {
@@ -63,7 +63,7 @@ export async function migrateConfig(cwd: string, json: boolean): Promise<number>
     return EXIT.ok;
   }
   if (plan.block === undefined) {
-    info(`  ${style.green('✓')} ${name} is already at format ${String(plan.to)}`);
+    info(`  ${style.green(symbols.check)} ${name} is already at format ${String(plan.to)}`);
     return EXIT.ok;
   }
   info(`  ${style.bold(`${name}: format ${String(plan.from)} → ${String(plan.to)}`)}`);

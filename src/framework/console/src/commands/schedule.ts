@@ -35,7 +35,7 @@ import {
 } from '@tsir/schedule';
 
 import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, jsonDocument, symbols } from '../output.ts';
 import { loadProject, type LoadedProject } from '../project.ts';
 import { databasesFrom } from './queue.ts';
 
@@ -343,12 +343,12 @@ export async function scheduleRunCommand(argv: readonly string[]): Promise<numbe
 
     const mark =
       outcome.status === 'ran'
-        ? style.green('✓')
+        ? style.green(symbols.check)
         : outcome.status === 'busy'
           ? style.yellow('·')
           : outcome.status === 'skipped'
             ? style.dim('·')
-            : style.red('✗');
+            : style.red(symbols.cross);
     info(`  ${mark} ${style.bold(name)} ${outcome.status} ${style.dim(describeOutcome(outcome))}`);
 
     if (outcome.status === 'busy') {
@@ -420,10 +420,10 @@ export async function scheduleWorkCommand(argv: readonly string[]): Promise<numb
         for (const outcome of outcomes) {
           const mark =
             outcome.status === 'ran'
-              ? style.green('✓')
+              ? style.green(symbols.check)
               : outcome.status === 'busy'
                 ? style.yellow('·')
-                : style.red('✗');
+                : style.red(symbols.cross);
           info(
             `  ${mark} ${outcome.task} ${outcome.status} ${style.dim(describeOutcome(outcome))}`,
           );
@@ -471,10 +471,10 @@ export async function scheduleWorkCommand(argv: readonly string[]): Promise<numb
         for (const outcome of outcomes) {
           const mark =
             outcome.status === 'ran'
-              ? style.green('✓')
+              ? style.green(symbols.check)
               : outcome.status === 'busy'
                 ? style.yellow('·')
-                : style.red('✗');
+                : style.red(symbols.cross);
           info(
             `  ${style.dim(new Date(now).toISOString())} ${mark} ${outcome.task} ` +
               `${outcome.status} ${style.dim(describeOutcome(outcome))}`,

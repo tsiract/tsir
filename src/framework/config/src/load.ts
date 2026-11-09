@@ -58,7 +58,14 @@ const RESERVED_PREFIX = 'TSIR_';
  * is exported by the distribution's `tsir new`, and the warning appeared in a freshly scaffolded
  * application's `tsir doctor` before the developer had configured anything.
  */
-const TOOLCHAIN_ENV = new Set(['TSIR_DIST']);
+const TOOLCHAIN_ENV = new Set([
+  'TSIR_DIST',
+  // `TSIR_TUI=ascii` switches the shared terminal layer to ASCII glyphs (`@tsir/tui`), and
+  // `TSIR_NO_INTERACTIVE=1` forbids prompts. Both are read by the toolchain, never by the
+  // application, so an application's `tsir doctor` must not report them as unknown keys.
+  'TSIR_TUI',
+  'TSIR_NO_INTERACTIVE',
+]);
 
 function defaultEnv(): EnvRecord {
   const bun = (globalThis as { Bun?: { env: EnvRecord } }).Bun;

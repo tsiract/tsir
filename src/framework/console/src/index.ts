@@ -31,7 +31,13 @@ function frameworkVersion(): string {
 
 import { readFileSync } from 'node:fs';
 
-import { buildCommand, configDumpCommand, devCommand, startCommand } from './commands/lifecycle.ts';
+import {
+  buildCommand,
+  cleanCommand,
+  configDumpCommand,
+  devCommand,
+  startCommand,
+} from './commands/lifecycle.ts';
 import { bootstrapCommand } from './commands/bootstrap.ts';
 import { cacheClearCommand, cacheProbeCommand, cacheTableCommand } from './commands/cache.ts';
 import {
@@ -131,6 +137,12 @@ export const COMMANDS: readonly Command[] = [
     run: devCommand,
   },
   { name: 'build', summary: 'generate the application manifest', phase: 1, run: buildCommand },
+  {
+    name: 'clean',
+    summary: 'remove the build output (.tsir/, compiled routes) and nothing else',
+    phase: 1,
+    run: cleanCommand,
+  },
   {
     name: 'start',
     summary: 'boot the built artifact (run tsir build first)',

@@ -40,7 +40,7 @@ import {
 } from '@tsir/deploy';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, warn, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, warn, jsonDocument, symbols } from '../output.ts';
 import {
   BUILD_FILE,
   budgetFor,
@@ -305,7 +305,7 @@ export async function validate(
 /** The human report. Every line is safe to paste into an issue or a build log. */
 export function formatValidation(report: ValidationReport): string {
   if (report.missingBuild) {
-    return `  ${style.red('✗')} no ${BUILD_FILE} in ${report.outDir}/ — run \`tsir deploy:build\` first\n`;
+    return `  ${style.red(symbols.cross)} no ${BUILD_FILE} in ${report.outDir}/ — run \`tsir deploy:build\` first\n`;
   }
 
   const lines: string[] = [];
@@ -315,27 +315,27 @@ export function formatValidation(report: ValidationReport): string {
   const totalGzip = report.artifacts.reduce((sum, artifact) => sum + artifact.gzipBytes, 0);
 
   lines.push(
-    `  ${style.green('✓')} ${String(report.artifacts.length)} artifact(s), ${kibibytes(totalGzip)} gzipped in total`,
+    `  ${style.green(symbols.check)} ${String(report.artifacts.length)} artifact(s), ${kibibytes(totalGzip)} gzipped in total`,
   );
   for (const artifact of stale) {
     lines.push(
-      `  ${style.red('✗')} ${artifact.file} changed since the build — rebuild it (recorded size does not match the file)`,
+      `  ${style.red(symbols.cross)} ${artifact.file} changed since the build — rebuild it (recorded size does not match the file)`,
     );
   }
   for (const artifact of missing) {
     lines.push(
-      `  ${style.red('✗')} ${artifact.file} is listed in ${BUILD_FILE} but missing from disk`,
+      `  ${style.red(symbols.cross)} ${artifact.file} is listed in ${BUILD_FILE} but missing from disk`,
     );
   }
   for (const artifact of over) {
     lines.push(
-      `  ${style.red('✗')} DPL_SIZE_BUDGET · ${artifact.file} is ${kibibytes(artifact.gzipBytes)} gzipped, budget ${kibibytes(artifact.budget)}`,
+      `  ${style.red(symbols.cross)} DPL_SIZE_BUDGET · ${artifact.file} is ${kibibytes(artifact.gzipBytes)} gzipped, budget ${kibibytes(artifact.budget)}`,
     );
   }
 
   if (hasLeak(report.findings)) {
     lines.push(
-      `  ${style.red('✗')} DPL_SECRET_LEAK · ${String(report.findings.length)} finding(s) in ${String(report.scanned)} file(s):`,
+      `  ${style.red(symbols.cross)} DPL_SECRET_LEAK · ${String(report.findings.length)} finding(s) in ${String(report.scanned)} file(s):`,
     );
     for (const finding of report.findings) {
       // The line, the pattern's name and a redacted excerpt — never the value itself, which
@@ -345,19 +345,19 @@ export function formatValidation(report: ValidationReport): string {
     }
   } else {
     lines.push(
-      `  ${style.green('✓')} no secret values in ${String(report.scanned)} file(s)` +
+      `  ${style.green(symbols.check)} no secret values in ${String(report.scanned)} file(s)` +
         (report.secretNames.length === 0 ? '' : ` (looking for ${report.secretNames.join(', ')})`),
     );
   }
 
   for (const problem of report.problems) {
-    lines.push(`  ${style.red('✗')} ${problem.code} · ${problem.message}`);
+    lines.push(`  ${style.red(symbols.cross)} ${problem.code} · ${problem.message}`);
     lines.push(`    ${problem.hint}`);
   }
 
   if (report.problems.length === 0) {
     lines.push(
-      `  ${style.green('✓')} graph valid for ${report.targets.join(', ')} (capabilities and bindings)`,
+      `  ${style.green(symbols.check)} graph valid for ${report.targets.join(', ')} (capabilities and bindings)`,
     );
   }
 
