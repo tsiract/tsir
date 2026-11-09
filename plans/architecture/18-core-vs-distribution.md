@@ -124,17 +124,23 @@ something we are prepared to support in public.
   builder's filesystem layout into a shipped artefact and breaks reproducibility.
 - **The product ships the public surface only.** Internal engineering modules (`src/tools`) never
   reach `dist/`, so a distribution cannot be used to reach repository internals.
+- **A compiled binary is a layout too.** `bun build --compile` has no `package.json` and no `stubs/`
+  directory: `import.meta.dir` points into the bundled filesystem. Anything the CLI reads at run time
+  must either be inlined at build time (`stubs/*.slug.txt`, `TSIR_BUILT_VERSION`) or be declared
+  external and shipped beside the binary (OpenTUI's per-platform library). The `files` list in the
+  emitted manifest has to carry the inlined assets, which is how `release-pack` caught a packed
+  console that could not import its own templates.
 - **Nothing here replaces review.** `check-dist` proves the shape of the tree; it cannot prove a
   command is safe to expose. That is the same rule as ADR-0031's "one implementation, two
   entrypoints".
 
 ## 7. Open questions
 
-| #   | Question                                                                                                                                                                   | Decides                                  |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| Q71 | Does `dist/` ship one launcher per platform (`bun build --compile`) or the `bun`-driven launcher only? The compiled binary plus OpenTUI's native library is unproven here. | Publishability of `dist/tsir`            |
-| Q72 | When the packages reach a registry, do the `overrides` blocks in generated applications disappear in one change, or stay as an escape hatch for a fork?                    | The scaffold's dependency contract       |
-| Q73 | Does the distribution need a lockfile of its own, or is a resolved install the developer's responsibility?                                                                 | Reproducibility of a distributed install |
+| #   | Question                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Decides                                  |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------- |
+| Q71 | Does `dist/` ship one launcher per platform (`bun build --compile`) or the `bun`-driven launcher only? **Partly answered**: a compiled binary works — `tsir new` scaffolds, `dist/` relocated to /tmp scaffolds + installs + typechecks, `/api/welcome` answers — once two things are fixed (templates as text imports, version via `--define`). What remains is OpenTUI's native library, which must be external (`--external` per platform package) and so is still a file beside the binary, and the darwin/win32 builds, unexercised here. | Publishability of `dist/tsir`            |
+| Q72 | When the packages reach a registry, do the `overrides` blocks in generated applications disappear in one change, or stay as an escape hatch for a fork?                                                                                                                                                                                                                                                                                                                                                                                        | The scaffold's dependency contract       |
+| Q73 | Does the distribution need a lockfile of its own, or is a resolved install the developer's responsibility?                                                                                                                                                                                                                                                                                                                                                                                                                                     | Reproducibility of a distributed install |
 
 ## 8. Task index
 
