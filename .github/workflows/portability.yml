@@ -122,6 +122,10 @@ jobs:
           exit "$status"
       - run: make test
       - run: make release-pack # includes verify-dist and installs/boots the tarballs
+      # The templates are emitted by `make dist`; this installs each one from the registry and builds
+      # it, which is the only check that catches a dependency version that stopped resolving. It is
+      # not in `make check` on purpose: `make check` must pass offline.
+      - run: make verify-templates
       - run: make release-pack-fast
       - name: Validate archive and checksums
         run: |

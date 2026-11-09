@@ -70,7 +70,7 @@ KIND            ?=
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check compile-cli db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli verify-templates db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -296,6 +296,11 @@ verify-dist: dist-build ## Prove dist/ boots, tree-shakes, bundles for Workers/L
 # run on its own, in a second rather than in the minute the whole verification takes.
 compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaffold from it
 	@$(BUN) src/tools/verify-dist.ts --only compiled-launcher
+
+# Needs a package registry, so it is not part of `make check` (which must pass offline). CI runs it
+# after `make release-pack`, where the network is already in use.
+verify-templates: ## Install, typecheck and build every shipped frontend template (needs the registry)
+	@$(BUN) src/tools/verify-templates.ts
 
 release-pack: verify-dist ## Build both release artifacts: dist/ tree + per-package tarballs
 	@$(BUN) src/tools/release-pack.ts

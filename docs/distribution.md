@@ -199,10 +199,12 @@ whole module graph costs.
 
 ## 5. Known limitations
 
-- The templates are validated by installing, typechecking and building them locally; that is not
-  yet a CI step, because it needs the registry and CI runs offline for this repository.
+- The templates are validated by `make verify-templates`, which installs, typechecks and builds each
+  one from the registry. CI runs it after `make release-pack`; it is deliberately **not** part of
+  `make check`, which has to pass offline.
 - A template is a starting point, not a maintained application: it has one screen and one API call,
-  and no tests of its own.
+  and no tests of its own. `make verify-templates` proves it compiles and builds; it does not prove
+  the page looks right, which nobody has asserted since the templates were written.
 - `tsir proto:generate` requires `buf` and a `protoc-gen-es` devDependency in the application. It
   says so, with the install command, rather than failing obscurely.
 - Package managers other than Bun are expressed in configuration and documentation; the generated
