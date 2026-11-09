@@ -325,6 +325,78 @@ export function documentationProblems(
   return problems;
 }
 
+/**
+ * Targets `make help` advertises.
+ *
+ * `make help` is hand-written printf, so it is the one place a target can exist and be invisible —
+ * and a target nobody can find is a target nobody runs. `make compile-cli` and `make
+ * verify-templates` were both added without a line here.
+ */
+export function helpTargets(source: string): ReadonlySet<string> {
+  const help = /^help:\s*(?:##[^\n]*)?\n((?:\t[^\n]*\n)+)/mu.exec(source)?.[1] ?? '';
+  const named = new Set<string>();
+  // The Makefile's own text is `\033[36mmake <target>\033[0m`: the colour escape, then the word,
+  // then the name. One backslash, because that is what `printf` receives — the file is not a
+  // JavaScript string literal, and the first draft of this pattern looked for `make` before the escape.
+  for (const match of help.matchAll(/\\033\[\d+m\s*make\s+([a-z0-9-]+)/gu)) {
+    named.add(match[1] ?? '');
+  }
+  return named;
+}
+
+/**
+ * Targets deliberately absent from `make help`, each with the reason.
+ *
+ * The bar is "a reader never reaches for this directly": it is the write half of a listed target, the
+ * dry run of one, or a step inside a composite gate. Everything else is listed, even when that makes
+ * `make help` longer — a target nobody can find is a target nobody runs.
+ */
+const UNLISTED = new Map<string, string>([
+  ['help', 'it is the listing'],
+  ['readme-check', 'the verify-only half of `readme`'],
+  ['format-check', 'the verify-only half of `format`'],
+  ['docs-packages-write', 'the write half of `docs-packages`'],
+  ['surface-write', 'the accept half of `surface`'],
+  ['bench-write', 'the re-record half of `bench`'],
+  ['release-pack-fast', 'the fast variant of `release-pack`'],
+  ['kill-ports-dry', 'the dry run of `kill-ports`'],
+  ['kill-owned', 'the scoped half of `kill`, which `make dev` runs itself'],
+  ['preflight', '`make dev` runs it; a reader never needs to'],
+  ['frontpage-build', 'the write half of `frontpage`'],
+  ['deps-doc', 'regenerates a generated file; rarely a task'],
+  ['new-package', 'a maintainer task, documented where packages are'],
+  ['changeset', 'a maintainer task, documented where changesets are'],
+  ['release-version', 'the other half of the changeset workflow'],
+  ['deploy-sample', "the sample-app fixture, spelled out in `make help`'s footnote"],
+  ['app-route-compile', 'a fixture step inside `codegen-check`'],
+  ['app-deploy-plan', 'a fixture step inside `codegen-check`'],
+  ['app-deploy-build', 'a fixture step inside `codegen-check`'],
+  ['app-deploy-validate', 'a fixture step inside `codegen-check`'],
+  ['soap-check', 'a fixture step inside `codegen-check`'],
+  ['db-up', 'needs Docker; documented in `docs/framework-development.md`'],
+  ['db-down', 'the other half of `db-up`'],
+  ['logs', 'a diagnostic scan, not a gate'],
+]);
+
+/** Every target that exists, is not deliberately unlisted, and that `make help` never names. */
+export function helpProblems(
+  targets: ReadonlySet<string>,
+  help: ReadonlySet<string>,
+): readonly string[] {
+  const problems: string[] = [];
+  for (const name of [...targets].sort()) {
+    if (help.has(name) || UNLISTED.has(name)) continue;
+    problems.push(
+      `target "${name}" exists but \`make help\` never mentions it — a target nobody can find is a target nobody runs`,
+    );
+  }
+  for (const name of [...help].sort()) {
+    if (targets.has(name) || name === '') continue;
+    problems.push(`\`make help\` advertises "${name}", which is not a target`);
+  }
+  return problems;
+}
+
 // ── Running it ──────────────────────────────────────────────────────────────
 
 function markdown(dir: string): string[] {
@@ -342,6 +414,7 @@ function main(): number {
   const source = readFileSync(join(ROOT, 'Makefile'), 'utf8');
   const targets = targetNames(source);
   problems.push(...makefileProblems(source));
+  problems.push(...helpProblems(targets, helpTargets(source)));
 
   const documents = [
     join(ROOT, 'README.md'),
@@ -356,7 +429,8 @@ function main(): number {
     return 1;
   }
   process.stdout.write(
-    `  \u001b[32m✓\u001b[0m Makefile is consistent: ${String(targets.size)} targets, ${String(documents.length)} documents name only targets that exist\n`,
+    `  \u001b[32m✓\u001b[0m Makefile is consistent: ${String(targets.size)} targets, ` +
+      `\`make help\` covers them, ${String(documents.length)} documents name only targets that exist\n`,
   );
   return 0;
 }

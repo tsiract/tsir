@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import {
   documentationProblems,
+  helpProblems,
+  helpTargets,
   makefileProblems,
   makeMentions,
   parseMakefile,
@@ -168,5 +170,57 @@ describe('tools · a document may only name a target that exists', () => {
       { path: 'docs/two.md', source: '# Title\n\nRun `make gone`.\n' },
     ]);
     expect(problems[0]).toStartWith('docs/two.md:3');
+  });
+});
+
+describe('tools · make help lists what exists', () => {
+  /** A Makefile with one help recipe, in the shape `printf` actually receives. */
+  const makefile = (names: readonly string[], targets: readonly string[]): string =>
+    [
+      '.PHONY: help ' + targets.join(' '),
+      'help: ## Show targets',
+      ...names.map((name) => `\t@printf '  \\033[36mmake ${name}\\033[0m  what it does\\n'`),
+      ...targets.map((name) => `${name}: ## ${name}`),
+      '\t@echo done',
+      '',
+    ].join('\n');
+
+  test('a target the listing never mentions is reported', () => {
+    const source = makefile(['check'], ['check', 'release-pack']);
+    expect(helpProblems(targetNames(source), helpTargets(source))).toEqual([
+      expect.stringContaining('"release-pack"'),
+    ]);
+  });
+
+  test('a listed target is not reported, and the escape is read from the right side of `make`', () => {
+    // The first draft looked for `make` followed by the escape; the file has the escape first.
+    const source = makefile(['check', 'release-pack'], ['check', 'release-pack']);
+    expect([...helpTargets(source)].sort()).toEqual(['check', 'release-pack']);
+    expect(helpProblems(targetNames(source), helpTargets(source))).toEqual([]);
+  });
+
+  test('a listing that advertises a target nobody defined is reported', () => {
+    const source = makefile(['check', 'gone'], ['check']);
+    expect(helpProblems(targetNames(source), helpTargets(source))).toEqual([
+      expect.stringContaining('"gone"'),
+    ]);
+  });
+
+  test('a deliberately derivative target is exempt, and the exemption is not a blanket', () => {
+    // `format-check` is the verify-only half of `format`; `release-pack` is a real task.
+    const source = makefile(['format'], ['format', 'format-check', 'release-pack']);
+    const problems = helpProblems(targetNames(source), helpTargets(source));
+    expect(problems).toHaveLength(1);
+    expect(problems[0]).toContain('release-pack');
+  });
+
+  test('the real Makefile lists every target a reader would reach for', () => {
+    const source = readFileSync(join(ROOT, 'Makefile'), 'utf8');
+    expect(helpProblems(targetNames(source), helpTargets(source))).toEqual([]);
+    // The three gates added this cycle are the ones that were missing.
+    const listed = helpTargets(source);
+    for (const name of ['make-check', 'compile-cli', 'verify-templates']) {
+      expect(listed.has(name)).toBe(true);
+    }
   });
 });
