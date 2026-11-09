@@ -78,6 +78,42 @@ const FORBIDDEN_FILES: readonly { readonly pattern: RegExp; readonly why: string
 ];
 
 /** Rule 1–5, as a pure check of a distribution directory. */
+/**
+ * The distribution's own README, checked against what is in the distribution.
+ *
+ * It is the first file a developer opens after extracting the archive, and it is generated prose — so
+ * it drifts exactly like every other hand-written listing. Frontend templates shipped for a while
+ * without a word about them here, which made the most useful thing in the distribution invisible to
+ * the person who had just unboxed it.
+ */
+export function readmeProblems(
+  readme: string,
+  shippedTemplates: readonly string[],
+): BoundaryProblem[] {
+  const problems: BoundaryProblem[] = [];
+  for (const [needle, what] of [
+    ['templates/', 'the templates directory'],
+    ['tsir new', 'creating an application'],
+    ['--help', 'the first command to run'],
+  ] as const) {
+    if (!readme.includes(needle)) {
+      problems.push({
+        rule: 'readme',
+        detail: `README.md never mentions \`${needle}\` (${what}) — the first file a developer opens`,
+      });
+    }
+  }
+  for (const framework of shippedTemplates) {
+    if (!readme.includes(`templates/${framework}`)) {
+      problems.push({
+        rule: 'readme',
+        detail: `README.md does not name templates/${framework}, which the distribution ships`,
+      });
+    }
+  }
+  return problems;
+}
+
 export function boundaryProblems(dist: string): BoundaryProblem[] {
   const problems: BoundaryProblem[] = [];
   if (!existsSync(dist)) {
@@ -175,6 +211,18 @@ export function boundaryProblems(dist: string): BoundaryProblem[] {
         detail: `${required} is missing — \`tsir new\` needs it`,
       });
     }
+  }
+
+  // ── 5b. the distribution's own README describes what is actually in it
+  if (!existsSync(join(dist, 'README.md'))) {
+    problems.push({ rule: 'readme', detail: 'README.md is missing' });
+  } else {
+    const shipped = existsSync(join(dist, 'templates'))
+      ? readdirSync(join(dist, 'templates'), { withFileTypes: true })
+          .filter((entry) => entry.isDirectory())
+          .map((entry) => entry.name)
+      : [];
+    problems.push(...readmeProblems(readFileSync(join(dist, 'README.md'), 'utf8'), shipped));
   }
 
   // ── 6. every configured frontend is actually shipped, and each one is a frontend

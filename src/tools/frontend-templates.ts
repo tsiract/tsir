@@ -84,7 +84,15 @@ export const FRONTEND_VERSIONS = {
 } as const;
 
 /** Dev-server port per template, so two templates can run side by side. */
-const PORTS: Readonly<Record<Frontend, number>> = { svelte: 5173, react: 5174, vue: 5175 };
+/** The dev port each template's `vite.config.ts` defaults to. One source of truth: the README and the
+ * template must not disagree about where `bun run dev` lands. */
+export const FRONTEND_PORTS: Readonly<Record<Frontend, number>> = {
+  svelte: 5173,
+  react: 5174,
+  vue: 5175,
+};
+
+const PORTS = FRONTEND_PORTS;
 
 /** The entry file name `index.html` must reference, per framework. */
 const ENTRY: Readonly<Record<Frontend, string>> = {

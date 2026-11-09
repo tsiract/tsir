@@ -33,7 +33,12 @@ import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { buildDocs } from './docs-site.ts';
 import { readDistConfigOrDefault, type DistConfig } from './dist-config.ts';
-import { emitFrontendTemplates, type EmittedTemplate } from './frontend-templates.ts';
+import {
+  emitFrontendTemplates,
+  FRONTEND_PORTS,
+  type EmittedTemplate,
+  type FrontendIntegration,
+} from './frontend-templates.ts';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const FRAMEWORK_DIR = join(ROOT, 'src', 'framework');
@@ -592,6 +597,22 @@ The distribution is generated. Copy an example elsewhere before making changes: 
     )}\n`,
   );
   await cp(join(ROOT, 'LICENSE'), join(DIST, 'LICENSE'));
+  // The README names what the configuration says will ship. `emitFrontendTemplates` runs after this
+  // point, and `check-dist` compares the result against what actually landed on disk — so a mismatch
+  // is a failed gate rather than a README that quietly describes a different product.
+  const frameworks = CONFIG.frontends.map((integration) => integration.framework);
+  // `router` in the configuration names a choice, not an implementation: reading it back as
+  // "router routing" is what a template list says when it is written from field names instead of
+  // from what the template does. This is the same wording the template's own README uses.
+  const describeTemplate = (integration: FrontendIntegration): string => {
+    const router =
+      integration.router === 'router'
+        ? 'SPA router'
+        : integration.router === 'native'
+          ? 'native navigation'
+          : 'no router';
+    return `\`templates/${integration.framework}\` — ${integration.styling.join(' + ')}, ${router}, dev on ${String(FRONTEND_PORTS[integration.framework])}`;
+  };
   await writeFile(
     join(DIST, 'README.md'),
     `# Tsir distribution
@@ -609,8 +630,27 @@ This generated directory is rebuilt by \`make dist\`. Do not keep your own work 
 │   ├── frontpage/               # compatibility copy of the static site
 │   └── docs/                    # static documentation
 ├── framework/<package>/         # emitted @tsir packages, not application modules
+├── templates/                   # one Vite frontend per configured framework
+│   ├── ${frameworks.join('/\n│   ├── ')}/
 ├── package.json  bun.lock       # distribution workspace
 └── manifest.json  README.md  LICENSE
+\`\`\`
+
+## Frontends
+
+Each \`templates/<framework>/\` is a working Vite project, not a sketch. Copy one beside your
+application, \`bun install\`, then \`bun run dev\`:
+
+${CONFIG.frontends.map((integration) => `- ${describeTemplate(integration)}`).join('\n')}
+
+The dev server proxies \`/api\` to your \`tsir dev\`, so the template's one fetch reaches your backend.
+It is a frontend, not a second application: no \`@tsir/*\` dependency, and exactly one environment
+variable — \`VITE_API_BASE_URL\`, which defaults to that proxy.
+
+\`\`\`sh
+/path/to/distribution/tsir new my-app   # outside this directory
+cp -r /path/to/distribution/templates/${frameworks[0] ?? 'svelte'} ./my-app/web
+cd my-app/web && bun install && bun run dev
 \`\`\`
 
 The maintained examples live in this distribution, not in your application. A new application
