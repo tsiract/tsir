@@ -285,14 +285,24 @@ export function makeMentions(
       continue;
     }
 
-    const inCode =
-      fence !== undefined || /`[^`\n]*\bmake\s/u.test(text) || /^\s*make\s/u.test(text);
-    if (!inCode) continue;
+    // Code spans are *paired* backticks. Matching from one backtick to the next `make` treats a
+    // closing tick as an opening one, so `stubs/` … two things make it read as code — which it did,
+    // and reported "make it" as a missing target on a line that names no command at all.
+    const spans = [...text.matchAll(/`([^`\n]+)`/gu)].map((match) => match[1] ?? '');
+    const candidates = fence === undefined ? spans : [text];
 
-    for (const match of text.matchAll(/(?:^|[\s`([])make\s+([a-z][a-z0-9_-]*)/gu)) {
-      const name = match[1] ?? '';
-      if (name === '') continue;
-      found.push({ line, name });
+    for (const candidate of candidates) {
+      for (const match of candidate.matchAll(/(?:^|[\s`([])make\s+([a-z][a-z0-9_-]*)/gu)) {
+        const name = match[1] ?? '';
+        if (name === '') continue;
+        found.push({ line, name });
+      }
+    }
+
+    // A transcript line with no backticks at all: the command starts the line.
+    if (fence === undefined) {
+      const name = /^\s*make\s+([a-z][a-z0-9_-]*)/u.exec(text)?.[1];
+      if (name !== undefined && name !== '') found.push({ line, name });
     }
   }
   return found;

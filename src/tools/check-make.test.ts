@@ -145,6 +145,13 @@ describe('tools · a document may only name a target that exists', () => {
     expect(problems[0]).toContain('make build');
   });
 
+  test('a line with two code spans does not turn the prose between them into code', () => {
+    // The bug this covers: matching from one backtick to the next `make` treated `stubs/`'s
+    // closing tick as an opening one, and reported "make it" on a line naming no command.
+    const prose = '`package.json` to read, and no `stubs/` directory. Two things make it work.\n';
+    expect(makeMentions(prose)).toEqual([]);
+  });
+
   test('a namespaced CLI command is not a Make target', () => {
     expect(makeMentions('Run `tsir make:controller user --module=users`.\n')).toEqual([]);
   });

@@ -178,6 +178,25 @@ breaking:
 - **A new application template**: it must share the backend. A frontend is an integration over HTTP
   contracts, never a second backend implementation.
 
+### The compiled launcher
+
+`make verify-dist` also compiles the distribution's CLI into a single executable
+(`bun build --compile`) and runs `tsir new` out of it. `make compile-cli` runs that one proof on its
+own, in about ten seconds.
+
+A compiled binary is a **third layout**, and it does not have what the other two have: no
+`package.json` to read a version from, and no `stubs/` directory beside the code. Two things make it
+work, and both are asserted rather than assumed:
+
+- the templates reach the bundle through text imports (`stubs/*.slug.txt`), so the files stay
+  editable on disk and are inlined at build time;
+- the version is baked in with `--define TSIR_BUILT_VERSION='"0.0.0"'`, because `--define` rewrites an
+  identifier and `readFileSync` finds nothing inside the binary.
+
+The per-platform OpenTUI libraries are passed as `--external` and stay beside the binary: a `.so` or
+`.dylib` is not something a bundler can inline. The binary is ~120 MiB, which is what embedding the
+whole module graph costs.
+
 ## 5. Known limitations
 
 - The templates are validated by installing, typechecking and building them locally; that is not
@@ -188,3 +207,6 @@ breaking:
   says so, with the install command, rather than failing obscurely.
 - Package managers other than Bun are expressed in configuration and documentation; the generated
   `package.json` is manager-agnostic, but `npm`/`pnpm` installs are not yet exercised by CI.
+- The compiled launcher is proven on this platform only. The `--external` list names every platform
+  package, so the compile is portable in principle, but the darwin and win32 binaries are not built
+  or run by CI.

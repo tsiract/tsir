@@ -70,7 +70,7 @@ KIND            ?=
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -289,8 +289,13 @@ dist: ## Configure (interactively) and build the distribution into dist/ (gitign
 dist-build: ## Assemble the distribution from the committed config (no wizard; used by CI)
 	@$(BUN) src/tools/dist.ts
 
-verify-dist: dist-build ## Prove dist/ boots, tree-shakes, and bundles for Workers/Lambda
+verify-dist: dist-build ## Prove dist/ boots, tree-shakes, bundles for Workers/Lambda, and compiles to one file
 	@$(BUN) src/tools/verify-dist.ts
+
+# The compiled launcher is one of the proofs inside `verify-dist`; this target exists so it can be
+# run on its own, in a second rather than in the minute the whole verification takes.
+compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaffold from it
+	@$(BUN) src/tools/verify-dist.ts --only compiled-launcher
 
 release-pack: verify-dist ## Build both release artifacts: dist/ tree + per-package tarballs
 	@$(BUN) src/tools/release-pack.ts
