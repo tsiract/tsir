@@ -23,6 +23,10 @@ console.log(await runCli(['hello:world']));
 
 - `CLI_WSDL_INVALID`: the WSDL file given to the SOAP client generator is invalid. The message gives the
   reason. The generator refuses rather than writing a client that cannot work.
+- `CLI_STUB_MISSING`: a generator asked for a template that this build does not carry — neither
+  beside the CLI on disk nor in the bundle. The hint names `stub-text.ts`, because a template that is
+  only on disk works in a source run and fails in a compiled binary, which is how `tsir new` came to
+  print `ENOENT` into the bundled filesystem on its first run.
 - `CLI_STUB_MISSING_VAR`: a stub template references a `{{placeholder}}` that the generator did not
   pass a value for. This is an internal inconsistency in the stub, not a user error — the hint names
   `renderStub()`, because the caller is the generator author.

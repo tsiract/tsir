@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-280 codes across 27 packages.
+281 codes across 27 packages.
 
 ## `@tsir/auth`
 
@@ -66,6 +66,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 | Code                   |
 | ---------------------- |
+| `CLI_STUB_MISSING`     |
 | `CLI_STUB_MISSING_VAR` |
 | `CLI_WSDL_INVALID`     |
 

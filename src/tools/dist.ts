@@ -302,7 +302,11 @@ async function buildPackage(
     // packages runs on import.
     sideEffects: false,
     exports: exportMap,
-    files: ['**/*.js', '**/*.d.ts', '**/*.map', 'README.md', 'LICENSE', 'package.json'],
+    // `**/*.txt` is not padding: `@tsir/console` inlines its templates as text imports
+    // (`stubs/*.slug.txt`), so the emitted JavaScript resolves them at load time. A `files` list
+    // without them packs a console whose `import './stubs/command.ts.slug.txt'` fails the moment
+    // anything imports it — which the tarball-install step of `release-pack` caught.
+    files: ['**/*.js', '**/*.d.ts', '**/*.map', '**/*.txt', 'README.md', 'LICENSE', 'package.json'],
     ...(bin === undefined ? {} : { bin }),
     engines: { bun: '>=1.2', node: '>=22' },
     publishConfig: { access: 'public' },

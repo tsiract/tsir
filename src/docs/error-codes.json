@@ -50,6 +50,7 @@
     "CFG_SECRET_INLINED": "config",
     "CFG_UNKNOWN_DEFAULT": "config",
     "CFG_UNKNOWN_KEY": "config",
+    "CLI_STUB_MISSING": "console",
     "CLI_STUB_MISSING_VAR": "console",
     "CLI_WSDL_INVALID": "console",
     "CLOUDFLARE_DELIVERY_FAILED": "media",
