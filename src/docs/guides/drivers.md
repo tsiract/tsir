@@ -414,16 +414,19 @@ is honest, not because they are acceptable.
 
 ### Task index
 
-| ID      | Task                                                         | Where                                        |
-| ------- | ------------------------------------------------------------ | -------------------------------------------- |
-| `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done        | `make-connection.ts` § 5                     |
-| `CAP-2` | ~~Validate every kind's driver from its constant~~ — done    | `make-connection.ts` § 5                     |
-| `CAP-3` | ~~Settle the cache table name in one place~~ — done          | `admin.product.com/config/cache.ts`          |
-| `CAP-4` | Wire `production: true` from `APP_ENV` into every bootstrap  | `plans/tasks/07-capabilities.md` (`CAP-007`) |
-| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows    | `plans/tasks/07-capabilities.md` (`CAP-008`) |
-| `CAP-6` | Registries for the five remaining constructor-only ports     | `plans/tasks/07-capabilities.md` (`CAP-006`) |
-| `CAP-7` | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`) | `src/framework/database/src/`                |
-| `CAP-8` | `tsir <capability>:drivers` for every registry               | `plans/operations/11-dx.md` § 2.4            |
+| ID       | Task                                                                                | Where                                            |
+| -------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
+| `CAP-1`  | ~~`mysql` in `make:connection`'s driver list~~ — done                               | `make-connection.ts` § 5                         |
+| `CAP-2`  | ~~Validate every kind's driver from its constant~~ — done                           | `make-connection.ts` § 5                         |
+| `CAP-3`  | ~~Settle the cache table name in one place~~ — done                                 | `admin.product.com/config/cache.ts`              |
+| `CAP-4`  | Wire `production: true` from `APP_ENV` into every bootstrap                         | `plans/tasks/07-capabilities.md` (`CAP-007`)     |
+| `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)     |
+| `CAP-6`  | Registries for the four remaining constructor-only ports                            | `plans/tasks/07-capabilities.md` (`CAP-006`)     |
+| `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                    |
+| `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts` |
+| `CAP-10` | ~~A `tsir.js` registry for `media`~~ — done (`CAP-017`)                             | `src/framework/media/src/config.ts`              |
+| `CAP-11` | ~~Ports that accept an engine they cannot serve~~ — done (`CAP-016`)                | `cache`, `notify`, `pennant`, `schedule`         |
+| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                |
 
 ### Open questions
 
