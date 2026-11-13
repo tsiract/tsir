@@ -32,6 +32,8 @@ export const PROJECT_TOP_LEVEL_KEYS: readonly string[] = [
   'storage',
   'mail',
   'notify',
+  'broadcast',
+  'search',
   'schedule',
   'paths',
   'modules',
@@ -52,6 +54,8 @@ export const NAMED_REGISTRIES: readonly { readonly section: string; readonly ent
   { section: 'queue', entries: 'connections' },
   { section: 'storage', entries: 'disks' },
   { section: 'mail', entries: 'mailers' },
+  { section: 'broadcast', entries: 'connections' },
+  { section: 'search', entries: 'engines' },
 ];
 
 /** Keys allowed inside each nested object that is validated (nested objects not listed are not checked). */
@@ -67,6 +71,18 @@ const NESTED_KEYS: Readonly<Record<string, readonly string[]>> = {
     'logging',
     'slowQueryMs',
     'pool',
+    'required',
+  ],
+  broadcast: ['default', 'connections'],
+  'broadcast.connections.*': ['driver', 'connection', 'prefix', 'required'],
+  search: ['default', 'engines'],
+  'search.engines.*': [
+    'driver',
+    'connection',
+    'collection',
+    'host',
+    'apiKey',
+    'searchApiKey',
     'required',
   ],
 };
@@ -139,21 +155,29 @@ export function unknownProjectKeys(raw: Readonly<Record<string, unknown>>): stri
   if (isRecord(consoleSection)) {
     lines.push(...unknownKeyLines('console', consoleSection, NESTED_KEYS['console'] ?? []));
   }
-  const database = raw['database'];
-  if (isRecord(database)) {
-    lines.push(...unknownKeyLines('database', database, NESTED_KEYS['database'] ?? []));
-    const connections = database['connections'];
-    if (isRecord(connections)) {
-      for (const [name, entry] of Object.entries(connections)) {
-        if (!isRecord(entry)) continue;
-        lines.push(
-          ...unknownKeyLines(
-            `database.connections.${name}`,
-            entry,
-            NESTED_KEYS['database.connections.*'] ?? [],
-          ),
-        );
-      }
+  // Each registry is checked as a section, then entry by entry: `broadcast.connections.*` has its
+  // own key list, and a `connections.realtime.prefix` the driver does not read is exactly the
+  // typo this catch exists for.
+  const nested: readonly (readonly [string, string])[] = [
+    ['database', 'connections'],
+    ['broadcast', 'connections'],
+    ['search', 'engines'],
+  ];
+  for (const [section, entries] of nested) {
+    const block = raw[section];
+    if (!isRecord(block)) continue;
+    lines.push(...unknownKeyLines(section, block, NESTED_KEYS[section] ?? []));
+    const found = block[entries];
+    if (!isRecord(found)) continue;
+    for (const [name, entry] of Object.entries(found)) {
+      if (!isRecord(entry)) continue;
+      lines.push(
+        ...unknownKeyLines(
+          `${section}.${entries}.${name}`,
+          entry,
+          NESTED_KEYS[`${section}.${entries}.*`] ?? [],
+        ),
+      );
     }
   }
   return lines;

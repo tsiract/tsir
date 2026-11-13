@@ -306,6 +306,47 @@ const projectSchema = z.object({
         .optional(),
     })
     .optional(),
+  // The broadcaster (`CAP-014`). `driver` is a string for the reason every driver here is: an
+  // unknown name fails in `@tsir/broadcast` with `CAP_DRIVER_MISSING` listing what this build
+  // ships. `broadcast` reads this block, and reading it is what lets the production check refuse
+  // `memory` — a broadcaster constructed in `app.ts` never passes through a guard at all.
+  broadcast: z
+    .object({
+      default: z.string().min(1).optional(),
+      connections: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            connection: z.string().optional(),
+            prefix: z.string().optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  // The search engine (`CAP-015`). The hosted three take a host and a collection and a key; the
+  // SQL two take a connection name and borrow the database port's own query function.
+  search: z
+    .object({
+      default: z.string().min(1).optional(),
+      engines: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            connection: z.string().optional(),
+            collection: z.string().optional(),
+            host: z.string().optional(),
+            apiKey: envRef.optional(),
+            searchApiKey: envRef.optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   // The scheduler's lock. One lock for the project, because
   // a scheduler takes one provider — and `driver` is a string for the same reason the cache and
   // queue drivers are: an unknown name is a message that lists the real ones.

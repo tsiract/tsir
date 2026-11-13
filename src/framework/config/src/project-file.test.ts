@@ -55,6 +55,52 @@ describe('unknown keys (CFG_UNKNOWN_KEY)', () => {
   });
 });
 
+describe('broadcast and search sections (CAP-014, CAP-015)', () => {
+  test('a project that names a broadcaster and an engine is accepted', () => {
+    expect(
+      codeOf(() =>
+        checkProjectFile({
+          app: { name: 'demo', entry: 'src/app.ts' },
+          broadcast: {
+            default: 'realtime',
+            connections: { realtime: { driver: 'durable-object', connection: 'realtime' } },
+          },
+          search: {
+            default: 'catalog',
+            engines: {
+              catalog: {
+                driver: 'typesense',
+                host: 'https://x.a1.typesense.net',
+                collection: 'products',
+                apiKey: { fromEnv: 'TYPESENSE_API_KEY' },
+              },
+            },
+          },
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  test('a key no driver reads is refused, in the nested entry too', () => {
+    // `connection` is the binding name; `connections` is the registry. One letter apart and only
+    // one of them is read, which is precisely why the entry keys are listed.
+    const lines = unknownProjectKeys({
+      broadcast: { connections: { realtime: { connection: 'x', prefixx: 'y' } } },
+      search: { engines: { catalog: { driver: 'sqlite', connetcion: 'primary' } } },
+    });
+    expect(lines).toEqual([
+      'broadcast.connections.realtime.prefixx: unknown key (did you mean "prefix"?)',
+      'search.engines.catalog.connetcion: unknown key (did you mean "connection"?)',
+    ]);
+  });
+
+  test('an empty broadcast block is refused rather than silently ignored', () => {
+    // A `broadcast: {}` reads as "configured" and resolves to nothing. The registry check is what
+    // turns that into a message, and it is the same rule every other registry follows.
+    expect(codeOf(() => checkProjectFile({ broadcast: {} }))).toBe('CFG_MISSING_DEFAULT');
+  });
+});
+
 describe('registries (CFG_MISSING_DEFAULT, CFG_UNKNOWN_DEFAULT, CFG_AMBIGUOUS_CONNECTION)', () => {
   test('a registry with no default is refused, and the hint lists the names', () => {
     let caught: unknown;

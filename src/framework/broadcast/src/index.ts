@@ -47,5 +47,12 @@ export {
   type EchoPrivateChannel,
 } from './echo.ts';
 
+export {
+  broadcasterFor,
+  broadcasterFromConfig,
+  type BroadcastBindings,
+  type ConfiguredBroadcast,
+} from './config.ts';
+
 export { createBroadcastBootstrap } from './bootstrap.ts';
 export type { BroadcastBootstrap, BroadcastBootstrapOptions } from './bootstrap.ts';

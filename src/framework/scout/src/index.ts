@@ -20,6 +20,8 @@ export {
 
 export { SEARCH_DRIVERS, type SearchDriverName } from './scout.ts';
 export { sqliteEngine, postgresEngine } from './drivers.ts';
+export { databaseQuery } from './database-query.ts';
+export type { QueryableDatabase } from './database-query.ts';
 
 export {
   HOSTED_SEARCH_PROVIDERS,
@@ -28,6 +30,15 @@ export {
   type HostedSearchOptions,
   type HostedSearchProvider,
 } from './hosted.ts';
+
+export {
+  engineFor,
+  searchFromConfig,
+  type ConfiguredSearch,
+  type EnvRef,
+  type QueryFn,
+  type SearchBindings,
+} from './config.ts';
 
 export { createScoutBootstrap } from './bootstrap.ts';
 export type { ScoutBootstrap, ScoutBootstrapOptions } from './bootstrap.ts';

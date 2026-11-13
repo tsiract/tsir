@@ -27,8 +27,8 @@ Ours = the driver ships in this repository. Selectable = the name works in `tsir
 | **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                      |
 | **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`               |
 | **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws        |
-| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                 | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`        |
+| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                  | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`        |
 | **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | **none** yet (`CAP-006`) | nothing yet — no registry                       |
 | **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
 | **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
@@ -50,12 +50,13 @@ notifier was built with `production: true` (`notifier.ts:152`). So a memory chan
 configuration that fails at the first delivery — earlier than a silent drop, later than boot. That is
 why it is not a default on either cloud target.
 
-**The gap this table makes visible:** five capabilities resolve their driver from `tsir.js`
-(`cache`, `queue`, `mail`, `storage`, `notify`) and seven do not — `broadcast`, `search`, `media`,
-`sessions`, `api keys`, `feature flags` and the scheduler lock. A `tsir.js` that says
-`broadcast: { driver: 'redis' }` is not read by anything; you construct
-`redisBroadcaster({ client })` in your app entry instead. That is a real asymmetry, and it is
-`CAP-006`, not a documented design; see § 5.
+**The gap this table makes visible:** seven capabilities resolve their driver from `tsir.js`
+(`cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`) and five do not — `media`,
+`sessions`, `api keys`, `feature flags` and the scheduler lock. For those five a `tsir.js` block is
+not read by anything; you construct the driver in your app entry instead. `broadcast` and `search`
+were in that group until their registries landed (`CAP-006`), and closing them changed something
+beyond the config: both can now refuse `memory` in production, which a constructor called from
+`app.ts` has no way to do.
 
 ---
 
