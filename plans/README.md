@@ -52,6 +52,7 @@ tracker: an RFC is a proposal, never a bug report.
 | Choose a substrate, a cloud, or a deployment profile | [`17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md) |
 | Work on the admin app (`admin.product.com`)          | [`16-admin-frontend.md`](./modules/16-admin-frontend.md)                            |
 | Decide what belongs in the core repo vs. `dist/`     | [`18-core-vs-distribution.md`](./architecture/18-core-vs-distribution.md)           |
+| Test an AWS event path without an AWS account        | [`19-aws-event-testing.md`](./architecture/19-aws-event-testing.md)                 |
 
 Task tracking: [`tasks/`](./tasks/README.md). Architectural decisions: [`decisions/`](./decisions/README.md).
 Gate reviews (what was checked, what was waived): [`reviews/`](./reviews/README.md).
