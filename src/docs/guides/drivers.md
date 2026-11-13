@@ -422,19 +422,19 @@ is honest, not because they are acceptable.
 | `CAP-4`  | Wire `production: true` from `APP_ENV` into every bootstrap                         | `plans/tasks/07-capabilities.md` (`CAP-007`)     |
 | `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)     |
 | `CAP-6`  | Registries for the four remaining constructor-only ports                            | `plans/tasks/07-capabilities.md` (`CAP-006`)     |
+| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                |
 | `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                    |
 | `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts` |
 | `CAP-10` | ~~A `tsir.js` registry for `media`~~ — done (`CAP-017`)                             | `src/framework/media/src/config.ts`              |
 | `CAP-11` | ~~Ports that accept an engine they cannot serve~~ — done (`CAP-016`)                | `cache`, `notify`, `pennant`, `schedule`         |
-| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                |
 
 ### Open questions
 
-| ID    | Question                                                                                 | Status |
-| ----- | ---------------------------------------------------------------------------------------- | ------ |
-| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place? | open   |
-| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?        | open   |
-| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit? | open   |
+| ID    | Question                                                                                 | Status                                                                                                                                                                                                                                                           |
+| ----- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place? | **answered for cache, queue, mail, storage, notify, broadcast, search and media**: a registry, because it is what lets the production guard run. Still open only for `sessions`, `api keys`, `feature flags` and the lock, whose defaults are already `database` |
+| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?        | open                                                                                                                                                                                                                                                             |
+| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit? | open                                                                                                                                                                                                                                                             |
 
 ### Failure modes
 
