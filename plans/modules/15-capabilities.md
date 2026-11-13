@@ -208,6 +208,17 @@ Two rules keep this honest:
 
 ### 3.3 Should Cloudflare be the default?
 
+> **Decision (2026-11-13): Cloudflare-first, and now in code.** The hand-written
+> [`DRIVER_DEFAULTS`](../../src/framework/core/src/driver-defaults.ts) table makes the Cloudflare
+> column of § 3.3 the default rows — KV, Queues, R2-via-`s3`, Email, D1 — with the AWS rows as the
+> `lambda` equivalent and `bun` left on `memory`/`sync`/`log` because a long-lived process is the
+> one place an in-memory store is honest. Two rules are enforced rather than intended: a stateless
+> target may not default to an ephemeral driver, and a default may not name a driver no package
+> ships (`make driver-defaults`). Where § 3.3 above says cache must not be KV, the table agrees and
+> says why in the row's `why` — a cache tolerates convergence, so KV is the default _and_ the
+> database store is what you use when it is not a cache. `CAP-007` wires `production: true` so
+> these refusals actually run; `CAP-008` makes `tsir new` write them.
+
 **On the Workers target, yes — where the semantics survive. Not as a portable default. Not for
 caching.**
 

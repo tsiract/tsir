@@ -70,7 +70,7 @@ KIND            ?=
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check compile-cli verify-templates emulator-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli verify-templates emulator-check driver-defaults db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -105,6 +105,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake compile-cli\033[0m     compile the shipped CLI into one executable, and scaffold from it\n'
 	@printf '  \033[36mmake verify-templates\033[0m install, typecheck and build every frontend template (needs registry)\n'
 	@printf '  \033[36mmake emulator-check\033[0m the AWS Emulator table covers every AWS call in src/, and is still true\n'
+	@printf '  \033[36mmake driver-defaults\033[0m every default names a shipped driver; no stateless target defaults to memory\n'
 	@printf '  \033[36mmake clean\033[0m           remove %s/ and dist/ — both are generated\n' "$(BUILD_DIR)"
 	@printf '  \033[36mmake clean-cache\033[0m     also remove the bun install cache\n'
 	@printf '\n  \033[1mconstraints\033[0m\n'
@@ -186,7 +187,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check make-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
@@ -317,6 +318,14 @@ compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaf
 emulator-check: ## The AWS Emulator table covers every AWS call in src/, and still matches the source
 	@printf '  \033[2m→ bun src/tools/emulator-check.ts\033[0m\n'
 	@$(BUN) src/tools/emulator-check.ts
+
+# The per-target driver defaults are hand-written data in `@tsir/core`, which cannot import the
+# packages whose drivers it names (the boundary gate forbids it, rightly). This reads them all and
+# checks the two things that would otherwise reach a user as a confusing boot error: a default
+# naming a driver no package ships, and a stateless target defaulting to an ephemeral one.
+driver-defaults: ## Every driver default names a shipped driver, and no stateless target defaults to memory
+	@printf '  \033[2m→ bun src/tools/check-driver-defaults.ts\033[0m\n'
+	@$(BUN) src/tools/check-driver-defaults.ts
 
 # Needs a package registry, so it is not part of `make check` (which must pass offline). CI runs it
 # after `make release-pack`, where the network is already in use.

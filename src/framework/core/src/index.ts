@@ -47,6 +47,17 @@ export type {
   RuntimeCapabilities,
 } from './capabilities.ts';
 
+// What a capability converges on, per target, when the project does not say. Data, not a second
+// registry: each capability package still owns its driver names and the switch that builds one.
+export {
+  DEFAULTED_CAPABILITIES,
+  DRIVER_DEFAULTS,
+  EPHEMERAL_DRIVERS,
+  driverDefaultFor,
+  targetKeepsIsolate,
+} from './driver-defaults.ts';
+export type { DefaultedCapability, DriverDefault } from './driver-defaults.ts';
+
 export { systemClock, systemRandom } from './clock.ts';
 export type { Clock, Random } from './clock.ts';
 

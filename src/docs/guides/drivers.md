@@ -20,27 +20,42 @@ refusal: a driver whose data dies with the process is refused as the default whe
 
 Ours = the driver ships in this repository. Selectable = the name works in `tsir.js` today.
 
-| Capability         | Port           | Default when unconfigured        | Drivers this build ships                                           | Selectable                  | Production refuses                              |
-| ------------------ | -------------- | -------------------------------- | ------------------------------------------------------------------ | --------------------------- | ----------------------------------------------- |
-| **Cache**          | `Cache`        | `memory`                         | `memory`, `null`, `database`, `redis`, `cloudflare-kv`             | all five                    | `memory`, `null` as default or `required`       |
-| **Queue**          | `Queue`        | first declared connection        | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`           | all five                    | `memory`, `sync` as default or `required`       |
-| **Mail**           | `Mailer`       | `log`                            | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `cloudflare` | all seven                   | `log`, `memory` as default                      |
-| **Storage**        | `Disk`         | `memory`                         | `memory`, `local`, `s3`                                            | all three                   | `memory` as default or `required`               |
-| **Notifications**  | `Notifier`     | none — channels must be declared | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`             | all six                     | `memory` as a `required` channel                |
-| **Broadcast**      | `Broadcaster`  | `memory`                         | `memory`, `redis`, `pusher`                                        | **none** (constructor only) | nothing — no registry to check                  |
-| **Search**         | `SearchEngine` | `memory`                         | `memory`, `sqlite`, `postgres`                                     | **none** (constructor only) | nothing — no registry to check                  |
-| **Media**          | `MediaManager` | none — adapters must be declared | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`          | **none** (constructor only) | nothing — no registry to check                  |
-| **Database**       | `Database`     | `d1`                             | `d1`, `postgres`                                                   | both                        | nothing — a URL or a binding is required anyway |
-| **Sessions**       | `SessionStore` | `memory`                         | `memory`, `database`                                               | **none** (constructor only) | nothing — chosen in the app entry               |
-| **API keys**       | `KeyStore`     | `memory`                         | `memory`, `database`                                               | **none** (constructor only) | nothing — chosen in the app entry               |
-| **Feature flags**  | `FeatureStore` | `memory`                         | `memory`, `database`, `null`                                       | **none** (constructor only) | nothing — chosen in the app entry               |
-| **Scheduler lock** | `LockProvider` | `memory`                         | `memory`, `database`                                               | **none** (constructor only) | nothing — chosen in the app entry               |
-| **Vault keys**     | `Keyring`      | generated at first run           | `file` (`TSIR_KEYRING_FILE`)                                       | n/a (one mechanism)         | an absent key refuses to boot                   |
+| Capability         | Port           | Default: Cloudflare → AWS → bun      | Drivers this build ships                                           | Selectable in `tsir.js`  | Refused in production                           |
+| ------------------ | -------------- | ------------------------------------ | ------------------------------------------------------------------ | ------------------------ | ----------------------------------------------- |
+| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory` | `memory`, `null`, `database`, `redis`, `cloudflare-kv`             | all five                 | `memory`, `null` as default or `required`       |
+| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync` | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`           | all five                 | `memory`, `sync` as default or `required`       |
+| **Mail**           | `Mailer`       | `cloudflare` → `ses` → `log`         | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `cloudflare` | all seven                | `log`, `memory` as default (see note)           |
+| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`  | `memory`, `local`, `s3`                                            | all three                | `memory` as default or `required`               |
+| **Notifications**  | `Notifier`     | `database` → `database` → `memory`   | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`             | all six                  | `memory` — any send in production throws        |
+| **Broadcast**      | `Broadcaster`  | `websocket` → `websocket` → `memory` | `memory`, `redis`, `pusher`, `websocket`                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Search**         | `SearchEngine` | `sqlite` → `postgres` → `memory`     | `memory`, `sqlite`, `postgres`                                     | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`     | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`          | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Sessions**       | `SessionStore` | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **API keys**       | `KeyStore`     | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`   | `memory`, `database`, `null`                                       | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Database**       | `Database`     | `d1` → `postgres` → `postgres`       | `d1`, `postgres` (+ [see § 5](#5-what-is-missing))                 | both                     | nothing — a binding or a URL is required anyway |
+| **Vault keys**     | `Keyring`      | generated at first run               | `file` (`TSIR_KEYRING_FILE`)                                       | n/a (one mechanism)      | an absent key refuses to boot                   |
 
-**The gap this table makes visible:** five capabilities resolve their driver from `tsir.js`, and five
-do not. A `tsir.js` that says `broadcast: { driver: 'redis' }` is not read by anything — you construct
-`redisBroadcaster({ client })` in your app entry instead. That is a real asymmetry, not a documented
-design; see § 5.
+**Two notes the columns hide.**
+
+_Mail's production refusal is real; the "default" column is not a resolution order inside the
+package._ A project that declares no `mail` block gets one `log` mailer, and `production: true`
+refuses it — that is `mailers.ts`. What the Cloudflare → AWS column means is the driver a
+**generated project on that target** is written with, and it is not a fallback the package invents.
+
+_`memory` on `notify` is refused at send time, not at boot._ `createNotifier` checks
+`capabilities.delivers` on every selected channel and throws `NOT_FORBIDDEN_IN_PRODUCTION` when the
+notifier was built with `production: true` (`notifier.ts:152`). So a memory channel is a boot-clean
+configuration that fails at the first delivery — earlier than a silent drop, later than boot. That is
+why it is not a default on either cloud target.
+
+**The gap this table makes visible:** five capabilities resolve their driver from `tsir.js`
+(`cache`, `queue`, `mail`, `storage`, `notify`) and seven do not — `broadcast`, `search`, `media`,
+`sessions`, `api keys`, `feature flags` and the scheduler lock. A `tsir.js` that says
+`broadcast: { driver: 'redis' }` is not read by anything; you construct
+`redisBroadcaster({ client })` in your app entry instead. That is a real asymmetry, and it is
+`CAP-006`, not a documented design; see § 5.
 
 ---
 
@@ -155,8 +170,13 @@ EXISTS` on first use, or by your migration:
 
 ## 4. A production `tsir.js`, block by block
 
-The generated project is deliberately all-ephemeral. This is what each block becomes when the
-application stops being a prototype — the **minimum** change that survives `production: true`.
+What a Workers deploy looks like when it stops being a prototype. Every block below is the
+Cloudflare row of the table in § 1, which is what the target already offers — nothing here adds a
+second vendor.
+
+One thing must be on before any of it matters: **`production: true` has to reach the bootstrap.**
+The guard lives in the builder, not in the environment, so an app that never passes it has no guard
+at all — and today no generated stub passes it. That is the first item in § 5.
 
 ```ts
 // config/cache.ts — a database store is durable and needs no extra service
@@ -228,22 +248,42 @@ The environment variables are the only secrets; nothing above is a credential in
 The map above is the state of the code, and it exposes five gaps. They are listed here so the table
 is honest, not because they are acceptable.
 
-1. **Five capabilities cannot be configured by name.** `broadcast`, `scout`, `media`, `auth`'s session
-   and key stores, `pennant`, and `schedule`'s lock have constructors but no registry, so `tsir.js`
+1. **`production: true` is never passed, so none of the guards above run.** Every refusal in § 1 is
+   implemented in the builder (`cachesFromConfig`, `queuesFromConfig`, `mailersFromConfig`,
+   `disksFromConfig`, `createNotifier`) and every one of them is keyed on `options.production`.
+   No app, no fixture and no generated stub passes it — so an ephemeral default is accepted in
+   production today, silently, and the table's whole right-hand column is aspirational until this
+   is wired. This is the one gap that makes the others matter.
+1. **Seven capabilities cannot be configured by name.** `broadcast`, `search`, `media`, `sessions`,
+   `api keys`, `feature flags` and the scheduler lock have constructors but no registry, so `tsir.js`
    cannot select them and `tsir doctor` cannot report them. The five that do have registries
    (`cache`, `queue`, `mail`, `storage`, `notify`) are the ones with a `*_DRIVERS` constant and a
    `driverFor` switch. Closing this is the same five-part change each time: a constant, a switch, a
    `*FromConfig` builder, a bootstrap that reads it, and a `tsir <capability>:drivers` command.
-2. **Fixed 2026-11-13 — `make:connection` wrote drivers the schema rejects.** `KINDS` listed
+1. **The per-target defaults are data, not yet a resolver.** `DRIVER_DEFAULTS` in `@tsir/core` says
+   what each capability converges on per target, and `make check` holds it to "durable on a
+   stateless target". Nothing reads it yet: the starter writes `memory` for every block, and
+   `tsir doctor` does not print the row. The next step is `tsir new --target cloudflare` writing
+   the Cloudflare rows, which is the difference between a default and a documented intention.
+1. **`sqlite` as a database engine is still a plan.** `DATABASE_ENGINES` is `['d1', 'postgres']`, so
+   a local SQLite file and a Cloudflare Container cannot use the same config shape as D1 even
+   though all three speak the same dialect and the proxy dialect already exists. The seam is ready
+   — `DbDriver` takes `engine: 'd1' | 'postgres'` and `placeholder`, and the auth and cache SQL
+   ports already read both — but the driver is not written.
+1. **`mysql` is not supported, and `make:connection` now says so.** It was in the command's list by
+   mistake and never in `DATABASE_ENGINES`. Adding it is an engine, not a driver: a third
+   placeholder style (`?` like SQLite, but nothing else alike) and a `DATABASE_ENGINES` change that
+   every `engine === 'postgres'` branch has to learn about.
+1. **Fixed 2026-11-13 — `make:connection` wrote drivers the schema rejects.** `KINDS` listed
    `['d1', 'postgres', 'mysql']` while `DATABASE_ENGINES` was `['d1', 'postgres']`, so
    `--driver mysql` wrote a `tsir.js` that failed at boot, and a typo'd cache, queue, storage or
    mail driver was accepted because those kinds carried no list at all. Every kind now reads its
    package's exported constant, so the command cannot drift from the registry.
-3. **Fixed 2026-11-13 — the admin app documented a cache table that does not exist.** Its
+1. **Fixed 2026-11-13 — the admin app documented a cache table that does not exist.** Its
    `config/cache.ts` comments said `tsir_cache`; `tsir cache:table` prints `cache_entries`. The
    comment was stale and is corrected. This was a documentation error with a real failure mode:
    the commented-out entry would have created the wrong table.
-4. **`broadcast`'s `memory` default leaks.** `createBroadcastBootstrap` appends listeners and never
+1. **`broadcast`'s `memory` default leaks.** `createBroadcastBootstrap` appends listeners and never
    releases them (`INF-009`), so its default is the one driver that grows without bound. It has no
    production guard because it has no registry to carry one.
 
@@ -254,14 +294,19 @@ is honest, not because they are acceptable.
 | `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done     | `make-connection.ts` § 5            |
 | `CAP-2` | ~~Validate every kind's driver from its constant~~ — done | `make-connection.ts` § 5            |
 | `CAP-3` | ~~Settle the cache table name in one place~~ — done       | `admin.product.com/config/cache.ts` |
-| `CAP-4` | Registries for the constructor-only ports (`CAP-006`)     | `plans/tasks/07-capabilities.md`    |
-| `CAP-5` | `tsir <capability>:drivers` for every registry            | `plans/operations/11-dx.md` § 2.4   |
+| `CAP-4` | Wire `production: true` from `APP_ENV` into every bootstrap | `plans/tasks/07-capabilities.md` (`CAP-007`) |
+| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows  | `plans/tasks/07-capabilities.md` (`CAP-008`) |
+| `CAP-6` | Registries for the constructor-only ports                  | `plans/tasks/07-capabilities.md` (`CAP-006`) |
+| `CAP-7` | A `sqlite` database driver (`CAP-009`)                     | `src/framework/database/src/`       |
+| `CAP-8` | `tsir <capability>:drivers` for every registry             | `plans/operations/11-dx.md` § 2.4   |
 
 ### Open questions
 
 | ID    | Question                                                                                      | Status |
 | ----- | --------------------------------------------------------------------------------------------- | ------ |
-| `Q72` | Should the five constructor-only ports get `tsir.js` registries, or is code the better place? | open   |
+| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place?       | open   |
+| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?             | open   |
+| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit?       | open   |
 
 ### Failure modes
 
