@@ -78,7 +78,12 @@ function summaryOf(markdown: string, limit = 130): string {
     .filter((block) => block !== '' && !/^-{3,}$/u.test(block))
     .filter((block) => !block.startsWith('#') && !block.startsWith('>'))
     .filter((block) => !block.startsWith('<')) // raw HTML blocks (the README logo)
+    .filter((block) => !block.startsWith('|')) // tables: a header row is not a sentence
     .filter((block) => !/^!\[/u.test(block)) // badge rows
+    // A list is not a sentence either. The decision records open with a `Status / Date / Affects`
+    // bullet list, so without this every ADR is summarised as "Status: Accepted" — thirty-one
+    // entries that tell an agent nothing about what was decided.
+    .filter((block) => !/^[-*+]\s/u.test(block) && !/^\d+\.\s/u.test(block))
     .filter((block) => !/^After \[?installation/iu.test(block)); // install boilerplate
   const body = paragraphs
     .join(' ')
@@ -165,8 +170,9 @@ function build(): string {
 
   lines.push('## Reference');
   lines.push('');
+  // `drivers.md` is listed under "Using the framework" and not again here: a duplicate entry
+  // spends the reader's budget twice for one destination.
   const reference = [
-    entry('src/docs/guides/drivers.md'),
     entry('src/docs/errors.md'),
     entry('src/docs/capabilities.md'),
     entry('src/docs/compatibility.md'),
@@ -174,7 +180,6 @@ function build(): string {
     entry('src/docs/migrations.md'),
   ];
   lines.push(...reference.filter((line): line is string => line !== undefined));
-  lines.push('');
   lines.push(
     '- [`src/docs/error-codes.json`](src/docs/error-codes.json): every error code as data — grep this before inventing one',
   );
@@ -205,11 +210,25 @@ function build(): string {
 
   lines.push('## Packages');
   lines.push('');
-  lines.push(
-    '- [`src/framework/`](src/framework/): 34 packages, each with a `README.md` — what it supports, what it refuses, and its failure modes',
+  // Counted, not typed: a hardcoded "34 packages" is wrong the next time one is added, and the
+  // README count is the part an agent needs — most packages document themselves on their generated
+  // page only, so claiming "each with a README" would send it looking for files that do not exist.
+  // A tree without `src/framework` is a fixture, not this repository — the tool must still run there,
+  // so an absent directory yields no claim rather than an exception.
+  const framework = join(ROOT, 'src/framework');
+  const packageDirs = existsSync(framework)
+    ? readdirSync(framework, { withFileTypes: true }).filter((file) => file.isDirectory())
+    : [];
+  const withReadme = packageDirs.filter((file) =>
+    existsSync(join(framework, file.name, 'README.md')),
   );
   lines.push(
-    '- [`src/docs/packages/`](src/docs/packages/): the same content, one page per package',
+    packageDirs.length === 0
+      ? '- [`src/framework/`](src/framework/): the packages'
+      : `- [\`src/framework/\`](src/framework/): ${packageDirs.length} packages; ${withReadme.length} carry their own \`README.md\`, the rest are documented on their package page`,
+  );
+  lines.push(
+    '- [`src/docs/packages/`](src/docs/packages/): one page per package — what it supports, what it refuses, and its failure modes',
   );
   lines.push('');
 

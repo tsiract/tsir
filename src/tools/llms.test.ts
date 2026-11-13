@@ -123,6 +123,44 @@ describe('llms.txt (AI-001)', () => {
     }
   });
 
+  test('a summary is prose, not the metadata that precedes it', () => {
+    // The failure this pins: a page whose body opens with a bullet list, a table, a rule, a quote,
+    // a badge or a heading was previously summarised by whichever of those happened to come first.
+    // Every decision record opened with `Status: Accepted`, so thirty-one index entries described
+    // one field of a bullet list instead of what was decided. A summary that is not a sentence is
+    // worse than no summary: it reads as content.
+    const root = fixture();
+    try {
+      writeFileSync(
+        join(root, 'src/docs/guides/caching.md'),
+        [
+          '# Caching',
+          '',
+          '- **Status:** Accepted',
+          '- **Date:** 2026-10-27',
+          '',
+          '| Package | Version |',
+          '| ------- | ------- |',
+          '',
+          '---',
+          '',
+          '> A note that is not the summary.',
+          '',
+          'The real summary sits below the scaffolding.',
+          '',
+        ].join('\n'),
+      );
+      expect(run(root).code).toBe(0);
+      const text = readFileSync(join(root, 'llms.txt'), 'utf8');
+      expect(text).toContain('The real summary sits below the scaffolding.');
+      expect(text).not.toContain('Status: Accepted');
+      expect(text).not.toContain('| Package |');
+      expect(text).not.toContain('A note that is not the summary');
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   test("this repository's own llms.txt is current", () => {
     // The gate `make check` runs, asserted where a failing suite will surface it too.
     expect(run(join(import.meta.dir, '..', '..')).code).toBe(0);

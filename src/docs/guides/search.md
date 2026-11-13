@@ -5,6 +5,10 @@ After [installation](../installation.md), add the package to your app with
 
 ## Why this port exists, and why it is the one with a third party in it
 
+Full-text search over six engines — FTS5 and `tsvector` in the database you already have, three
+hosted services when the corpus outgrows it, and a `Map` for tests — behind one three-method port, so
+moving between them is a config line rather than a rewrite.
+
 Every other capability in Tsir has a real answer on both clouds. Search does not: Cloudflare has no
 search product (`env.SEARCH` does not exist), D1's FTS5 is real but is a table scan's cousin once the
 corpus outgrows one database, and AWS's answer is OpenSearch — a cluster to size, secure and pay for
