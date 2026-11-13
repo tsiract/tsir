@@ -5,23 +5,25 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-296 codes across 28 packages.
+298 codes across 28 packages.
 
 ## `@tsir/auth`
 
-| Code                        |
-| --------------------------- |
-| `AUTH_API_KEY_INVALID`      |
-| `AUTH_API_KEY_REVOKED`      |
-| `AUTH_CONFIG_INVALID`       |
-| `AUTH_INVALID_CREDENTIALS`  |
-| `AUTH_INVALID_HASH`         |
-| `AUTH_INVALID_TOKEN`        |
-| `AUTH_SESSION_EXPIRED`      |
-| `AUTH_SESSION_REVOKED`      |
-| `AUTH_SESSION_STORE_FAILED` |
-| `AUTH_UNSUPPORTED_HASH`     |
-| `AUTH_WEAK_PASSWORD`        |
+| Code                           |
+| ------------------------------ |
+| `AUTH_API_KEY_INVALID`         |
+| `AUTH_API_KEY_REVOKED`         |
+| `AUTH_CONFIG_INVALID`          |
+| `AUTH_DRIVER_MISSING`          |
+| `AUTH_FORBIDDEN_IN_PRODUCTION` |
+| `AUTH_INVALID_CREDENTIALS`     |
+| `AUTH_INVALID_HASH`            |
+| `AUTH_INVALID_TOKEN`           |
+| `AUTH_SESSION_EXPIRED`         |
+| `AUTH_SESSION_REVOKED`         |
+| `AUTH_SESSION_STORE_FAILED`    |
+| `AUTH_UNSUPPORTED_HASH`        |
+| `AUTH_WEAK_PASSWORD`           |
 
 ## `@tsir/cache`
 

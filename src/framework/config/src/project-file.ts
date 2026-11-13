@@ -36,6 +36,7 @@ export const PROJECT_TOP_LEVEL_KEYS: readonly string[] = [
   'search',
   'media',
   'featureFlags',
+  'auth',
   'schedule',
   'paths',
   'modules',
@@ -92,6 +93,11 @@ const NESTED_KEYS: Readonly<Record<string, readonly string[]>> = {
   media: ['default', 'adapters'],
   featureFlags: ['default', 'stores'],
   'featureFlags.stores.*': ['driver', 'table', 'connection', 'defaults'],
+  auth: ['sessions', 'apiKeys'],
+  'auth.sessions': ['store'],
+  'auth.apiKeys': ['store'],
+  'auth.sessions.store': ['driver', 'table', 'connection'],
+  'auth.apiKeys.store': ['driver', 'table', 'connection'],
   'media.adapters.*': [
     'driver',
     'accountId',
@@ -200,6 +206,29 @@ export function unknownProjectKeys(raw: Readonly<Record<string, unknown>>): stri
           `${section}.${entries}.${name}`,
           entry,
           NESTED_KEYS[`${section}.${entries}.*`] ?? [],
+        ),
+      );
+    }
+  }
+  // `auth` nests one level deeper than a registry does: `auth.sessions.store.driver`. Written out
+  // rather than generalised — one shape does not justify a recursive walker, and a walker would
+  // accept any depth, including a depth nothing reads.
+  const auth = raw['auth'];
+  if (isRecord(auth)) {
+    lines.push(...unknownKeyLines('auth', auth, NESTED_KEYS['auth'] ?? []));
+    for (const concern of ['sessions', 'apiKeys'] as const) {
+      const block = auth[concern];
+      if (!isRecord(block)) continue;
+      lines.push(
+        ...unknownKeyLines(`auth.${concern}`, block, NESTED_KEYS[`auth.${concern}`] ?? []),
+      );
+      const store = block['store'];
+      if (!isRecord(store)) continue;
+      lines.push(
+        ...unknownKeyLines(
+          `auth.${concern}.store`,
+          store,
+          NESTED_KEYS[`auth.${concern}.store`] ?? [],
         ),
       );
     }

@@ -30,8 +30,8 @@ Ours = the driver ships in this repository. Selectable = the name works in `tsir
 | **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                           | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                                                |
 | **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                            | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                                                |
 | **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | all five                           | `sharp`, `ffmpeg` — `CAP_FORBIDDEN_IN_PRODUCTION` (they cannot store what they produce) |
-| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`)           | nothing yet — no registry                                                               |
-| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`)           | nothing yet — no registry                                                               |
+| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | `auth.sessions.store` in `tsir.js` | `memory` refused in production                                                          |
+| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | `auth.apiKeys.store` in `tsir.js`  | `memory` refused in production                                                          |
 | **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | `featureFlags.stores` in `tsir.js` | `database` refused on `mysql`; `memory` refused in production                           |
 | **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`)           | nothing yet — no registry                                                               |
 | **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres`, `mysql`, `sqlite`                                            | all four                           | nothing — a binding, a url or a file is required anyway                                 |
@@ -50,14 +50,14 @@ notifier was built with `production: true` (`notifier.ts:152`). So a memory chan
 configuration that fails at the first delivery — earlier than a silent drop, later than boot. That is
 why it is not a default on either cloud target.
 
-**The gap this table makes visible:** ten capabilities resolve their driver from `tsir.js`
-(`cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`, `media`, `featureFlags`) and
-two do not — `sessions` and `api keys`. For those two a `tsir.js` block is not read by anything; you
-construct the driver in your app entry instead. `broadcast`, `search`, `media` and `featureFlags`
-were in that group until their registries landed (`CAP-006`), and closing them changed something
-beyond the config: each can now refuse a driver in production, which a constructor called from
-`app.ts` has no way to do. `featureFlags` is the sharpest case — the admin app wired `memoryStore`
-unconditionally, so in production every rollout reset on the next deploy and nothing failed.
+**There is no gap left in this table.** Every capability in it resolves its driver from `tsir.js`,
+so `tsir doctor` can report what a deployment actually uses and each package's production refusal
+has a place to fire. That was not true a few weeks ago: `broadcast`, `search`, `media`,
+`featureFlags`, `sessions` and `api keys` were constructors the app entry wired by hand, and a
+constructor called from `app.ts` cannot refuse anything — it has no idea whether it is running in
+production. Two of those defaults were `memory` stores that deployed happily.
+`featureFlags` was the sharpest: the admin app wired `memoryStore` unconditionally, so every rollout
+reset on the next deploy and nothing failed.
 
 ---
 
@@ -140,8 +140,8 @@ which is the asymmetry in § 5.
 | Broadcast      | `memoryBroadcaster`, `redisBroadcaster`, `pusherBroadcaster`                                 | a Redis or Pusher client (`trigger` method)                                                                                      |
 | Search         | `memoryEngine`, `sqliteEngine`, `postgresEngine`                                             | a query function for the SQL two                                                                                                 |
 | Media          | `cloudflareAdapter`, `cloudinaryAdapter`, `imagekitAdapter`, `sharpAdapter`, `ffmpegAdapter` | `accountId` + `apiToken`; `cloudName` + `uploadPreset`; `publicKey` + `privateKey` + `urlEndpoint`; nothing for `sharp`/`ffmpeg` |
-| Sessions       | `memorySessionStore`, `databaseSessionStore`                                                 | a SQL port for the database one                                                                                                  |
-| API keys       | `memoryApiKeyStore`, `databaseApiKeyStore`                                                   | a SQL port for the database one                                                                                                  |
+| Sessions       | `memorySessionStore`, `databaseSessionStore`                                                 | a SQL port for the database one; `tsir_sessions` (`sessionTableDdl`)                                                             |
+| API keys       | `memoryApiKeyStore`, `databaseApiKeyStore`                                                   | a SQL port for the database one; `tsir_api_keys` (`apiKeyTableDdl`)                                                              |
 | Feature flags  | `memoryStore`, `databaseStore`, `nullStore`                                                  | a query function for the database one; a `features` table (`featureTableDdl`, `tsir migrate`)                                    |
 | Scheduler lock | `memoryLock`, `databaseLock`                                                                 | a SQL port for the database one                                                                                                  |
 
@@ -354,12 +354,11 @@ is honest, not because they are acceptable.
    No app, no fixture and no generated stub passes it — so an ephemeral default is accepted in
    production today, silently, and the table's whole right-hand column is aspirational until this
    is wired. This is the one gap that makes the others matter.
-1. **Two capabilities cannot be configured by name.** `sessions` and `api keys` have constructors
-   but no registry, so `tsir.js` cannot select them and `tsir doctor` cannot report them. The nine
-   that do have registries (`cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`,
-   `media`, `featureFlags`) are the ones with a `*_DRIVERS` constant and a `driverFor` switch.
-   Closing the remaining two is the same five-part change each time: a constant, a switch, a
-   `*FromConfig` builder, a bootstrap that reads it, and a `tsir <capability>:drivers` command.
+1. **The registry work is finished (`CAP-018`).** All eleven capabilities resolve a driver by name
+   from `tsir.js`: `cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`, `media`,
+   `featureFlags`, `sessions` and `api keys`. What each still lacks is the last piece of the
+   five-part change — `tsir <capability>:drivers` — which lists what a build ships without reading
+   the source.
 1. **The guards run now.** `isProduction()` derives the flag from `APP_ENV`, every bootstrap in
    `src/apps` passes it, and `make production-wiring` fails when a new one does not. Before that
    every refusal in this guide was reachable only from a test.
@@ -421,6 +420,12 @@ needs an apiKey` — correct, and the wrong moment to say it. What still does no
    construction because the store's upsert is `ON CONFLICT (name) DO UPDATE`, which that engine does
    not speak. What remains constructor-only is `sessions` and `api keys` — both default to
    `database`, a real engine on every target.
+1. **`sessions` and `api keys` have registries now (`CAP-018`).** `auth.sessions.store` and
+   `auth.apiKeys.store` are read from `tsir.js`, kept separate because an app may well put sessions
+   in one place and keys in another. `production: true` refuses `memory` on both: a session in one
+   process logs the user out when their next request lands on another instance, and a key in one
+   process is `401` on the instance that has not seen it. Neither throws, which is why it went
+   unnoticed.
 
 ### Task index
 

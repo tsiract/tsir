@@ -13,6 +13,8 @@
     "AUTH_API_KEY_INVALID": "auth",
     "AUTH_API_KEY_REVOKED": "auth",
     "AUTH_CONFIG_INVALID": "auth",
+    "AUTH_DRIVER_MISSING": "auth",
+    "AUTH_FORBIDDEN_IN_PRODUCTION": "auth",
     "AUTH_INVALID_CREDENTIALS": "auth",
     "AUTH_INVALID_HASH": "auth",
     "AUTH_INVALID_TOKEN": "auth",

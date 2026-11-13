@@ -374,6 +374,36 @@ const projectSchema = z.object({
         .optional(),
     })
     .optional(),
+  // `CAP-018`: sessions and API keys were constructors the entry module wired by hand, so a
+  // `memorySessionStore` was a legal choice for a deployed app — and a session in one process means
+  // the next request lands on an instance that never heard of it. The user is logged out at random.
+  // `driver` is a string for the same reason every other registry's is.
+  auth: z
+    .object({
+      sessions: z
+        .object({
+          store: z
+            .object({
+              driver: z.string().min(1),
+              table: z.string().min(1).optional(),
+              connection: z.string().min(1).optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+      apiKeys: z
+        .object({
+          store: z
+            .object({
+              driver: z.string().min(1),
+              table: z.string().min(1).optional(),
+              connection: z.string().min(1).optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
   // `CAP-006`: feature flags were a constructor the entry module wired by hand, and the admin app
   // wired `memoryStore` — in production every rollout reset on the next deploy, and two instances
   // disagreed about who was in the experiment. `driver` is a string for the same reason every other
