@@ -10,6 +10,7 @@
  */
 import { createMailBootstrap, type MailTemplate, type RenderedTemplate } from '@tsir/mail';
 import { token } from '@tsir/container';
+import { isProduction } from '@tsir/core';
 
 import { readConfig } from '../../../database.ts';
 import { resetPasswordTemplate } from '../templates/reset-password.ts';
@@ -20,6 +21,8 @@ export const { mailers, mailersToken, mailersProvider } = createMailBootstrap({
     'reset-password': resetPasswordTemplate as unknown as MailTemplate<never>,
   },
   env: {},
+  // `CAP-007`: a `log` transport in production is an email that was written to a file nobody reads.
+  production: isProduction(),
 });
 
 export type Mailers = typeof mailers;

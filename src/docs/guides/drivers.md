@@ -360,6 +360,9 @@ is honest, not because they are acceptable.
    (`cache`, `queue`, `mail`, `storage`, `notify`) are the ones with a `*_DRIVERS` constant and a
    `driverFor` switch. Closing this is the same five-part change each time: a constant, a switch, a
    `*FromConfig` builder, a bootstrap that reads it, and a `tsir <capability>:drivers` command.
+1. **The guards run now.** `isProduction()` derives the flag from `APP_ENV`, every bootstrap in
+   `src/apps` passes it, and `make production-wiring` fails when a new one does not. Before that
+   every refusal in this guide was reachable only from a test.
 1. **The per-target defaults are data, not yet a resolver.** `DRIVER_DEFAULTS` in `@tsir/core` says
    what each capability converges on per target, and `make check` holds it to "durable on a
    stateless target". Nothing reads it yet: the starter writes `memory` for every block, and
@@ -414,19 +417,19 @@ is honest, not because they are acceptable.
 
 ### Task index
 
-| ID       | Task                                                                                | Where                                            |
-| -------- | ----------------------------------------------------------------------------------- | ------------------------------------------------ |
-| `CAP-1`  | ~~`mysql` in `make:connection`'s driver list~~ — done                               | `make-connection.ts` § 5                         |
-| `CAP-2`  | ~~Validate every kind's driver from its constant~~ — done                           | `make-connection.ts` § 5                         |
-| `CAP-3`  | ~~Settle the cache table name in one place~~ — done                                 | `admin.product.com/config/cache.ts`              |
-| `CAP-4`  | Wire `production: true` from `APP_ENV` into every bootstrap                         | `plans/tasks/07-capabilities.md` (`CAP-007`)     |
-| `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)     |
-| `CAP-6`  | Registries for the four remaining constructor-only ports                            | `plans/tasks/07-capabilities.md` (`CAP-006`)     |
-| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                |
-| `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                    |
-| `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts` |
-| `CAP-10` | ~~A `tsir.js` registry for `media`~~ — done (`CAP-017`)                             | `src/framework/media/src/config.ts`              |
-| `CAP-11` | ~~Ports that accept an engine they cannot serve~~ — done (`CAP-016`)                | `cache`, `notify`, `pennant`, `schedule`         |
+| ID       | Task                                                                                | Where                                                      |
+| -------- | ----------------------------------------------------------------------------------- | ---------------------------------------------------------- |
+| `CAP-1`  | ~~`mysql` in `make:connection`'s driver list~~ — done                               | `make-connection.ts` § 5                                   |
+| `CAP-2`  | ~~Validate every kind's driver from its constant~~ — done                           | `make-connection.ts` § 5                                   |
+| `CAP-3`  | ~~Settle the cache table name in one place~~ — done                                 | `admin.product.com/config/cache.ts`                        |
+| `CAP-4`  | ~~Wire `production: true` from `APP_ENV` into every bootstrap~~ — done (`CAP-007`)  | `isProduction()` in `@tsir/core`, `make production-wiring` |
+| `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)               |
+| `CAP-6`  | Registries for the four remaining constructor-only ports                            | `plans/tasks/07-capabilities.md` (`CAP-006`)               |
+| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                          |
+| `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                              |
+| `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts`           |
+| `CAP-10` | ~~A `tsir.js` registry for `media`~~ — done (`CAP-017`)                             | `src/framework/media/src/config.ts`                        |
+| `CAP-11` | ~~Ports that accept an engine they cannot serve~~ — done (`CAP-016`)                | `cache`, `notify`, `pennant`, `schedule`                   |
 
 ### Open questions
 

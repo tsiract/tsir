@@ -9,6 +9,7 @@
  */
 
 export { bootstrap } from './bootstrap.ts';
+export { PRODUCTION_ENVIRONMENTS, environmentName, isProduction } from './production.ts';
 export type {
   App,
   AppDiagnosticEvent,

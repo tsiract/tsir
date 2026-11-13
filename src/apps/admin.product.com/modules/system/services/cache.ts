@@ -10,6 +10,7 @@
  * `require(name)` for stores that must exist.
  */
 import { createCacheBootstrap } from '@tsir/cache';
+import { isProduction } from '@tsir/core';
 import { databases } from '../../../database.ts';
 import appConfig from '../../../config/cache.ts';
 
@@ -18,4 +19,7 @@ export const { caches, cachesToken, cachesProvider } = createCacheBootstrap({
   bindings: {
     databases: { primary: databases.defaultDatabase },
   },
+  // `CAP-007`: without this every production guard in every package is dead code. `APP_ENV` is
+  // written by `tsir deploy:build`, so this is what the deployed Worker actually sees.
+  production: isProduction(),
 });
