@@ -13,7 +13,15 @@
 
 import { z } from '@tsir/validate';
 
-export const DATABASE_ENGINES = ['d1', 'postgres'] as const;
+/**
+ * Every engine a connection may name (`CAP-009`).
+ *
+ * `d1` is the Cloudflare default; `postgres` the AWS one; `mysql` because it is the database most
+ * teams arrive with; `sqlite` because it is the only one that needs no service at all. The order
+ * is the order the error message lists them in, so it descends from "turnkey on a cloud" to
+ * "needs nothing".
+ */
+export const DATABASE_ENGINES = ['d1', 'postgres', 'mysql', 'sqlite'] as const;
 export type DatabaseEngine = (typeof DATABASE_ENGINES)[number];
 
 /**
@@ -49,6 +57,15 @@ export const connectionConfigSchema = z
       })
       .optional(),
 
+    /**
+     * `mysql` only: the schema name.
+     *
+     * MySQL's HTTP gateways take the database separately from the endpoint, because the endpoint
+     * is one URL per organization and not one per database. Postgres and SQLite carry it in the
+     * url; this is the engine that has nowhere else to put it.
+     */
+    databaseName: z.string().min(1).optional(),
+
     /** Postgres only: appears in `pg_stat_activity`. */
     applicationName: z.string().min(1).max(63).optional(),
     searchPath: z.string().min(1).optional(),
@@ -59,7 +76,16 @@ export const connectionConfigSchema = z
   )
   .refine(
     (value) => value.driver !== 'd1' || value.url === undefined,
-    'database.connections.<name>.url is a Postgres setting and has no effect on D1 — remove it or switch driver to "postgres"',
+    'database.connections.<name>.url is a setting for postgres, mysql and sqlite — a D1 connection is a `binding`; remove `url` or switch driver',
+  )
+  .refine(
+    (value) =>
+      value.driver === 'd1' ||
+      value.driver === 'postgres' ||
+      value.driver === 'mysql' ||
+      value.driver === 'sqlite' ||
+      value.url === undefined,
+    'database.connections.<name>.url is for postgres, mysql and sqlite only',
   );
 
 export type ConnectionConfig = z.infer<typeof connectionConfigSchema>;

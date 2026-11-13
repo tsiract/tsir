@@ -11,12 +11,42 @@
  * a single `created_at` column cannot answer.
  */
 
+import { TsirError } from '@tsir/core';
 import { statement, type Database } from '@tsir/database';
 
 import type { AppliedMigration } from './plan.ts';
 import type { JournalEntry } from './journal.ts';
 
-export type Engine = 'd1' | 'postgres';
+/**
+ * The dialects the migration tables are written for.
+ *
+ * `sqlite` is here because D1 *is* SQLite: every branch below is `=== 'postgres'` with SQLite as
+ * the else, so a file-backed connection is the same SQL as a binding-backed one (`CAP-009`).
+ * `mysql` is deliberately absent — its DDL is not a branch of these two, and a type that admitted
+ * it would turn "we never wrote this" into a runtime syntax error on the first `migrate`.
+ */
+export type Engine = 'd1' | 'postgres' | 'sqlite';
+
+/**
+ * A connection's engine, as a dialect these tables can be written for.
+ *
+ * `mysql` reaches this and stops here with the MySQL-specific answer rather than a SQL syntax
+ * error halfway through a deployment: the two tables would be created with SQLite DDL and the
+ * first insert would fail, after some migrations had already run.
+ */
+export function migrationEngine(capabilities: { readonly engine: string }): Engine {
+  const engine = capabilities.engine;
+  if (engine === 'd1' || engine === 'postgres' || engine === 'sqlite') return engine;
+  throw new TsirError(
+    'DB_MIGRATION_ENGINE_UNSUPPORTED',
+    `migrations do not support the "${engine}" engine`,
+    {
+      kind: 'capability',
+      hint: 'd1, postgres and sqlite are supported — mysql migrations are not written yet',
+      context: { engine },
+    },
+  );
+}
 
 /** Where the two tables live. `schema` is undefined for D1 (no namespaces). */
 export interface TableNames {

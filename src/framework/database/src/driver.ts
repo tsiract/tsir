@@ -25,8 +25,15 @@ export interface DbCapabilities {
   readonly batch: boolean;
   /** `?` placeholders (SQLite) vs `$1` (Postgres) — Drizzle generates per dialect. */
   readonly placeholder: 'question' | 'dollar';
-  /** The engine name shown in logs and health output. */
-  readonly engine: 'd1' | 'postgres';
+  /**
+   * The engine name shown in logs and health output.
+   *
+   * `sqlite` is a file and `d1` is Cloudflare's SQLite-as-a-binding: the same dialect, a different
+   * lifetime, and a health line that must not claim a binding the connection does not have
+   * (`DB-027`, `CAP-009`). A union that called both `d1` would make the one place an operator
+   * looks unable to tell them apart.
+   */
+  readonly engine: 'd1' | 'postgres' | 'mysql' | 'sqlite';
   /**
    * `reserve()` exists, so one connection can be pinned for the duration of a
    * unit of work.

@@ -22,7 +22,13 @@ import { statement, type Database } from '@tsir/database';
 
 import { readMigrationFolder, splitStatements, type Migration } from './journal.ts';
 import { acquireMigrationLock } from './lock.ts';
-import { deleteAppliedStatement, isMissingTable, readApplied, type TableNames } from './state.ts';
+import {
+  deleteAppliedStatement,
+  isMissingTable,
+  migrationEngine,
+  readApplied,
+  type TableNames,
+} from './state.ts';
 
 export const EMPTY_TARGET = 'empty';
 
@@ -219,7 +225,7 @@ async function undoAll(
     }
     const current = planRollback(migrations, applied, options.to);
     guardRollback(current.undo, options);
-    const engine = database.capabilities.engine;
+    const engine = migrationEngine(database.capabilities);
     const undone: string[] = [];
 
     for (const file of current.undo) {

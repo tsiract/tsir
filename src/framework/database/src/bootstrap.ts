@@ -104,6 +104,27 @@ export function createDatabaseBootstrap(
     // ("Browser build cannot import Bun builtin"). The fallback only ever runs in the CLI, so
     // the import belongs here, where only the CLI reaches it. `sqlite-binding.ts` already
     // takes its `bun:sqlite` import as a type for the same reason.
+    // A `sqlite` connection names its file in `url`, and opening it is the bootstrap's job: the
+    // registry resolves a handle through `bindings`, and this is the one place that may produce
+    // one — `bun:sqlite` is imported inside this function for the reason above, and a *static*
+    // import of it (or of a module that names it at the top level) breaks a Workers bundle even
+    // when the branch never runs (`deploy-bundle-targets.test.ts`).
+    for (const [name, entry] of Object.entries(config.connections)) {
+      if (entry.driver !== 'sqlite' || entry.url === undefined) continue;
+      try {
+        const file = entry.url.replace(/^file:/u, '');
+        if (file !== ':memory:') {
+          const dir = dirname(file);
+          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
+        }
+        const { Database: Sqlite } = await import('bun:sqlite');
+        return { ...runtimeBindings, [name]: new Sqlite(file) };
+      } catch {
+        // A runtime without `bun:sqlite` leaves this connection unresolved, and the driver answers
+        // `DB_SQLITE_NO_HANDLE` naming it on first use.
+      }
+    }
+
     if (options.sqlitePath !== undefined) {
       try {
         const dbDir = dirname(options.sqlitePath);

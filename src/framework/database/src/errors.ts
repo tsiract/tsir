@@ -34,7 +34,12 @@ export type DatabaseErrorCode =
   | 'DB_ROTATION_INVALID_IDENTIFIER'
   | 'DB_D1_NO_BINDING'
   | 'DB_POSTGRES_BOOTSTRAP_UNWIRED'
-  | 'DB_TX_STATEMENT_UNSUPPORTED';
+  | 'DB_TX_STATEMENT_UNSUPPORTED'
+  | 'DB_URL_REQUIRED'
+  | 'DB_SQLITE_NO_HANDLE'
+  | 'DB_POSTGRES_HTTP_FAILED'
+  | 'DB_MYSQL_HTTP_FAILED'
+  | 'DB_TX_NESTED_UNSUPPORTED';
 
 /**
  * The configured engine cannot run on this target.
@@ -294,6 +299,25 @@ export function connectionRequirementsMissing(
         connections: unsatisfied.map((entry) => entry.connection).join(', '),
         components: unsatisfied.map((entry) => entry.component).join(', '),
       },
+    },
+  );
+}
+
+/**
+ * A statement failed at the provider (`DB-028`, `DB-029`).
+ *
+ * The message carries what the provider said, because that is the part an operator can act on — a
+ * missing table, a bad key, a paused database. The *code* is Tsir's, so a caller can branch on
+ * "the database rejected this" without parsing a vendor's prose.
+ */
+export function providerRejected(engine: 'postgres' | 'mysql', detail: string): TsirError {
+  return new TsirError(
+    engine === 'postgres' ? 'DB_POSTGRES_HTTP_FAILED' : 'DB_MYSQL_HTTP_FAILED',
+    `${engine}: ${detail}`,
+    {
+      kind: 'database',
+      hint: 'the provider answered a statement with an error — check the table exists, the credentials are current, and the database is not paused',
+      context: { engine },
     },
   );
 }

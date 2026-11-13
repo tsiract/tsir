@@ -20,22 +20,22 @@ refusal: a driver whose data dies with the process is refused as the default whe
 
 Ours = the driver ships in this repository. Selectable = the name works in `tsir.js` today.
 
-| Capability         | Port           | Default: Cloudflare → AWS → bun       | Drivers this build ships                                                       | Selectable in `tsir.js`  | Refused in production                           |
-| ------------------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------ | ----------------------------------------------- |
-| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory`  | `memory`, `null`, `database`, `redis`, `cloudflare-kv`                         | all five                 | `memory`, `null` as default or `required`       |
-| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync`  | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`                       | all five                 | `memory`, `sync` as default or `required`       |
-| **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                      |
-| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`               |
-| **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws        |
-| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                 | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`        |
-| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                  | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`        |
-| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres` (+ `sqlite`, `mysql` — [see § 5](#5-what-is-missing))         | both                     | nothing — a binding or a URL is required anyway |
-| **Vault keys**     | `Keyring`      | generated at first run                | `file` (`TSIR_KEYRING_FILE`)                                                   | n/a (one mechanism)      | an absent key refuses to boot                   |
+| Capability         | Port           | Default: Cloudflare → AWS → bun       | Drivers this build ships                                                       | Selectable in `tsir.js`  | Refused in production                                   |
+| ------------------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------ | ------------------------------------------------------- |
+| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory`  | `memory`, `null`, `database`, `redis`, `cloudflare-kv`                         | all five                 | `memory`, `null` as default or `required`               |
+| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync`  | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`                       | all five                 | `memory`, `sync` as default or `required`               |
+| **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                              |
+| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`                       |
+| **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws                |
+| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                 | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                |
+| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                  | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                |
+| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | **none** yet (`CAP-006`) | nothing yet — no registry                               |
+| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
+| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
+| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | **none** yet (`CAP-006`) | nothing yet — no registry                               |
+| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
+| **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres`, `mysql`, `sqlite`                                            | all four                 | nothing — a binding, a url or a file is required anyway |
+| **Vault keys**     | `Keyring`      | generated at first run                | `file` (`TSIR_KEYRING_FILE`)                                                   | n/a (one mechanism)      | an absent key refuses to boot                           |
 
 **Two notes the columns hide.**
 
@@ -151,6 +151,42 @@ which is the asymmetry in § 5.
 Two capabilities have no first-party answer on either platform, and inventing one would be the
 "memory as an excuse" this table exists to avoid. Both have a settled field, and the drivers are
 real:
+
+### Database — `database.connections.<name>`
+
+| Engine     | Needs                                    | Defaults that apply                                                   |
+| ---------- | ---------------------------------------- | --------------------------------------------------------------------- |
+| `d1`       | `binding`                                | `logging: 'slow'`, `slowQueryMs: 200`, `statementTimeoutMs: 5 000`    |
+| `postgres` | `url` (a pooler that speaks HTTP)        | the above; `pool` and `applicationName` are accepted and ignored here |
+| `mysql`    | `url` (the gateway's statement endpoint) | the above, plus `databaseName` for the schema                         |
+| `sqlite`   | `url` (the file path)                    | the above; opened by `createDatabaseBootstrap`, `:memory:` is allowed |
+
+`postgres` and `mysql` declare `interactiveTx: false`: one HTTP request is one session, so a
+transaction begun in one and committed in the next are two different backends. `declare({ requires:
+{ interactiveTx: true } })` therefore refuses at boot rather than failing on the request that needed
+it. A project that needs transactions on either wants a client that holds a socket — which on
+Workers means D1 or Hyperdrive, not these transports.
+
+### Broadcast — `broadcast.connections.<name>`
+
+| Driver           | Needs                           | Defaults that apply                                  |
+| ---------------- | ------------------------------- | ---------------------------------------------------- |
+| `memory`         | nothing                         | refused when `production: true`                      |
+| `redis`          | `bindings.redis[connection]`    | `connection: 'default'`, `prefix: 'tsir:broadcast:'` |
+| `durable-object` | `bindings.realtime[connection]` | `connection: 'default'`                              |
+| `pusher`         | `bindings.pusher[connection]`   | `connection: 'default'`                              |
+
+### Search — `search.engines.<name>`
+
+| Driver                     | Needs                                                                      |
+| -------------------------- | -------------------------------------------------------------------------- |
+| `memory`                   | nothing (refused when `production: true`)                                  |
+| `sqlite`, `postgres`       | `bindings.databases[connection]` and `collection`                          |
+| `typesense`, `meilisearch` | `host`, `collection`, `apiKey` as `{ fromEnv: '…' }`                       |
+| `algolia`                  | the above, plus `searchApiKey` when the write key must not reach a browser |
+
+`databaseQuery(connection)` is the adapter that makes a `@tsir/database` connection usable as the
+SQL engines' `bindings.databases` entry; it pins the row format the engines read.
 
 ### Search — Cloudflare has none, AWS has OpenSearch
 
@@ -307,15 +343,25 @@ is honest, not because they are acceptable.
    stateless target". Nothing reads it yet: the starter writes `memory` for every block, and
    `tsir doctor` does not print the row. The next step is `tsir new --target cloudflare` writing
    the Cloudflare rows, which is the difference between a default and a documented intention.
-1. **`sqlite` as a database engine is still a plan.** `DATABASE_ENGINES` is `['d1', 'postgres']`, so
-   a local SQLite file and a Cloudflare Container cannot use the same config shape as D1 even
-   though all three speak the same dialect and the proxy dialect already exists. The seam is ready
-   — `DbDriver` takes `engine: 'd1' | 'postgres'` and `placeholder`, and the auth and cache SQL
-   ports already read both — but the driver is not written.
-1. **`mysql` is not supported, and `make:connection` now says so.** It was in the command's list by
-   mistake and never in `DATABASE_ENGINES`. Adding it is an engine, not a driver: a third
-   placeholder style (`?` like SQLite, but nothing else alike) and a `DATABASE_ENGINES` change that
-   every `engine === 'postgres'` branch has to learn about.
+1. **The three missing database engines are shipped (`CAP-009`).** `DATABASE_ENGINES` is
+   `['d1', 'postgres', 'mysql', 'sqlite']` and every one of the four is built from `tsir.js`, which
+   it was not before: `from-config.ts` answered `DB_POSTGRES_BOOTSTRAP_UNWIRED` for _any_
+   url-based connection, so the Lambda and Bun **defaults** named an engine that could not start.
+   `postgres` and `mysql` reach a pooler over HTTP — one `POST` per statement, no socket, no SDK —
+   because that is what Neon, Supabase, TiDB Cloud and PlanetScale publish, and because a Worker
+   has no socket to open. `sqlite` is the D1 driver over a `bun:sqlite` handle: same dialect, real
+   `BEGIN IMMEDIATE`, and `health().engine` says `sqlite` rather than claiming a binding.
+1. **A transaction over HTTP is refused at boot, not discovered mid-request.** The two url engines
+   declare `interactiveTx: false` because one HTTP request is one session: a `BEGIN` in one and a
+   `COMMIT` in the next are different backends. `declare()` therefore refuses the component that
+   needs one, before the first request, with the fix in the message.
+1. **`mysql` shipped, and it needed more than a driver.** It was in `make:connection`'s list by
+   mistake and never in `DATABASE_ENGINES`, so adding it was an engine: a third placeholder style
+   (`?` like SQLite, nothing else alike). The five structural SQL ports widened to all four
+   engines, because they branch on `placeholder` and never on the name. `migrate` kept two
+   dialects plus `sqlite` — its branches are `=== 'postgres'` with SQLite as the else, so a file is
+   the same SQL as a binding — and refuses `mysql` with `DB_MIGRATION_ENGINE_UNSUPPORTED`, because
+   its two tables are written in two dialects and a third would be invented SQL.
 1. **Fixed 2026-11-13 — `make:connection` wrote drivers the schema rejects.** `KINDS` listed
    `['d1', 'postgres', 'mysql']` while `DATABASE_ENGINES` was `['d1', 'postgres']`, so
    `--driver mysql` wrote a `tsir.js` that failed at boot, and a typo'd cache, queue, storage or
@@ -325,29 +371,29 @@ is honest, not because they are acceptable.
    `config/cache.ts` comments said `tsir_cache`; `tsir cache:table` prints `cache_entries`. The
    comment was stale and is corrected. This was a documentation error with a real failure mode:
    the commented-out entry would have created the wrong table.
-1. **`broadcast`'s `memory` default leaks.** `createBroadcastBootstrap` appends listeners and never
-   releases them (`INF-009`), so its default is the one driver that grows without bound. It has no
-   production guard because it has no registry to carry one. The Durable Object driver does not
-   leak — it aborts the stream when the last listener leaves — which is another reason it is the
-   Workers default.
-1. **`broadcast` and `search` ship drivers with no `tsir.js` registry yet.** `BROADCAST_DRIVERS` and
-   `SEARCH_DRIVERS` exist and `make driver-defaults` reads them, but nothing in `tsir.js` does:
-   today a project wires `durableObjectBroadcaster` and `hostedSearch` in its entry. That is the
-   `CAP-006` work below, and these two are next because their defaults are now real services
-   rather than `memory`.
+1. **`broadcast`'s `memory` driver still leaks — but no longer reaches production.** The
+   broadcaster appends listeners and never releases them (`INF-009`). It now has a registry to
+   carry the guard, so `production: true` answers `CAP_FORBIDDEN_IN_PRODUCTION` instead of
+   publishing into an array nobody else can see. The Durable Object driver does not leak — it
+   aborts the stream when the last listener leaves — which is another reason it is the Workers
+   default.
+1. **`broadcast` and `search` have a registry now (`CAP-014`, `CAP-015`).** `broadcast.driver` and
+   `search.driver` are read from `tsir.js`, an unknown name is `CAP_DRIVER_MISSING` listing what
+   ships, and `memory` is refused in production on both. What remains in this section is `media`,
+   sessions, API keys, feature flags and the scheduler lock — the five still constructor-only.
 
 ### Task index
 
-| ID      | Task                                                        | Where                                        |
-| ------- | ----------------------------------------------------------- | -------------------------------------------- |
-| `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done       | `make-connection.ts` § 5                     |
-| `CAP-2` | ~~Validate every kind's driver from its constant~~ — done   | `make-connection.ts` § 5                     |
-| `CAP-3` | ~~Settle the cache table name in one place~~ — done         | `admin.product.com/config/cache.ts`          |
-| `CAP-4` | Wire `production: true` from `APP_ENV` into every bootstrap | `plans/tasks/07-capabilities.md` (`CAP-007`) |
-| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows   | `plans/tasks/07-capabilities.md` (`CAP-008`) |
-| `CAP-6` | Registries for the constructor-only ports                   | `plans/tasks/07-capabilities.md` (`CAP-006`) |
-| `CAP-7` | A `sqlite` database driver (`CAP-009`)                      | `src/framework/database/src/`                |
-| `CAP-8` | `tsir <capability>:drivers` for every registry              | `plans/operations/11-dx.md` § 2.4            |
+| ID      | Task                                                         | Where                                        |
+| ------- | ------------------------------------------------------------ | -------------------------------------------- |
+| `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done        | `make-connection.ts` § 5                     |
+| `CAP-2` | ~~Validate every kind's driver from its constant~~ — done    | `make-connection.ts` § 5                     |
+| `CAP-3` | ~~Settle the cache table name in one place~~ — done          | `admin.product.com/config/cache.ts`          |
+| `CAP-4` | Wire `production: true` from `APP_ENV` into every bootstrap  | `plans/tasks/07-capabilities.md` (`CAP-007`) |
+| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows    | `plans/tasks/07-capabilities.md` (`CAP-008`) |
+| `CAP-6` | Registries for the five remaining constructor-only ports     | `plans/tasks/07-capabilities.md` (`CAP-006`) |
+| `CAP-7` | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`) | `src/framework/database/src/`                |
+| `CAP-8` | `tsir <capability>:drivers` for every registry               | `plans/operations/11-dx.md` § 2.4            |
 
 ### Open questions
 

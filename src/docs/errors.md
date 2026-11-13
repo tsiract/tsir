@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-282 codes across 27 packages.
+288 codes across 27 packages.
 
 ## `@tsir/auth`
 
@@ -117,19 +117,24 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DB_D1_NO_BINDING`               |
 | `DB_DRIVER_UNAVAILABLE`          |
 | `DB_HEALTH_FAILED`               |
+| `DB_MYSQL_HTTP_FAILED`           |
 | `DB_NO_CONNECTIONS`              |
 | `DB_POSTGRES_BOOTSTRAP_UNWIRED`  |
+| `DB_POSTGRES_HTTP_FAILED`        |
 | `DB_RAW_UNSUPPORTED`             |
 | `DB_REQUIRES_INTERACTIVE_TX`     |
 | `DB_REQUIRES_TX_CONNECTION`      |
 | `DB_ROTATION_INVALID_IDENTIFIER` |
 | `DB_ROTATION_TARGET_MISMATCH`    |
+| `DB_SQLITE_NO_HANDLE`            |
 | `DB_TX_DEPTH_EXCEEDED`           |
 | `DB_TX_INTERACTIVE_UNSUPPORTED`  |
+| `DB_TX_NESTED_UNSUPPORTED`       |
 | `DB_TX_OPTION_UNSUPPORTED`       |
 | `DB_TX_STATEMENT_UNSUPPORTED`    |
 | `DB_UNKNOWN_CONNECTION`          |
 | `DB_UNKNOWN_DEFAULT`             |
+| `DB_URL_REQUIRED`                |
 
 ## `@tsir/deploy`
 
@@ -266,15 +271,16 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 ## `@tsir/migrate`
 
-| Code                            |
-| ------------------------------- |
-| `DB_MIGRATION_DRIFT`            |
-| `DB_MIGRATION_EMPTY`            |
-| `DB_MIGRATION_FAILED`           |
-| `DB_MIGRATION_LOCK_UNSUPPORTED` |
-| `DB_ROLLBACK_DESTRUCTIVE`       |
-| `DB_ROLLBACK_UNKNOWN_TARGET`    |
-| `DB_ROLLBACK_UNSAFE`            |
+| Code                              |
+| --------------------------------- |
+| `DB_MIGRATION_DRIFT`              |
+| `DB_MIGRATION_EMPTY`              |
+| `DB_MIGRATION_ENGINE_UNSUPPORTED` |
+| `DB_MIGRATION_FAILED`             |
+| `DB_MIGRATION_LOCK_UNSUPPORTED`   |
+| `DB_ROLLBACK_DESTRUCTIVE`         |
+| `DB_ROLLBACK_UNKNOWN_TARGET`      |
+| `DB_ROLLBACK_UNSAFE`              |
 
 ## `@tsir/notify`
 

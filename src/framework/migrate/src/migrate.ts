@@ -34,8 +34,8 @@ import {
   insertRunStatement,
   isMissingTable,
   journalTableDdl,
+  migrationEngine,
   readApplied,
-  type Engine,
   type TableNames,
 } from './state.ts';
 
@@ -142,7 +142,7 @@ async function applyOne(
   file: Migration,
   tables: TableNames,
 ): Promise<{ readonly atomic: boolean }> {
-  const engine: Engine = database.capabilities.engine;
+  const engine = migrationEngine(database.capabilities);
   const journal = insertAppliedStatement(
     engine,
     { idx: file.idx, tag: file.tag, when: file.when, version: '7' },
@@ -326,7 +326,7 @@ async function runUnderLock(
       // after it so it can carry the real duration — and a failure to write it
       // must not fail or roll back work that already happened.
       const run = insertRunStatement(
-        database.capabilities.engine,
+        migrationEngine(database.capabilities),
         {
           runId,
           tag: file.tag,
@@ -388,7 +388,7 @@ export async function readAppliedOrEmpty(
 
 /** Creates both tables once per run; `if not exists` keeps it idempotent. */
 export async function ensureTables(database: Database, tables: TableNames = {}): Promise<void> {
-  const engine: Engine = database.capabilities.engine;
+  const engine = migrationEngine(database.capabilities);
   await database.query(statement(journalTableDdl(engine, tables)));
   await database.query(statement(auditTableDdl(engine, tables)));
 }

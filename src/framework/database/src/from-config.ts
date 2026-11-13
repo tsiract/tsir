@@ -15,6 +15,9 @@
 
 import { createConnections, type ConnectionDefinition } from './connections.ts';
 import { createD1Driver, D1_CAPABILITIES, type D1Like } from './d1.ts';
+import { createHttpMysqlDriver } from './mysql.ts';
+import { createHttpPostgresDriver, parsePostgresUrl } from './postgres-http.ts';
+import { createSqliteDriver, SQLITE_CAPABILITIES, sqliteBegin, type SqliteLike } from './sqlite.ts';
 import type { DbDriver, DbHealth, DbResult, DbStatement } from './driver.ts';
 import type { DatabaseConfig } from './config.ts';
 import { driverUnavailable } from './errors.ts';
@@ -111,12 +114,102 @@ function deferredD1Driver(
 }
 
 /**
+ * A sqlite driver whose file handle is resolved lazily, exactly as `deferredD1Driver` does for a
+ * binding.
+ *
+ * Capabilities are static and known at boot (`SQLITE_CAPABILITIES`), so `declare()` still refuses
+ * a component that needs something this engine lacks before the first query. The handle is looked
+ * up under the connection's own name in the bindings record, so several sqlite connections in one
+ * project are several files rather than one shared handle.
+ */
+function deferredSqliteDriver(connectionName: string, bindings: BindingsSource): DbDriver {
+  let real: DbDriver | null = null;
+  let pending: Promise<DbDriver> | null = null;
+
+  async function getDriver(): Promise<DbDriver> {
+    if (real !== null) return real;
+    pending ??= (async () => {
+      const resolved = await resolveBindings(bindings);
+      // A caller-supplied handle wins: an application that opened the file itself may have tuned
+      // it, or may be sharing it with a second driver.
+      const supplied = resolved[connectionName];
+      if (supplied !== undefined) {
+        const driver = createSqliteDriver({ handle: supplied as SqliteLike });
+        real = driver;
+        return driver;
+      }
+      // No handle is an unanswered lookup, not an empty database: the driver cannot invent a
+      // file, and guessing a path would open one nobody named. `createDatabaseBootstrap` supplies
+      // the handle for a config that names a `url`; an application that builds the registry
+      // directly passes its own.
+      throw new TsirError(
+        'DB_SQLITE_NO_HANDLE',
+        `sqlite connection "${connectionName}" has no open file handle`,
+        {
+          kind: 'config',
+          hint: `pass bindings: { ${connectionName}: new Sqlite(path) } — createDatabaseBootstrap opens \`database.connections.${connectionName}.url\` for you`,
+          context: { connection: connectionName },
+        },
+      );
+    })();
+    try {
+      return await pending;
+    } catch (error: unknown) {
+      // A handle may arrive on the next request in a platform that injects it, so a failed
+      // resolution is not cached.
+      pending = null;
+      throw error;
+    }
+  }
+
+  return {
+    capabilities: SQLITE_CAPABILITIES,
+    async query(statement: DbStatement): Promise<DbResult> {
+      return (await getDriver()).query(statement);
+    },
+    async batch(statements: readonly DbStatement[]): Promise<readonly DbResult[]> {
+      return (await getDriver()).batch(statements);
+    },
+    async health(): Promise<DbHealth> {
+      return (await getDriver()).health();
+    },
+    /**
+     * `SQLITE_CAPABILITIES.interactiveTx` is `true`, and `createDatabase` refuses a driver that
+     * declares it without implementing it — so this must forward, not inherit. The boundary is
+     * `sqliteBegin`, the same one the eager driver uses, so the two cannot disagree about the
+     * rollback.
+     */
+    async begin<T>(work: (tx: DbDriver) => Promise<T>): Promise<T> {
+      const driver = await getDriver();
+      const resolved = await resolveBindings(bindings);
+      const supplied = resolved[connectionName];
+      if (supplied === undefined) {
+        // The driver resolved, so a handle exists somewhere; the branch is unreachable unless a
+        // consumer mutated the record between two reads, and throwing beats an assertion.
+        throw new TsirError(
+          'DB_SQLITE_NO_HANDLE',
+          `sqlite connection "${connectionName}" has no handle`,
+          {
+            kind: 'config',
+          },
+        );
+      }
+      return sqliteBegin(supplied as SqliteLike, driver, work);
+    },
+    close(options?: { readonly timeoutMs?: number }): Promise<void> {
+      return real?.close(options) ?? Promise.resolve();
+    },
+  };
+}
+
+/**
  * Turn one config entry into a connection definition the registry can use.
  *
  * The name is the map key, not a field on the definition (matching
  * `createConnections`' contract).
  */
 function definitionFromConfig(
+  name: string,
   config: DatabaseConfig['connections'][string],
   bindings: BindingsSource,
 ): ConnectionDefinition {
@@ -134,13 +227,61 @@ function definitionFromConfig(
     };
   }
 
-  // Postgres is wired by URL. The client is created eagerly because it has its
-  // own lazy connection pool — no binding to wait for.
-  throw driverUnavailable(
-    'postgres',
-    'config',
-    'postgres bootstrap from config is not yet wired — pass a driver directly via createConnections()',
-  );
+  // The three network engines are wired by `url`, and they share the HTTP transport: a Workers
+  // bundle cannot open a socket, and on Lambda a pool per instance is the connection storm
+  // `POOL_CEILING` exists to prevent. A pooler answers both, over HTTP (`DB-028`).
+  return { driver: networkDriver(config, bindings, name) };
+}
+
+/**
+ * The driver for a `url`-based connection.
+ *
+ * Split out so the `binding` branch above stays about bindings. `sqlite` is here rather than in
+ * `from-config`'s caller because the config entry is what names it; where the file handle comes
+ * from is a runtime question the caller answers.
+ */
+function networkDriver(
+  config: DatabaseConfig['connections'][string],
+  bindings: BindingsSource,
+  connectionName: string,
+): DbDriver {
+  const url = config.url;
+  if (url === undefined) {
+    throw new TsirError(
+      'DB_URL_REQUIRED',
+      `database connection uses driver "${config.driver}" but has no \`url\` in config/database.ts`,
+      {
+        kind: 'config',
+        hint: 'add `url: { fromEnv: "DATABASE_URL" }` — a secret never belongs in the file',
+      },
+    );
+  }
+
+  if (config.driver === 'sqlite') {
+    // A path, not a transport. The handle is resolved through `bindings` under the connection's
+    // own name, deferred for the same reason D1's is: opening the file needs `bun:sqlite`, which
+    // cannot be imported statically here without dragging a Bun builtin into every bundle that
+    // imports this module. `createDatabaseBootstrap` opens it when a `sqlitePath`/`url` is set.
+    return deferredSqliteDriver(connectionName, bindings);
+  }
+
+  if (config.driver === 'postgres') {
+    const parsed = parsePostgresUrl(url);
+    return createHttpPostgresDriver({
+      ...parsed,
+      ...(config.statementTimeoutMs === undefined ? {} : { timeoutMs: config.statementTimeoutMs }),
+    });
+  }
+
+  if (config.driver === 'mysql') {
+    return createHttpMysqlDriver({
+      url,
+      ...(config.databaseName === undefined ? {} : { database: config.databaseName }),
+      ...(config.statementTimeoutMs === undefined ? {} : { timeoutMs: config.statementTimeoutMs }),
+    });
+  }
+
+  throw driverUnavailable(config.driver, 'config', 'no driver is registered for this engine');
 }
 
 /**
@@ -159,7 +300,7 @@ export function createConnectionsFromConfig(
   bindings: BindingsSource,
 ): ReturnType<typeof createConnections> {
   const entries = Object.entries(config.connections).map(
-    ([name, entry]) => [name, definitionFromConfig(entry, bindings)] as const,
+    ([name, entry]) => [name, definitionFromConfig(name, entry, bindings)] as const,
   );
 
   return createConnections({

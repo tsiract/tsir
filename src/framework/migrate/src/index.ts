@@ -42,7 +42,7 @@ export type {
 export { isApplicable, planMigrations } from './plan.ts';
 export type { AppliedMigration, DriftedMigration, MigrationPlan } from './plan.ts';
 
-export { AUDIT_TABLE, JOURNAL_TABLE, readRuns } from './state.ts';
+export { AUDIT_TABLE, JOURNAL_TABLE, migrationEngine, readRuns } from './state.ts';
 export type { MigrationRun, TableNames } from './state.ts';
 
 export { acquireMigrationLock, advisoryLockKey, lockHeldMessage, lockUnsupported } from './lock.ts';

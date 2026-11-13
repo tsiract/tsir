@@ -29,6 +29,7 @@ import { pathToFileURL } from 'node:url';
 import type { Connections, Database } from '@tsir/database';
 import {
   migrate,
+  migrationEngine,
   migrationFolder,
   migrationStatus,
   preflightGuidance,
@@ -516,7 +517,7 @@ export async function migrateCommand(argv: readonly string[]): Promise<number> {
     if (!json) {
       if (db.moduleName !== undefined) info(style.dim(`  module ${db.moduleName} · ${db.folder}`));
       const guidance = preflightGuidance({
-        engine: db.database.capabilities.engine,
+        engine: migrationEngine(db.database.capabilities),
         environment: db.env,
         pending: 0,
       });

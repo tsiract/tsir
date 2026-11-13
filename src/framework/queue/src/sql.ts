@@ -18,7 +18,13 @@ export interface QueueSqlResult {
 
 export interface QueueSql {
   readonly capabilities: {
-    readonly engine: 'd1' | 'postgres';
+    /**
+     * Any SQL engine. These channels branch on `placeholder`, never on the engine name, so
+     * narrowing to `d1 | postgres` would reject a `mysql` or `sqlite` connection that works
+     * (`CAP-009`). `@tsir/migrate` keeps the narrow pair: its state table really does have two
+     * dialects.
+     */
+    readonly engine: 'd1' | 'postgres' | 'mysql' | 'sqlite';
     readonly placeholder: 'question' | 'dollar';
     /** `SELECT … FOR UPDATE SKIP LOCKED` exists. False on D1, which has no row locks. */
     readonly skipLocked?: boolean | undefined;
