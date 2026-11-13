@@ -101,6 +101,40 @@ describe('broadcast and search sections (CAP-014, CAP-015)', () => {
   });
 });
 
+describe('media section (CAP-017)', () => {
+  test('a named adapter per destination is accepted', () => {
+    expect(
+      codeOf(() =>
+        checkProjectFile({
+          media: {
+            default: 'images',
+            adapters: {
+              images: {
+                driver: 'cloudflare',
+                accountId: 'acct',
+                apiToken: { fromEnv: 'CF_IMAGES_TOKEN' },
+              },
+              video: { driver: 'ffmpeg' },
+            },
+          },
+        }),
+      ),
+    ).toBeUndefined();
+  });
+
+  test('a key no adapter reads is refused, in the nested entry too', () => {
+    // `uploadPreset` is cloudinary's; `preset` is what somebody would type from memory.
+    const lines = unknownProjectKeys({
+      media: { adapters: { images: { driver: 'cloudinary', cloudName: 'c', preset: 'p' } } },
+    });
+    expect(lines).toEqual(['media.adapters.images.preset: unknown key']);
+  });
+
+  test('an empty media block is refused rather than resolving to nothing', () => {
+    expect(codeOf(() => checkProjectFile({ media: {} }))).toBe('CFG_MISSING_DEFAULT');
+  });
+});
+
 describe('registries (CFG_MISSING_DEFAULT, CFG_UNKNOWN_DEFAULT, CFG_AMBIGUOUS_CONNECTION)', () => {
   test('a registry with no default is refused, and the hint lists the names', () => {
     let caught: unknown;

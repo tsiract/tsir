@@ -20,22 +20,22 @@ refusal: a driver whose data dies with the process is refused as the default whe
 
 Ours = the driver ships in this repository. Selectable = the name works in `tsir.js` today.
 
-| Capability         | Port           | Default: Cloudflare → AWS → bun       | Drivers this build ships                                                       | Selectable in `tsir.js`  | Refused in production                                   |
-| ------------------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------ | ------------------------------------------------------- |
-| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory`  | `memory`, `null`, `database`, `redis`, `cloudflare-kv`                         | all five                 | `memory`, `null` as default or `required`               |
-| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync`  | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`                       | all five                 | `memory`, `sync` as default or `required`               |
-| **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                              |
-| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`                       |
-| **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws                |
-| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                 | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                |
-| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                  | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                |
-| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | **none** yet (`CAP-006`) | nothing yet — no registry                               |
-| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
-| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
-| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | **none** yet (`CAP-006`) | nothing yet — no registry                               |
-| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                               |
-| **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres`, `mysql`, `sqlite`                                            | all four                 | nothing — a binding, a url or a file is required anyway |
-| **Vault keys**     | `Keyring`      | generated at first run                | `file` (`TSIR_KEYRING_FILE`)                                                   | n/a (one mechanism)      | an absent key refuses to boot                           |
+| Capability         | Port           | Default: Cloudflare → AWS → bun       | Drivers this build ships                                                       | Selectable in `tsir.js`  | Refused in production                                                                   |
+| ------------------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------ | --------------------------------------------------------------------------------------- |
+| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory`  | `memory`, `null`, `database`, `redis`, `cloudflare-kv`                         | all five                 | `memory`, `null` as default or `required`                                               |
+| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync`  | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`                       | all five                 | `memory`, `sync` as default or `required`                                               |
+| **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                                                              |
+| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`                                                       |
+| **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws                                                |
+| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | all four                 | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                                                |
+| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | all six                  | `memory` — `CAP_FORBIDDEN_IN_PRODUCTION`                                                |
+| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | all five                 | `sharp`, `ffmpeg` — `CAP_FORBIDDEN_IN_PRODUCTION` (they cannot store what they produce) |
+| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                                                               |
+| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                                                               |
+| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | **none** yet (`CAP-006`) | nothing yet — no registry                                                               |
+| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                                                               |
+| **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres`, `mysql`, `sqlite`                                            | all four                 | nothing — a binding, a url or a file is required anyway                                 |
+| **Vault keys**     | `Keyring`      | generated at first run                | `file` (`TSIR_KEYRING_FILE`)                                                   | n/a (one mechanism)      | an absent key refuses to boot                                                           |
 
 **Two notes the columns hide.**
 
@@ -52,11 +52,12 @@ why it is not a default on either cloud target.
 
 **The gap this table makes visible:** seven capabilities resolve their driver from `tsir.js`
 (`cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`) and five do not — `media`,
-`sessions`, `api keys`, `feature flags` and the scheduler lock. For those five a `tsir.js` block is
-not read by anything; you construct the driver in your app entry instead. `broadcast` and `search`
-were in that group until their registries landed (`CAP-006`), and closing them changed something
-beyond the config: both can now refuse `memory` in production, which a constructor called from
-`app.ts` has no way to do.
+`sessions`, `api keys`, `feature flags` and the scheduler lock. For those four a `tsir.js` block is
+not read by anything; you construct the driver in your app entry instead. `broadcast`, `search` and
+`media` were in that group until their registries landed (`CAP-006`), and closing them changed
+something beyond the config: each can now refuse a driver in production, which a constructor called
+from `app.ts` has no way to do. Their defaults were already real services, which is why the missing
+guard mattered.
 
 ---
 
@@ -400,6 +401,12 @@ is honest, not because they are acceptable.
    publishing into an array nobody else can see. The Durable Object driver does not leak — it
    aborts the stream when the last listener leaves — which is another reason it is the Workers
    default.
+1. **`media` has a registry now (`CAP-017`).** `media.adapters.<name>` is read from `tsir.js`, and
+   `production: true` refuses `sharp` and `ffmpeg`: they transform a buffer and hand it back, which
+   is a real choice on a server with a disk and a lost upload on a Worker. A route that returns 200
+   and drops the image is the failure the refusal exists for. The four still constructor-only are
+   `sessions`, `api keys`, `feature flags` and the scheduler lock — all four default to `database`,
+   which is a real engine on every target, so none of them hides a `memory` in production.
 1. **`broadcast` and `search` have a registry now (`CAP-014`, `CAP-015`).** `broadcast.driver` and
    `search.driver` are read from `tsir.js`, an unknown name is `CAP_DRIVER_MISSING` listing what
    ships, and `memory` is refused in production on both. What remains in this section is `media`,

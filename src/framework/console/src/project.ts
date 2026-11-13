@@ -347,6 +347,33 @@ const projectSchema = z.object({
         .optional(),
     })
     .optional(),
+  // Media adapters (`CAP-017`). Named per destination, because a project usually wants images at
+  // one service and video at another; the first declared adapter of each kind is the default.
+  media: z
+    .object({
+      default: z.string().min(1).optional(),
+      adapters: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            accountId: z.string().optional(),
+            apiToken: envRef.optional(),
+            cloudName: z.string().optional(),
+            uploadPreset: z.string().optional(),
+            publicKey: z.string().optional(),
+            privateKey: envRef.optional(),
+            urlEndpoint: z.string().optional(),
+            imageVariant: z.string().optional(),
+            defaultFormat: z.string().optional(),
+            defaultQuality: z.number().int().positive().optional(),
+            ffmpegPath: z.string().optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   // The scheduler's lock. One lock for the project, because
   // a scheduler takes one provider — and `driver` is a string for the same reason the cache and
   // queue drivers are: an unknown name is a message that lists the real ones.

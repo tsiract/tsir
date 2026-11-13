@@ -24,6 +24,7 @@
 // a framework script is allowed to do and an application is not.
 import { BROADCAST_DRIVERS } from '../framework/broadcast/src/broadcaster.ts';
 import { CACHE_DRIVERS } from '../framework/cache/src/config.ts';
+import { MEDIA_DRIVERS } from '../framework/media/src/config.ts';
 import {
   DRIVER_DEFAULTS,
   EPHEMERAL_DRIVERS,
@@ -47,11 +48,11 @@ const REGISTRIES: Readonly<Record<string, readonly string[] | undefined>> = {
   notifications: CHANNEL_DRIVERS,
   broadcast: BROADCAST_DRIVERS,
   search: SEARCH_DRIVERS,
-  // `CAP-006`: still constructor-only, so there is no constant to check against. Each of these
-  // gains an entry here the day its registry lands, and the omission becomes visible rather than
-  // remembered — which is the same reason this file exists instead of a comment in core.
+  media: MEDIA_DRIVERS,
+  // `CAP-006`: the last constructor-only ports. Each gains an entry here the day its registry
+  // lands, and the omission stays visible rather than remembered — which is the same reason this
+  // file exists instead of a comment in core.
   sessions: undefined,
-  media: undefined,
 };
 
 export interface Problem {

@@ -27,5 +27,16 @@ export { cloudflareAdapter, type CloudflareAdapterOptions } from './adapters/clo
 export { cloudinaryAdapter, type CloudinaryAdapterOptions } from './adapters/cloudinary.ts';
 export { imagekitAdapter, type ImageKitAdapterOptions } from './adapters/imagekit.ts';
 
+export {
+  MEDIA_DRIVERS,
+  PERSISTENT_MEDIA_DRIVERS,
+  adapterFor,
+  mediaFromConfig,
+  type ConfiguredMedia,
+  type ConfiguredMediaAdapter,
+  type EnvRef,
+  type MediaBuildOptions,
+  type MediaDriverName,
+} from './config.ts';
 export { createMediaBootstrap } from './bootstrap.ts';
 export type { MediaBootstrap, MediaBootstrapOptions } from './bootstrap.ts';
