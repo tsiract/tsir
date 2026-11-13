@@ -19,6 +19,22 @@ registerCommands([hello]);
 console.log(await runCli(['hello:world']));
 ```
 
+## Checking what a local emulator can prove
+
+`tsir deploy:verify` answers a narrow question for the AWS half of an application: for each AWS
+operation this tree calls, can a local emulator run it, or does it refuse? It prints a verdict per
+operation — `served`, `written-refusal`, `stub` or `absent` — and probes a running emulator when one
+is up. `--json` emits the same as a versioned document.
+
+It exits `0` when the table covers every call the tree makes and `1` when it does not, so a new
+AWS call cannot be added without a row describing it. A missing emulator is not a failure: the
+command says how to start one and exits `0`.
+
+The source cross-check — re-deriving each verdict from the emulator's own handler files — runs
+when `AWS_EMULATOR_SRC` names a checkout of the emulator at the pinned tag. Those files live with
+this package in the repository and are not shipped, so in a distribution the table prints and the
+cross-check reports itself as skipped.
+
 ## Failure modes
 
 - `CLI_WSDL_INVALID`: the WSDL file given to the SOAP client generator is invalid. The message gives the

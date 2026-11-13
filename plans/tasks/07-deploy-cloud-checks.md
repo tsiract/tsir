@@ -25,7 +25,7 @@ machine, and no way to measure a cold start from a machine that is not the one b
 locally with no account. It is read in [`../reviews/2026-11-13-aws-emulator.md`](../reviews/2026-11-13-aws-emulator.md)
 and summarised in this file's § 3 notes: it can move **C3** (an invoke, an SQS partial batch, a
 schedule) and part of **C6**, it cannot touch **C5** (`sam` validates a template, not an API) or
-**C4** (it reports no `initDuration`), and nothing else on this list changes. `make aws-emulator`
+**C4** (it reports no `initDuration`), and nothing else on this list changes. `tsir deploy:verify`
 prints the per-operation table and probes a running emulator; it skips, loudly, when there is
 none.
 

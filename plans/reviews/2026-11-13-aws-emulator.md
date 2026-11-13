@@ -6,8 +6,8 @@ read** v1.0.341 (@ `7eb5bf3`, 2026-11-13)
 > This review is the author's own, which is the limitation every review in this directory states.
 > It is a **read of a tool**, not an audit of it: no emulator was run, because none can be run
 > from this sandbox (§ 5). Everything below is derived from the emulator's published source at a
-> pinned tag, and the derivation is mechanical — `src/tools/aws-emulator.ts` re-checks it, and
-> `src/tools/fixtures/aws-emulator/` holds the 13 handler files it is checked against.
+> pinned tag, and the derivation is mechanical — `src/framework/console/src/commands/emulator.ts` re-checks it, and
+> `src/framework/console/src/commands/fixtures/aws-emulator/` holds the 13 handler files it is checked against.
 
 ---
 
@@ -47,7 +47,7 @@ mistakes were behind that draft, and both are now encoded as regression tests:
 
 1. **The selector read the wrong line** — it took the first code line after `fn handle`, which is
    `&self,` from the four-line signature, for _every_ handler. `selectorsIn` now brace-matches to
-   the body (`src/tools/aws-emulator.test.ts`).
+   the body (`src/framework/console/src/commands/emulator.test.ts`).
 2. **The surface scan invented a prefix** — it looked for `SNS<Operation>Command`, but SDK v3
    command classes carry no service prefix (`PublishCommand`). It therefore found **no** SNS or
    Lambda calls in the whole repository and reported that only SES was called. Attribution is now
@@ -63,7 +63,7 @@ matters most for Phase 6.
 One row per AWS operation this repository calls. Verdicts: `served` (the handler body is written),
 `written-refusal` (written, with a 501 by design for a request member we do not send), `stub`
 (scaffold refusal), `absent` (no handler). Every row is re-derived from the vendored source by
-`crossCheck()`; `make aws-emulator` prints the re-derivation.
+`crossCheck()`; `tsir deploy:verify` prints the re-derivation.
 
 | Operation                         | Ours                                                   | Verdict         | What the emulator does with _our_ call                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -71,15 +71,15 @@ One row per AWS operation this repository calls. Verdicts: `served` (the handler
 | SQS `ReceiveMessage`              | `queue/src/drivers/sqs.ts` → `backend.reserve`         | served          | visibility windows, long-poll wait, and `ApproximateReceiveCount` — the attribute the driver reads `attempts` from                                                                                           |
 | SQS `DeleteMessage`               | `…` → `backend.complete` and the malformed-body branch | served          | receipt handle resolved against the queue it came from                                                                                                                                                       |
 | SQS `ChangeMessageVisibility`     | `…` → `backend.fail` (retry)                           | served          | out-of-range timeout refused with the modelled parameter error; this is the driver's retry mechanism                                                                                                         |
-| SQS `CreateQueue`                 | `src/tools/aws-emulator.ts` (probe setup)              | served          | queue-name rules, FIFO from attributes, `QueueNameExists`                                                                                                                                                    |
+| SQS `CreateQueue`                 | `tsir deploy:verify` (probe setup)                     | served          | queue-name rules, FIFO from attributes, `QueueNameExists`                                                                                                                                                    |
 | SES v2 `SendEmail`                | `mail/src/transports/ses.ts` → `send`                  | written-refusal | two 501s by design — a sender read only from the raw MIME `From` header, and recipients only in the MIME headers. **We send both in the request**, so neither is reached. It does enforce verified identity. |
-| SES v2 `CreateEmailIdentity`      | `src/tools/aws-emulator.ts` (probe setup)              | served          | required before a send: SES's own rule, and the emulator enforces it                                                                                                                                         |
+| SES v2 `CreateEmailIdentity`      | `tsir deploy:verify` (probe setup)                     | served          | required before a send: SES's own rule, and the emulator enforces it                                                                                                                                         |
 | SNS `Publish`                     | `deploy/src/internal.ts` → `publish`                   | served          | 91 kB handler — the largest in the emulator                                                                                                                                                                  |
 | SNS `ListTopics`                  | `deploy/src/internal.ts` → `resolveTopicArn`           | served          | the fallback path when no `SNS_TOPIC_ARN` is set                                                                                                                                                             |
 | Lambda `Invoke`                   | `deploy/src/internal.ts` → `invoke`                    | served          | **runs the handler** in QuickJS; `Payload`, `ExecutedVersion`, `FunctionError` are the guest's own                                                                                                           |
-| Lambda `CreateFunction`           | `src/tools/aws-emulator.ts` (probe)                    | served          | a function must exist before `Invoke` resolves it, as on AWS                                                                                                                                                 |
-| Lambda `CreateEventSourceMapping` | `src/tools/aws-emulator.ts` (probe)                    | served          | a poller really reads the queue; `ReportBatchItemFailures` is read from the response                                                                                                                         |
-| EventBridge `PutRule`             | `src/tools/aws-emulator.ts` (probe)                    | served          | a schedule rule fires on its own clock and delivers the scheduled-event envelope                                                                                                                             |
+| Lambda `CreateFunction`           | `tsir deploy:verify` (probe)                           | served          | a function must exist before `Invoke` resolves it, as on AWS                                                                                                                                                 |
+| Lambda `CreateEventSourceMapping` | `tsir deploy:verify` (probe)                           | served          | a poller really reads the queue; `ReportBatchItemFailures` is read from the response                                                                                                                         |
+| EventBridge `PutRule`             | `tsir deploy:verify` (probe)                           | served          | a schedule rule fires on its own clock and delivers the scheduled-event envelope                                                                                                                             |
 
 **C1–C8 against this.** The honest ledger:
 
@@ -161,15 +161,15 @@ The sandbox cannot run the emulator, and that is a fact about the sandbox, not a
 | npm/PyPI wrapper                            | none published (`aws-emulator` is not on either)                                                       |
 
 What _is_ reachable is GitHub, so the source was read at a pinned tag and the 13 handlers the table
-depends on were vendored into `src/tools/fixtures/aws-emulator/` (556 kB) so the verdicts are
+depends on were vendored into `src/framework/console/src/commands/fixtures/aws-emulator/` (512 kB) so the verdicts are
 checked on every `bun test`, not only when someone has a checkout.
 
 **How to run the probe elsewhere** (one `apt install`, then):
 
 ```bash
 aws-emulator --telemetry off            # serves https://127.0.0.1:9297
-bun src/tools/aws-emulator.ts           # table + cross-check + probe
-TSIR_LAMBDA_ZIP=<unit>.zip bun src/tools/aws-emulator.ts   # adds the invoke step
+tsir deploy:verify                        # table + cross-check + probe
+TSIR_LAMBDA_ZIP=<unit>.zip tsir deploy:verify   # adds the invoke step
 ```
 
 The probe exercises the `sqs` driver's own four calls (push → reserve → complete, a held lease, a
@@ -203,6 +203,6 @@ emulator is not a repository defect.
 
 Reviewed, not audited — the author of the code, against a tool that has never been run here. The
 correct next action is not another document: it is to stand up the emulator on a machine that can,
-run `bun src/tools/aws-emulator.ts` against a built unit, and paste the transcript into
+run `tsir deploy:verify` against a built unit, and paste the transcript into
 `07-deploy-cloud-checks.md` § 3 as **C3** evidence — or into § 1 as the reason C3 still cannot be
 met.

@@ -86,7 +86,7 @@
  *
  * ## Using it
  *
- *   `bun src/tools/aws-emulator.ts` — the table, the cross-check when `AWS_EMULATOR_SRC` names a
+ *   `tsir deploy:verify` — the table, the cross-check when `AWS_EMULATOR_SRC` names a
  *   checkout, and the probe when an emulator is running. `--json` prints the same as data.
  *
  * An absent emulator prints how to start one and exits 0: it is not a repository defect. The one
@@ -97,16 +97,17 @@
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { sqsDriver } from '../framework/queue/src/drivers/sqs.ts';
-import {
-  sqsClientOf,
-  type SqsLike,
-  type SqsReceiveInput,
-  type SqsSendInput,
-} from '../framework/queue/src/drivers/sqs.ts';
-import { sesTransport } from '../framework/mail/src/transports/ses.ts';
-import type { MailMessage } from '../framework/mail/src/port.ts';
-import { signRequest } from '../framework/storage/src/sigv4.ts';
+// The four call sites this table is about, imported the way any other command imports the packages
+// it drives. These are real dependencies of `@tsir/console` (not of `@tsir/deploy`), which is the
+// reason this module lives here: a check that must run from the distribution cannot depend on
+// another package's `src/`.
+import { sqsDriver, sqsClientOf } from '@tsir/queue/sqs';
+import type { SqsLike, SqsReceiveInput, SqsSendInput } from '@tsir/queue/sqs';
+import { sesTransport } from '@tsir/mail';
+import type { MailMessage } from '@tsir/mail';
+import { signRequest } from '@tsir/storage';
+
+import { jsonDocument } from '../output.ts';
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 1. The table
@@ -117,6 +118,29 @@ export type Verdict = 'served' | 'written-refusal' | 'stub' | 'absent';
 
 /** The emulator release every row was read against. A different tag is a different answer. */
 export const EMULATOR_RELEASE = 'v1.0.341';
+
+/**
+ * This module's own path, and the `ours.path` of every row the probe performs.
+ *
+ * Named once because it appears in three places that must agree: the rows below, the scan that
+ * skips this file (it names clients to *describe* them and calls none), and the summary that
+ * separates "the framework calls" from "the probe calls".
+ */
+const EMULATOR_SELF = 'src/framework/console/src/commands/emulator.ts';
+
+/**
+ * The vendored handler files the verdicts are checked against, at `EMULATOR_RELEASE`.
+ *
+ * Beside this module rather than under a repository-level `tools/` tree, so the table and the
+ * evidence that proves it are one artefact with one owner. They are **not** shipped: `check-dist`
+ * forbids a `fixtures` directory in the distribution, and rightly so — an application has no
+ * emulator checkout to re-derive verdicts from. `report()` therefore cross-checks only when
+ * `AWS_EMULATOR_SRC` names a source tree; the table itself prints anywhere.
+ *
+ * 13 handler files, ~512 kB, CC0 — each keeps its own `SPDX-License-Identifier` line, which
+ * `check-license` reads and honours.
+ */
+export const FIXTURE_ROOT = join(import.meta.dir, 'fixtures', 'aws-emulator');
 
 export interface OperationRow {
   /** The emulator's crate directory for the service. */
@@ -198,7 +222,10 @@ export const OPERATIONS: readonly OperationRow[] = [
   {
     crate: 'service-com-amazonaws-sqs-amazonsqs',
     operation: 'CreateQueue',
-    ours: { path: 'src/tools/aws-emulator.ts', function: 'probe — queue setup only' },
+    ours: {
+      path: 'src/framework/console/src/commands/emulator.ts',
+      function: 'probe — queue setup only',
+    },
     shape: 'QueueName',
     handler: 'create_queue.rs',
     bytes: 24249,
@@ -219,7 +246,10 @@ export const OPERATIONS: readonly OperationRow[] = [
   {
     crate: 'service-com-amazonaws-sesv2-simpleemailservice-v2',
     operation: 'CreateEmailIdentity',
-    ours: { path: 'src/tools/aws-emulator.ts', function: 'probe — SES setup only' },
+    ours: {
+      path: 'src/framework/console/src/commands/emulator.ts',
+      function: 'probe — SES setup only',
+    },
     shape: 'EmailIdentity (the address our transport will send from)',
     handler: 'create_email_identity.rs',
     bytes: 19700,
@@ -263,7 +293,7 @@ export const OPERATIONS: readonly OperationRow[] = [
     crate: 'service-com-amazonaws-lambda-awsgirapiservice',
     operation: 'CreateFunction',
     ours: {
-      path: 'src/tools/aws-emulator.ts',
+      path: 'src/framework/console/src/commands/emulator.ts',
       function: 'probe — would create the unit’s function',
     },
     shape:
@@ -277,7 +307,7 @@ export const OPERATIONS: readonly OperationRow[] = [
     crate: 'service-com-amazonaws-lambda-awsgirapiservice',
     operation: 'CreateEventSourceMapping',
     ours: {
-      path: 'src/tools/aws-emulator.ts',
+      path: 'src/framework/console/src/commands/emulator.ts',
       function: 'probe — the SQS trigger the template declares',
     },
     shape:
@@ -291,7 +321,7 @@ export const OPERATIONS: readonly OperationRow[] = [
     crate: 'service-com-amazonaws-eventbridge-awsevents',
     operation: 'PutRule',
     ours: {
-      path: 'src/tools/aws-emulator.ts',
+      path: 'src/framework/console/src/commands/emulator.ts',
       function: 'probe — the schedule the template declares',
     },
     shape: 'Name, ScheduleExpression (cron or rate)',
@@ -401,7 +431,7 @@ export function agreesWith(claimed: Verdict, derived: Verdict | 'written' | 'unk
  * It reads `services/<crate>/src/ops/<handler>` only — not the whole tree — so a shallow checkout
  * of `services/` is enough, which is what a CI job would fetch.
  */
-export function crossCheck(root: string): readonly CrossCheck[] {
+export function crossCheck(root: string = FIXTURE_ROOT): readonly CrossCheck[] {
   return OPERATIONS.map((row) => {
     const dir = join(root, 'services', row.crate, 'src', 'ops');
     const file = row.handler === undefined ? undefined : join(dir, row.handler);
@@ -524,7 +554,7 @@ export function awsSurface(
 
   for (const file of files) {
     if (
-      file.path.endsWith('src/tools/aws-emulator.ts') ||
+      file.path.endsWith(EMULATOR_SELF) ||
       file.path.endsWith('.d.ts') ||
       file.path.endsWith('.test.ts')
     ) {
@@ -706,6 +736,9 @@ async function callAwsJson(
   const response = await doFetch(url, { method: 'POST', headers, body });
   const text = await response.text();
   if (!response.ok) {
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     throw new Error(`${operation} answered HTTP ${String(response.status)}: ${text.slice(0, 300)}`);
   }
   return text === '' ? {} : (JSON.parse(text) as Record<string, unknown>);
@@ -746,7 +779,7 @@ const PROBE_MESSAGE: MailMessage = {
   from: { email: 'probe@tsir.test' },
   to: [{ email: 'to@tsir.test' }],
   subject: 'AWS Emulator probe',
-  text: 'Sent by src/tools/aws-emulator.ts through the ses transport.',
+  text: 'Sent by tsir deploy:verify through the ses transport.',
 };
 
 /**
@@ -804,6 +837,9 @@ export async function probe(
     });
     const url = answer['QueueUrl'];
     if (typeof url !== 'string' || url === '') {
+      // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+      // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error(`no QueueUrl in the answer: ${JSON.stringify(answer).slice(0, 200)}`);
     }
     queueUrl = url;
@@ -833,13 +869,22 @@ export async function probe(
       leaseMs: 30_000,
     });
     const first = reserved[0];
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (first === undefined) throw new Error('nothing was reservable after a push');
     if (first.attempts !== 1) {
+      // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+      // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error(
         `attempts is ${String(first.attempts)}; the worker does not increment, so this must be 1`,
       );
     }
     if (first.payload !== jobMessage.payload)
+      // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+      // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+      // eslint-disable-next-line no-restricted-syntax
       throw new Error('the payload did not survive the round trip');
     await backend.complete(first);
     const again = await backend.reserve({
@@ -848,6 +893,9 @@ export async function probe(
       now: Date.now(),
       leaseMs: 30_000,
     });
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (again.length !== 0) throw new Error('a completed message was delivered again');
     return `attempts=${String(first.attempts)}, payload intact, gone after complete`;
   });
@@ -860,6 +908,9 @@ export async function probe(
       now: Date.now(),
       leaseMs: 30_000,
     });
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (reserved === undefined) throw new Error('nothing reserved for the visibility step');
     const seen = await backend.reserve({
       connection: 'probe',
@@ -867,6 +918,9 @@ export async function probe(
       now: Date.now(),
       leaseMs: 30_000,
     });
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (seen.length !== 0) throw new Error('the leased message was delivered to a second reserve');
     return 'a 30 s lease held for the second reserve';
   });
@@ -883,6 +937,9 @@ export async function probe(
       now: Date.now(),
       leaseMs: 30_000,
     });
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (claimed.length !== 0) throw new Error('a body the driver did not write became a job');
     const left = await callAwsJson(doFetch, setup, 'sqs', 'AmazonSQS', 'ReceiveMessage', {
       QueueUrl: queueUrl,
@@ -892,6 +949,9 @@ export async function probe(
     const bodies = (
       (left['Messages'] as readonly { readonly Body?: string }[] | undefined) ?? []
     ).map((entry) => entry.Body);
+    // A probe step's own failure: `record()` below turns it into a step detail the user reads,
+    // not an error that escapes this module — hence no TsirError code (ERR-003's boundary).
+    // eslint-disable-next-line no-restricted-syntax
     if (bodies.includes(foreign)) throw new Error('the foreign body is still in the queue');
     return 'dropped, and the queue no longer holds it';
   });
@@ -1014,7 +1074,7 @@ export function report(
   lines.push('');
   lines.push(
     `${String(OPERATIONS.length)} operations in the table: ` +
-      `${String(OPERATIONS.length - OPERATIONS.filter((row) => row.ours.path === 'src/tools/aws-emulator.ts').length)} the framework calls, ` +
+      `${String(OPERATIONS.length - OPERATIONS.filter((row) => row.ours.path === EMULATOR_SELF).length)} the framework calls, ` +
       `the rest the probe's own setup; ${String(surface.length)} call sites found in src/`,
   );
   for (const row of OPERATIONS) {
@@ -1023,7 +1083,7 @@ export function report(
 
   if (missing.length > 0) {
     lines.push('');
-    lines.push('Called with no row in src/tools/aws-emulator.ts — the table is incomplete:');
+    lines.push(`Called with no row in ${EMULATOR_SELF} — the table is incomplete:`);
     for (const entry of missing) lines.push(`  ${entry}`);
   }
 
@@ -1053,6 +1113,8 @@ export function report(
     lines.push('that subtree is enough.');
   }
 
+  // coercion-ok: `EMULATOR_PORT` is the operator's own port number (the emulator prints it), and
+  // `readSetup` only joins it into a path.
   return probe(readSetup(env['HOME'] ?? '', Number(env['EMULATOR_PORT'] ?? DEFAULT_PORT)), {
     ...(options.doFetch === undefined ? {} : { fetch: options.doFetch }),
   }).then((result) => {
@@ -1069,30 +1131,39 @@ export function report(
   });
 }
 
-async function main(): Promise<void> {
-  const root = join(import.meta.dir, '..', '..');
+/**
+ * `tsir deploy:verify` — the row table, the cross-check, and the probe when one is running.
+ *
+ * `--json` prints the same thing as data. `--root <dir>` points the source scan at another
+ * checkout, which is what the fast test suite uses: the default is the working directory, because
+ * every other `deploy:` command describes *the project you are standing in*.
+ *
+ * Exit codes follow the rest of the deploy surface: `0` when the table covers every call the
+ * scanned tree makes, `1` when it does not. An emulator that is not running is **not** a failure —
+ * it prints how to start one — because absent tooling must not fail a repository gate.
+ */
+export async function verify(argv: readonly string[]): Promise<number> {
+  const json = argv.includes('--json');
+  const rootFlag = argv.indexOf('--root');
+  const root = rootFlag === -1 ? process.cwd() : (argv[rootFlag + 1] ?? process.cwd());
+
   const result = await report(root);
-  if (process.argv.includes('--json')) {
+  if (!json) {
+    process.stdout.write(`${result.lines.join('\n')}\n`);
+  } else {
     const surface = awsSurface(sourceFiles(root));
     const src = process.env['AWS_EMULATOR_SRC'];
+    // `jsonDocument()` adds the schema version every `tsir --json` output carries (`CLI-002`).
     process.stdout.write(
-      `${JSON.stringify(
-        {
-          release: EMULATOR_RELEASE,
-          operations: OPERATIONS,
-          surface,
-          missing: coverageProblems(surface),
-          crossCheck: src === undefined ? [] : crossCheck(src),
-          probe: await probe(readSetup(process.env['HOME'] ?? '')),
-        },
-        null,
-        2,
-      )}\n`,
+      `${jsonDocument({
+        release: EMULATOR_RELEASE,
+        operations: OPERATIONS,
+        surface,
+        missing: coverageProblems(surface),
+        crossCheck: src === undefined ? [] : crossCheck(src),
+        probe: await probe(readSetup(process.env['HOME'] ?? '')),
+      })}\n`,
     );
-  } else {
-    process.stdout.write(`${result.lines.join('\n')}\n`);
   }
-  process.exitCode = result.exitCode;
+  return result.exitCode;
 }
-
-if (import.meta.main) await main();

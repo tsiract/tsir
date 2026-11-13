@@ -1,7 +1,7 @@
 /**
  * The AWS Emulator table's own gate.
  *
- * Three things can go wrong with a table like `src/tools/aws-emulator.ts`, and each one has a
+ * Three things can go wrong with a table like `src/framework/console/src/commands/emulator.ts`, and each one has a
  * test here because each one happened during the writing of it:
  *
  *   · **the selector reads the wrong line.** The first version looked for the first code line
@@ -34,9 +34,10 @@ import {
   selectorsIn,
   sourceFiles,
   verdictFor,
-} from './aws-emulator.ts';
+} from './emulator.ts';
 
-const ROOT = join(import.meta.dir, '..', '..');
+/** The repository root, five edges up from `src/framework/console/src/commands`. */
+const ROOT = join(import.meta.dir, '..', '..', '..', '..', '..');
 const FIXTURE = join(import.meta.dir, 'fixtures', 'aws-emulator');
 
 const handler = (crate: string, file: string): string =>

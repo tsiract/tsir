@@ -72,6 +72,7 @@ import {
 } from './commands/schedule.ts';
 import { deployBuildCommand } from './commands/deploy-build.ts';
 import { deployValidateCommand } from './commands/deploy-validate.ts';
+import { deployVerifyCommand } from './commands/deploy-verify.ts';
 import { deployDiffCommand, deployInvokeCommand, deployPlanCommand } from './commands/deploy.ts';
 import { aboutCommand } from './commands/about.ts';
 import { doctorCommand } from './commands/doctor.ts';
@@ -499,6 +500,12 @@ export const COMMANDS: readonly Command[] = [
     summary: 'gate a release: budgets, secret scan, capabilities',
     phase: 6,
     run: deployValidateCommand,
+  },
+  {
+    name: 'deploy:verify',
+    summary: 'what the AWS Emulator can prove about the AWS calls this tree makes',
+    phase: 6,
+    run: deployVerifyCommand,
   },
 ];
 

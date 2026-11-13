@@ -32,24 +32,25 @@ decorators today, because our own emitter drops them.
 
 **Read at `v1.0.341`** (tag `7eb5bf3`, 2026-11-13). Per-operation verdicts, derived from the
 handler sources and cross-checked on every test run, live in
-[`../../src/tools/aws-emulator.ts`](../../src/tools/aws-emulator.ts) and the review of 2026-11-13
+[`../../src/framework/console/src/commands/emulator.ts`](../../src/framework/console/src/commands/emulator.ts) and the
+review of 2026-11-13
 in `plans/reviews/`.
 
 ### 2.1 Execution model — the thing that decides everything
 
-|                  | How it works                                                                                                                                                                                                                                      |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Transport        | HTTPS only, `127.0.0.1:9297`, self-signed CA (`~/.aws/emulator/<port>/`), **SigV4 required** by default; `-a off` exists for exploration                                                                                                          |
-| Lambda `nodejs*` | **QuickJS** (`rquickjs`) embedded in the emulator process. It resolves the handler's module out of the package zip (ESM and CommonJS), builds the context, calls the handler, serialises the return value. It is a real run, in-process          |
-| Lambda `python*` | an embedded interpreter, same shape                                                                                                                                                                                                               |
-| Core modules     | `path`, `util`, `events`, `buffer`, `crypto`, `fs`/`fs/promises` (an in-memory filesystem), `timers`, `timers/promises`, `stream`, `string_decoder`, `os`, `assert`, `url`, `querystring` — **and nothing else**                                 |
-| Not supplied     | `net`, `http`, `https`, `worker_threads`, `child_process`. An unsupplied module is simply unresolvable — "nothing here pretends to be a module it is not"                                                                                         |
-| Globals          | `process` exists with the invocation's own environment; there is **no `Bun`** global                                                                                                                                                               |
+|                  | How it works                                                                                                                                                                                                                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Transport        | HTTPS only, `127.0.0.1:9297`, self-signed CA (`~/.aws/emulator/<port>/`), **SigV4 required** by default; `-a off` exists for exploration                                                                                                                                        |
+| Lambda `nodejs*` | **QuickJS** (`rquickjs`) embedded in the emulator process. It resolves the handler's module out of the package zip (ESM and CommonJS), builds the context, calls the handler, serialises the return value. It is a real run, in-process                                         |
+| Lambda `python*` | an embedded interpreter, same shape                                                                                                                                                                                                                                             |
+| Core modules     | `path`, `util`, `events`, `buffer`, `crypto`, `fs`/`fs/promises` (an in-memory filesystem), `timers`, `timers/promises`, `stream`, `string_decoder`, `os`, `assert`, `url`, `querystring` — **and nothing else**                                                                |
+| Not supplied     | `net`, `http`, `https`, `worker_threads`, `child_process`. An unsupplied module is simply unresolvable — "nothing here pretends to be a module it is not"                                                                                                                       |
+| Globals          | `process` exists with the invocation's own environment; there is **no `Bun`** global                                                                                                                                                                                            |
 | Event sources    | SQS event source mappings are really polled (`ReportBatchItemFailures` is read); EventBridge schedule rules really fire and deliver the scheduled envelope; API Gateway `AWS_PROXY` → Lambda → downstream service runs end to end (its own suite asserts exactly that pipeline) |
-| Concurrency      | in-process; no container per invocation                                                                                                                                                                                                            |
+| Concurrency      | in-process; no container per invocation                                                                                                                                                                                                                                         |
 
 **What this means for us:** our Lambda target is `bun build --target=node --format=esm`
-(`ns`-external packages, ESM output). QuickJS executes ESM and CommonJS, so a bundle *can* run
+(`ns`-external packages, ESM output). QuickJS executes ESM and CommonJS, so a bundle _can_ run
 here — but a bundle that reaches the network at import time imports a module the emulator does not
 supply and dies. That is a testable property of our artifact, and it has never been measured.
 
@@ -61,8 +62,9 @@ The emulator publishes a per-release scorecard (`scores.json.gz`). At `v1.0.322`
 
 A percentage is not a verdict, and the two published readings of the same release disagree on
 Lambda (46.4% in one, 51.9% in another), which is itself a reason not to reason from the number.
-The useful unit is the operation, in the shape of *our* call — which is what
-`src/tools/aws-emulator.ts` encodes. Note also the contrast that matters: a medium-coverage
+The useful unit is the operation, in the shape of _our_ call — which is what
+`@tsir/console`'s `commands/emulator.ts` encodes, and `tsir deploy:verify` prints. Note also the contrast that
+matters: a medium-coverage
 Lambda still passes **4/4 workflow checks** (create and invoke a `python3.12` zip, handler
 exception surfaces as `FunctionError`, `boto3` called from inside the function) and **3/3 Step
 Functions checks** (Choice, Wait, a Lambda task, a Fail state). Coverage measures breadth; a
@@ -70,18 +72,39 @@ workflow check measures the path we actually walk.
 
 ### 2.3 Limitations AWS states, and the ones it does not
 
-| Limitation                                        | Consequence for us                                                                                       |
-| ------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| **No IAM or policy evaluation**                   | our SAM role statements, the SQS poller's role check, and `DPL-020`'s secret scan prove nothing here      |
-| **One account, one region** (`000000000000`)      | any cross-region or multi-account assertion is out of reach                                              |
-| **Verified in `us-west-2` only**                  | global services checked in `us-east-1`; regional behaviour elsewhere is unmeasured                       |
-| No throttling, no outage simulation               | retry-on-throttle behaviour cannot be tested                                                             |
-| **No `initDuration`**                             | C4 (`DPL-014`) can never be discharged here — a number from an in-process run is a number about the host  |
-| No container-image Lambdas                        | our `nodejs22.x` zip path is fine; a future image target is not                                          |
-| `nodejs*` is QuickJS, not Node                    | passing here is necessary evidence, not sufficient evidence, for the real runtime                        |
-| Telemetry on by default                           | `--telemetry off` / `EMULATOR_TELEMETRY=off`, or a `config.toml`; our probe never turns it on             |
+| Limitation                                   | Consequence for us                                                                                       |
+| -------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| **No IAM or policy evaluation**              | our SAM role statements, the SQS poller's role check, and `DPL-020`'s secret scan prove nothing here     |
+| **One account, one region** (`000000000000`) | any cross-region or multi-account assertion is out of reach                                              |
+| **Verified in `us-west-2` only**             | global services checked in `us-east-1`; regional behaviour elsewhere is unmeasured                       |
+| No throttling, no outage simulation          | retry-on-throttle behaviour cannot be tested                                                             |
+| **No `initDuration`**                        | C4 (`DPL-014`) can never be discharged here — a number from an in-process run is a number about the host |
+| No container-image Lambdas                   | our `nodejs22.x` zip path is fine; a future image target is not                                          |
+| `nodejs*` is QuickJS, not Node               | passing here is necessary evidence, not sufficient evidence, for the real runtime                        |
+| Telemetry on by default                      | `--telemetry off` / `EMULATOR_TELEMETRY=off`, or a `config.toml`; our probe never turns it on            |
 
-### 2.4 Running it
+### 2.4 Running the check, and where it lives
+
+`tsir deploy:verify` prints one verdict per AWS operation this repository calls, re-derives every
+verdict from the emulator's source at the pinned tag when `AWS_EMULATOR_SRC` points at a checkout,
+and probes a running emulator when there is one. It is a **`tsir` verb, not a `make` target** — the
+question it answers is about the project in front of the developer, so it must not require
+`src/tools/`, and it must be runnable from a distribution.
+
+What ships in the distribution is the **table** and the probe: the verdicts are data, and
+`tsir deploy:verify` prints them anywhere. The **cross-check** is the repository-time half — it
+re-derives each verdict from the emulator's own handler files, which are vendored beside the
+command in this checkout and deliberately not shipped (`check-dist` forbids a `fixtures` directory
+in the distribution). That is the right split: an application does not own an emulator checkout to
+re-derive verdicts from, and a table whose provenance is a pinned tag and 13 committed files is
+auditable where it is maintained.
+
+The placement is also a correction. It was first written as `make aws-emulator`, on the reasoning
+that it reads framework source; that reasoning was wrong in the way `11-dx.md § 1` now spells out —
+`make` builds the framework, and a verb that describes the project in front of the developer belongs
+behind `tsir`, next to `deploy:build` and `deploy:validate`.
+
+### 2.5 Installing it
 
 Linux RPM/DEB, or a container built from AWS's Dockerfile (no published image; 2 GiB cap).
 Blob downloads come from `objects.githubusercontent.com`, so a sandbox that can only reach
@@ -107,14 +130,14 @@ holds a credential that the AWS Emulator path never needs.
 
 ### 3.2 Execution model
 
-|                  | How it works                                                                                                                       |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| Transport        | one edge port, `4566`, plain HTTP; any non-empty credentials by default                                                             |
-| Lambda           | **real runtime containers via Docker** — needs the host socket (`/var/run/docker.sock`)                                             |
-| Event sources    | event source mappings for **SQS, DynamoDB, Kinesis** (MSK and self-managed Kafka are licensed); `ReportBatchItemFailures` on SQS is full |
-| EventBridge      | custom buses, rules, and targets: Lambda, SNS, SQS, Step Functions, Firehose, a bus, an API destination, Kinesis, a log group, API Gateway |
-| API Gateway      | V1 113/124 operations, V2 (HTTP + WebSocket) 73/103; real routing, real integration invoke                                          |
-| Developer hooks  | `/_localstack/health`, `/_aws/sns/...` — published messages can be read back, which the AWS Emulator has no equivalent for          |
+|                 | How it works                                                                                                                               |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Transport       | one edge port, `4566`, plain HTTP; any non-empty credentials by default                                                                    |
+| Lambda          | **real runtime containers via Docker** — needs the host socket (`/var/run/docker.sock`)                                                    |
+| Event sources   | event source mappings for **SQS, DynamoDB, Kinesis** (MSK and self-managed Kafka are licensed); `ReportBatchItemFailures` on SQS is full   |
+| EventBridge     | custom buses, rules, and targets: Lambda, SNS, SQS, Step Functions, Firehose, a bus, an API destination, Kinesis, a log group, API Gateway |
+| API Gateway     | V1 113/124 operations, V2 (HTTP + WebSocket) 73/103; real routing, real integration invoke                                                 |
+| Developer hooks | `/_localstack/health`, `/_aws/sns/...` — published messages can be read back, which the AWS Emulator has no equivalent for                 |
 
 Because Lambda runs in a container with the genuine runtime image, **module availability is the
 whole Node runtime**, not a curated subset. That is the single biggest behavioural difference from
@@ -136,15 +159,15 @@ the AWS Emulator for our purposes.
 
 Neither tool is "the" test environment; they answer different questions at different costs.
 
-| Question                                                                 | AWS Emulator                          | LocalStack                                        |
-| ------------------------------------------------------------------------ | ------------------------------------- | ------------------------------------------------- |
-| Does our bundle **run** at all, with the real module graph?               | partly (QuickJS + curated modules)     | **yes** (real Node container)                     |
-| Does our **SigV4 client** sign what the platform accepts?                 | **yes** — strict by default            | no — any non-empty credentials are accepted       |
-| Does the **SQS→Lambda→SNS fan-out** reach the right handler?              | yes (pollers and rules are real)       | **yes**, with clearer logs and readable topic state |
-| Is our **IAM** story right?                                              | no                                     | no (Pro/paid adds enforcement)                    |
-| Is our **cold start** acceptable?                                        | no                                     | no                                                |
-| Can CI run it with **no token, no Docker, no account**?                   | **yes (a binary)**                     | no (image + auth token)                           |
-| Can a contributor see **what was published** without writing a consumer?  | no                                     | **yes** (`/_aws/sns/...`)                         |
+| Question                                                                 | AWS Emulator                       | LocalStack                                          |
+| ------------------------------------------------------------------------ | ---------------------------------- | --------------------------------------------------- |
+| Does our bundle **run** at all, with the real module graph?              | partly (QuickJS + curated modules) | **yes** (real Node container)                       |
+| Does our **SigV4 client** sign what the platform accepts?                | **yes** — strict by default        | no — any non-empty credentials are accepted         |
+| Does the **SQS→Lambda→SNS fan-out** reach the right handler?             | yes (pollers and rules are real)   | **yes**, with clearer logs and readable topic state |
+| Is our **IAM** story right?                                              | no                                 | no (Pro/paid adds enforcement)                      |
+| Is our **cold start** acceptable?                                        | no                                 | no                                                  |
+| Can CI run it with **no token, no Docker, no account**?                  | **yes (a binary)**                 | no (image + auth token)                             |
+| Can a contributor see **what was published** without writing a consumer? | no                                 | **yes** (`/_aws/sns/...`)                           |
 
 **Recommended weighting.** Two tiers, because the cheap one should run on every push and the
 expensive one should not:
@@ -155,7 +178,7 @@ expensive one should not:
    It is the only one of the two that can live in a workflow that holds no secret.
 2. **On demand, and nightly — LocalStack**, when a claim needs a genuine Node runtime or a
    readable topic/queue state. This is where "our bundle imports something QuickJS lacks" would be
-   settled *definitively*, and where a Step Functions integration beyond the emulator's checks
+   settled _definitively_, and where a Step Functions integration beyond the emulator's checks
    would run. It requires a plan decision first (Open question `Q75`).
 
 A gate that cannot run on a contributor's machine without a token is not a gate; it is a
@@ -206,7 +229,7 @@ The obvious fix — adding `sns` and `eventbridge` to `TRIGGER_ORDER` — produc
 `import { sns as __sns } from "…/app.ts"`, and no application exports a field called `sns`. The
 builder needs the **controller classes**, and a class reference cannot be written into generated
 source. The bundler is the only thing that can turn `@OnSns({ topic })` into a callable, and it can
-only do that if the generated entry imports the app and asks *it* for the module list.
+only do that if the generated entry imports the app and asks _it_ for the module list.
 
 So the fix is: the entry exports its `defineApp` handle (already the documented contract), the
 generated entry calls `listenerUnitFor(app)` from `@tsir/deploy/listeners`, and that compiles the
@@ -216,17 +239,17 @@ module list a bundle compiles is the list a boot resolves.
 Three adjacent bugs surfaced while making that path run for real, which is the argument for running
 it rather than reasoning about it:
 
-| Bug                                                                     | Why it mattered                                                                                                                    |
-| ----------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| A controller with **only** listeners threw `RTR_EMPTY_CONTROLLER`        | The one shape an event-only controller has was rejected by the route compiler. A controller with listeners is not an empty one      |
-| Three listeners naming the same `unit` produced **three** functions      | `units.ts` resolved the second and third under a `queue` kind, so one controller became `sns`, `schedule` and `admin`               |
-| The EventBridge `EventPattern` nested `detail-type` under `source:`      | Invalid CloudFormation, and an empty `source:` mapping is a rule that matches nothing — a silent no-op after a green deploy          |
+| Bug                                                                 | Why it mattered                                                                                                                |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| A controller with **only** listeners threw `RTR_EMPTY_CONTROLLER`   | The one shape an event-only controller has was rejected by the route compiler. A controller with listeners is not an empty one |
+| Three listeners naming the same `unit` produced **three** functions | `units.ts` resolved the second and third under a `queue` kind, so one controller became `sns`, `schedule` and `admin`          |
+| The EventBridge `EventPattern` nested `detail-type` under `source:` | Invalid CloudFormation, and an empty `source:` mapping is a rule that matches nothing — a silent no-op after a green deploy    |
 
 ### 5.2 The failure mode this leaves behind
 
 A `defineApp` handle is present and correct, `deploy:build` succeeds, and the bundle still contains
 no listeners — because `"sideEffects": false` in a package.json let the bundler drop the
-`import "./x.controller.ts"` that performs the registration. The build *cannot* catch this: it
+`import "./x.controller.ts"` that performs the registration. The build _cannot_ catch this: it
 imports the app directly, so it sees the controller the bundle never gets. Measured, not theorised:
 disabling one `sideEffects` entry turned a working bundle into one that answered every event with
 `DPL_UNIT_EMPTY`.
@@ -253,50 +276,50 @@ carries events at all, which is now true.
 Steps 1–3 are **done** (2026-11-13, § 5). What remains is substrate work, and it is deliberately
 last: an emulator pointed at a path that carries nothing proves nothing.
 
-| #   | Change                                                                                                | State | Acceptance test                                                                                      |
-| --- | ----------------------------------------------------------------------------------------------------- | ----- | ---------------------------------------------------------------------------------------------------- |
-| 1   | `TRIGGER_ORDER` gains `sns`, `eventbridge` and `invoke`; `requiredExports()` stops demanding them      | done  | `adapterTriggers` returns `['sns']`, `['eventbridge']`, `['invoke']`; `requiredExports` returns `[]`   |
-| 2   | `deploy:build` compiles each listener unit from the app (`listenerUnitFor`) instead of empty wiring     | done  | the emitted entry imports the app, and dispatch works after import — not just after `bun build`        |
-| 3   | A unit that is skipped no longer gets a template; a bundle that lost its listeners fails at init        | done  | no `template.<unit>.yaml` without a bundle; `DPL_LISTENER_NOT_BUILT` from the bundle, not the build     |
-| 4   | **AWS Emulator probe** creates that function, publishes to the topic, asserts the handler ran          | `INF-021` | `make aws-emulator` with a bundle: `Publish` → handler observed, in a job holding no credentials   |
-| 5   | **LocalStack probe** runs the same bundle in a real Node container, so a module QuickJS lacks fails first | `INF-022` | the same assertion under LocalStack, plus reading `/_aws/sns/…` to show what was published          |
-| 6   | `deploy:invoke` gains SNS and EventBridge fixtures, as `http` and `queue` already have                  | `DPL-032` | every decorator has a local fixture                                                                   |
-| 7   | The `sqs` driver's conformance kit gets an injected clock (it assumes a virtual one)                    | `INF-007` | the kit passes against a live broker — this blocks "SQS verified", not the emulator                   |
-| 8   | C3 closes: the same invoke path against a real account, once                                            | `C3`      | an evidence line in [`../tasks/07-deploy-cloud-checks.md`](../tasks/07-deploy-cloud-checks.md)        |
+| #   | Change                                                                                                    | State     | Acceptance test                                                                                      |
+| --- | --------------------------------------------------------------------------------------------------------- | --------- | ---------------------------------------------------------------------------------------------------- |
+| 1   | `TRIGGER_ORDER` gains `sns`, `eventbridge` and `invoke`; `requiredExports()` stops demanding them         | done      | `adapterTriggers` returns `['sns']`, `['eventbridge']`, `['invoke']`; `requiredExports` returns `[]` |
+| 2   | `deploy:build` compiles each listener unit from the app (`listenerUnitFor`) instead of empty wiring       | done      | the emitted entry imports the app, and dispatch works after import — not just after `bun build`      |
+| 3   | A unit that is skipped no longer gets a template; a bundle that lost its listeners fails at init          | done      | no `template.<unit>.yaml` without a bundle; `DPL_LISTENER_NOT_BUILT` from the bundle, not the build  |
+| 4   | **AWS Emulator probe** creates that function, publishes to the topic, asserts the handler ran             | `INF-021` | `tsir deploy:verify` with a bundle: `Publish` → handler observed, in a job holding no credentials    |
+| 5   | **LocalStack probe** runs the same bundle in a real Node container, so a module QuickJS lacks fails first | `INF-022` | the same assertion under LocalStack, plus reading `/_aws/sns/…` to show what was published           |
+| 6   | `deploy:invoke` gains SNS and EventBridge fixtures, as `http` and `queue` already have                    | `DPL-032` | every decorator has a local fixture                                                                  |
+| 7   | The `sqs` driver's conformance kit gets an injected clock (it assumes a virtual one)                      | `INF-007` | the kit passes against a live broker — this blocks "SQS verified", not the emulator                  |
+| 8   | C3 closes: the same invoke path against a real account, once                                              | `C3`      | an evidence line in [`../tasks/07-deploy-cloud-checks.md`](../tasks/07-deploy-cloud-checks.md)       |
 
 Step 5 depends on `Q75` (licence); step 4 depends on nothing but a machine that can run the binary.
 
 ### What this buys, honestly
 
-| Claim                              | Before | Now (local, steps 1–3)            | Still needs real AWS        |
-| ---------------------------------- | ------ | --------------------------------- | --------------------------- |
-| `@OnSns` reaches the right method  | untested | **verified** — build → invoke   | —                           |
-| `@OnEventBridge` by `detail-type`  | untested | **verified** — build → invoke   | —                           |
-| `@OnStepTask` via direct invoke    | in-process only | **verified** — build → invoke | IAM for `states:StartExecution` |
-| Only-listener controllers compile  | rejected (`RTR_EMPTY_CONTROLLER`) | **verified** | —                |
-| SQS partial-batch failures         | fixture | fixture                           | redrive and backoff timing  |
-| Schedule fires `scheduled`         | fixture | fixture                           | clock skew, timezones       |
-| The bundle runs on `nodejs22.x`    | untested | untested                          | **yes — `C4`**, plus `INF-021`/`INF-022` |
-| IAM, quotas, throttling            | untested | untested                          | **yes**                     |
-| `sam validate`, cold start         | untested | untested                          | **yes — `C5`, `C4`**        |
+| Claim                             | Before                            | Now (local, steps 1–3)        | Still needs real AWS                     |
+| --------------------------------- | --------------------------------- | ----------------------------- | ---------------------------------------- |
+| `@OnSns` reaches the right method | untested                          | **verified** — build → invoke | —                                        |
+| `@OnEventBridge` by `detail-type` | untested                          | **verified** — build → invoke | —                                        |
+| `@OnStepTask` via direct invoke   | in-process only                   | **verified** — build → invoke | IAM for `states:StartExecution`          |
+| Only-listener controllers compile | rejected (`RTR_EMPTY_CONTROLLER`) | **verified**                  | —                                        |
+| SQS partial-batch failures        | fixture                           | fixture                       | redrive and backoff timing               |
+| Schedule fires `scheduled`        | fixture                           | fixture                       | clock skew, timezones                    |
+| The bundle runs on `nodejs22.x`   | untested                          | untested                      | **yes — `C4`**, plus `INF-021`/`INF-022` |
+| IAM, quotas, throttling           | untested                          | untested                      | **yes**                                  |
+| `sam validate`, cold start        | untested                          | untested                      | **yes — `C5`, `C4`**                     |
 
 ## 7. Failure modes
 
-| Failure                                                        | Why it happens                                                          | How it is reported                                                    | What the caller can do                                                   |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| A listener unit deploys as an inert function                  | `"sideEffects": false` let the bundler drop the registration import | `DPL_LISTENER_NOT_BUILT` at **module init**, naming the package.json | declare the controller files under `sideEffects`, or drop the flag |
-| A bundle passes the emulator and fails on Lambda               | QuickJS supplies a curated module set, not Node                          | import error at invoke time on the real runtime                         | no `net`/`http` at import time; confirm the module list in § 2.1          |
-| A gate needs a LocalStack token in CI                          | the unified image requires auth since 2026-03-23                        | the workflow needs a secret it should not hold                          | keep the tokenless tier (AWS Emulator) as the per-push gate; see `Q75`    |
-| A multi-service test fails opaque reasons                      | CloudFormation fidelity is 15.8% in the emulator                        | stack never leaves `CREATE_IN_PROGRESS`, or a 501                      | provision with the SDK calls, not through a stack, when testing behaviour |
-| "It passed locally" but the ledger says open                   | a pass in an emulator is not C3/C4/C5 evidence                           | nothing — this is the trap                                             | only a filled-in evidence line moves a `[~]` row                          |
+| Failure                                          | Why it happens                                                      | How it is reported                                                   | What the caller can do                                                    |
+| ------------------------------------------------ | ------------------------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| A listener unit deploys as an inert function     | `"sideEffects": false` let the bundler drop the registration import | `DPL_LISTENER_NOT_BUILT` at **module init**, naming the package.json | declare the controller files under `sideEffects`, or drop the flag        |
+| A bundle passes the emulator and fails on Lambda | QuickJS supplies a curated module set, not Node                     | import error at invoke time on the real runtime                      | no `net`/`http` at import time; confirm the module list in § 2.1          |
+| A gate needs a LocalStack token in CI            | the unified image requires auth since 2026-03-23                    | the workflow needs a secret it should not hold                       | keep the tokenless tier (AWS Emulator) as the per-push gate; see `Q75`    |
+| A multi-service test fails opaque reasons        | CloudFormation fidelity is 15.8% in the emulator                    | stack never leaves `CREATE_IN_PROGRESS`, or a 501                    | provision with the SDK calls, not through a stack, when testing behaviour |
+| "It passed locally" but the ledger says open     | a pass in an emulator is not C3/C4/C5 evidence                      | nothing — this is the trap                                           | only a filled-in evidence line moves a `[~]` row                          |
 
 ## 8. Security considerations
 
 - **Neither tool evaluates IAM.** A green run says nothing about whether the deployed role can do
   what the test just did. Permission design stays with static review and the real account.
 - **SigV4 is the one place the tools differ sharply.** The AWS Emulator rejects an unsigned
-  request by default; LocalStack accepts any credentials. A signing bug therefore *passes* on
-  LocalStack and *fails* on AWS and on the emulator. Our `@tsir/storage` signer is exactly the code
+  request by default; LocalStack accepts any credentials. A signing bug therefore _passes_ on
+  LocalStack and _fails_ on AWS and on the emulator. Our `@tsir/storage` signer is exactly the code
   that would hide there.
 - **A stored token is a credential.** LocalStack's auth token belongs in the CI secret store, used
   from a trusted branch only, never in `tsir.js` or an emitted artifact. `DPL-020`'s scanner covers
@@ -306,21 +329,21 @@ Step 5 depends on `Q75` (licence); step 4 depends on nothing but a machine that 
 
 ## 9. Open questions
 
-| Id   | Question                                                                                                                                                     | Blocks                        |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------- |
-| `Q74` | Does the AWS Emulator stay usable in CI as a floating binary, or do we pin a release and vendor it like a fixture? The fidelity table is tag-specific, so a floating version silently changes what "verified" means | step 4                        |
-| `Q75` | Which LocalStack tier may a commercial consumer of this framework use, and may CI carry its token? Hobby is non-commercial and has no CI credits                | step 5                        |
-| `Q76` | Should `deploy:invoke` be the only local entry point, with both emulators driven through it, or should `make aws-emulator` remain its own surface?            | steps 4–6                     |
+| Id    | Question                                                                                                                                                                                                            | Blocks    |
+| ----- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------- |
+| `Q74` | Does the AWS Emulator stay usable in CI as a floating binary, or do we pin a release and vendor it like a fixture? The fidelity table is tag-specific, so a floating version silently changes what "verified" means | step 4    |
+| `Q75` | Which LocalStack tier may a commercial consumer of this framework use, and may CI carry its token? Hobby is non-commercial and has no CI credits                                                                    | step 5    |
+| `Q76` | Should both emulators be driven through `deploy:verify` alone, or does the LocalStack tier need its own flag/subcommand (`Q75` is the licence half)?                                                                | steps 4–6 |
 
 ## 10. Task index
 
-| Ledger                                                                              | Rows                                      |
-| ----------------------------------------------------------------------------------- | ----------------------------------------- |
-| [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) | `INF-005` (**done**), `INF-021`, `INF-022`, `INF-007`, `INF-017` |
-| [`../tasks/07-deploy.md`](../tasks/07-deploy.md)                                     | `DPL-026`…`DPL-030`, `DPL-013`             |
-| [`../tasks/07-deploy-cloud-checks.md`](../tasks/07-deploy-cloud-checks.md)           | C3, C5, C6 — what no emulator can discharge |
-| [`../reviews/2026-11-13-aws-emulator.md`](../reviews/2026-11-13-aws-emulator.md)     | the per-operation read of the AWS Emulator |
-| [`../../src/tools/aws-emulator.ts`](../../src/tools/aws-emulator.ts)                 | the check; `make aws-emulator` runs it     |
+| Ledger                                                                                                         | Rows                                                             |
+| -------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
+| [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md)                           | `INF-005` (**done**), `INF-021`, `INF-022`, `INF-007`, `INF-017` |
+| [`../tasks/07-deploy.md`](../tasks/07-deploy.md)                                                               | `DPL-026`…`DPL-030`, `DPL-013`                                   |
+| [`../tasks/07-deploy-cloud-checks.md`](../tasks/07-deploy-cloud-checks.md)                                     | C3, C5, C6 — what no emulator can discharge                      |
+| [`../reviews/2026-11-13-aws-emulator.md`](../reviews/2026-11-13-aws-emulator.md)                               | the per-operation read of the AWS Emulator                       |
+| [`../../src/framework/console/src/commands/emulator.ts`](../../src/framework/console/src/commands/emulator.ts) | the check; `tsir deploy:verify` runs it                          |
 
 ### Sources
 
