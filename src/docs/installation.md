@@ -165,8 +165,11 @@ Edit `config.ts` to declare environment variables; `.env` is ignored by the star
 [configuration and secrets](./guides/configuration.md) before adding credentials. Continue with
 [controllers](./guides/controllers.md), [models and queries](./guides/database.md),
 [queues](./guides/queues.md), [caching](./guides/caching.md), or the
-[Cloudflare-to-AWS guide](./guides/providers.md). The [package references](./packages/core.md)
-document API details and limitations.
+[Cloudflare-to-AWS guide](./guides/providers.md). Before going to production, read
+[services, drivers and defaults](./guides/drivers.md): it maps every capability to the drivers
+this build ships and the values each one needs — the starter's defaults are deliberately ephemeral
+and `production: true` refuses them. The [package references](./packages/core.md) document API
+details and limitations.
 
 `tsir --help` lists commands. `tsir test` runs Bun's test runner; `tsir lint` and
 `tsir typecheck` run the corresponding scripts **if you add them** to your application's

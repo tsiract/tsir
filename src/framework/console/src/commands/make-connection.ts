@@ -12,7 +12,12 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { CACHE_DRIVERS } from '@tsir/cache';
 import { managedRegions, renderLiteral, renderRegion } from '@tsir/config';
+import { DATABASE_ENGINES } from '@tsir/database';
+import { MAIL_DRIVERS } from '@tsir/mail';
+import { QUEUE_DRIVERS } from '@tsir/queue';
+import { STORAGE_DRIVERS } from '@tsir/storage';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
 import { EXIT, info, ok, style, UsageError } from '../output.ts';
@@ -26,12 +31,20 @@ export interface KindSpec {
   readonly drivers: readonly string[] | undefined;
 }
 
+/**
+ * The driver list for each kind comes from the package that owns the registry, never from a copy.
+ *
+ * It said `['d1', 'postgres', 'mysql']` here while `DATABASE_ENGINES` was `['d1', 'postgres']`, so
+ * `--driver mysql` wrote a `tsir.js` that the schema rejected at boot — the command validated
+ * against a list that was not the list. A driver added to a package is now writable by the command
+ * the same day, and one removed stops being writable.
+ */
 export const KINDS: Readonly<Record<string, KindSpec>> = {
-  database: { section: 'database', entries: 'connections', drivers: ['d1', 'postgres', 'mysql'] },
-  cache: { section: 'cache', entries: 'stores', drivers: undefined },
-  queue: { section: 'queue', entries: 'connections', drivers: undefined },
-  storage: { section: 'storage', entries: 'disks', drivers: undefined },
-  mail: { section: 'mail', entries: 'mailers', drivers: undefined },
+  database: { section: 'database', entries: 'connections', drivers: DATABASE_ENGINES },
+  cache: { section: 'cache', entries: 'stores', drivers: CACHE_DRIVERS },
+  queue: { section: 'queue', entries: 'connections', drivers: QUEUE_DRIVERS },
+  storage: { section: 'storage', entries: 'disks', drivers: STORAGE_DRIVERS },
+  mail: { section: 'mail', entries: 'mailers', drivers: MAIL_DRIVERS },
 };
 
 const NAME = /^[a-z][a-z0-9-]*$/u;
@@ -68,7 +81,7 @@ export function entryFor(
   }
   if (spec.drivers !== undefined && !spec.drivers.includes(driver)) {
     throw new UsageError(
-      `"${driver}" is not a database driver`,
+      `"${driver}" is not a ${kind} driver`,
       `use one of: ${spec.drivers.join(', ')}`,
     );
   }
