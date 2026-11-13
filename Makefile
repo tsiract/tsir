@@ -70,7 +70,7 @@ KIND            ?=
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check compile-cli verify-templates db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli verify-templates emulator-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake release-pack\033[0m    build both release artifacts (dist/ tree + per-package tarballs)\n'
 	@printf '  \033[36mmake compile-cli\033[0m     compile the shipped CLI into one executable, and scaffold from it\n'
 	@printf '  \033[36mmake verify-templates\033[0m install, typecheck and build every frontend template (needs registry)\n'
+	@printf '  \033[36mmake emulator-check\033[0m the AWS Emulator table covers every AWS call in src/, and is still true\n'
 	@printf '  \033[36mmake clean\033[0m           remove %s/ and dist/ — both are generated\n' "$(BUILD_DIR)"
 	@printf '  \033[36mmake clean-cache\033[0m     also remove the bun install cache\n'
 	@printf '\n  \033[1mconstraints\033[0m\n'
@@ -134,9 +135,10 @@ help: ## Show available targets
 	@printf '  \033[36mmake changeset\033[0m       record a changeset (SUMMARY="..." BUMP=minor)\n'
 	@printf '  \033[36mmake release-version\033[0m apply recorded changesets to the manifests\n'
 	@printf '  \033[36mmake bench\033[0m           micro-benchmarks vs bench/baseline.json\n'
-	@printf '\n  \033[2mSample applications in src/apps are fixtures for these targets — they are not\n'
-	@printf '  a development workflow: make app-route-compile, app-deploy-plan etc. See\n'
-	@printf '  make deploy-sample.\033[0m\n\n'
+	@printf '\n  \033[2mEverything above is a gate over this repository. What an application runs\n'
+	@printf '  lives in the CLI instead: `tsir route:compile`, `tsir deploy:plan`, etc.\n'
+	@printf '  The `app-*` targets are drift checks that run them against src/apps,\n'
+	@printf '  a fixture — not a workflow to copy.\033[0m\n\n'
 
 install: ## Install workspace dependencies
 	@printf '  \033[2m→ bun install\033[0m\n'
@@ -184,7 +186,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check make-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
@@ -308,6 +310,14 @@ verify-dist: dist-build ## Prove dist/ boots, tree-shakes, bundles for Workers/L
 compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaffold from it
 	@$(BUN) src/tools/verify-dist.ts --only compiled-launcher
 
+# The table's own gate: every AWS operation `src/` calls has a row, and every row still matches the
+# emulator's source at the pinned tag. This is a question about *this repository's* source, so it is
+# a `make` target — `tsir deploy:verify` prints the same table for an application, and must never
+# fail because that application calls AWS.
+emulator-check: ## The AWS Emulator table covers every AWS call in src/, and still matches the source
+	@printf '  \033[2m→ bun src/tools/emulator-check.ts\033[0m\n'
+	@$(BUN) src/tools/emulator-check.ts
+
 # Needs a package registry, so it is not part of `make check` (which must pass offline). CI runs it
 # after `make release-pack`, where the network is already in use.
 verify-templates: ## Install, typecheck and build every shipped frontend template (needs the registry)
@@ -387,19 +397,19 @@ deps: ## Enforce the third-party dependency policy (ADR-0012)
 # These targets exist for **that** — a spike fixture the framework is developed against — not as
 # an application workflow. A developer's `migrate`, `seed`, `route:*` and `deploy:*` commands are
 # `dist/tsir` commands (see ADR-0031).
-app-route-compile: ## Compile the sample app's routes (the committed-artifact drift check)
+app-route-compile: ## The sample app's committed route map still matches its source
 	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
 
-app-deploy-plan: ## Check the sample app's deploy plan is current
+app-deploy-plan: ## The sample app's committed deploy plan is still current
 	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
 
-app-deploy-build: ## Emit the sample app's deploy units for both targets
+app-deploy-build: ## Build the sample app's deploy units for both targets (into .verify)
 	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
 
-app-deploy-validate: ## Scan the emitted units for leaked secrets
+app-deploy-validate: ## No secrets in the units app-deploy-build emitted
 	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
 
-deploy-sample: app-deploy-build app-deploy-validate ## Build and validate the sample app's deploy units
+deploy-sample: app-deploy-build app-deploy-validate ## Both of the above, for a manual look
 	@printf '  \033[32m✓\033[0m sample deploy units are valid\n'
 
 soap-check: ## Fail if a committed WSDL-derived module is stale

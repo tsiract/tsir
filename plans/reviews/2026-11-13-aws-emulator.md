@@ -63,7 +63,13 @@ matters most for Phase 6.
 One row per AWS operation this repository calls. Verdicts: `served` (the handler body is written),
 `written-refusal` (written, with a 501 by design for a request member we do not send), `stub`
 (scaffold refusal), `absent` (no handler). Every row is re-derived from the vendored source by
-`crossCheck()`; `tsir deploy:verify` prints the re-derivation.
+`crossCheck()`, which `make emulator-check` runs; `tsir deploy:verify` prints the table itself.
+
+The two halves are deliberately separate surfaces, and the review records the split because the
+first version got it wrong twice: as `make aws-emulator` it put an application verb in `make`, and
+as a single `tsir deploy:verify` it scanned the caller's `src/` and failed when an application used
+an AWS call with no row. The table and probe are the application-facing half and always exit `0`;
+`crossCheck` and the completeness scan are gates over _this_ repository and are `make`'s.
 
 | Operation                         | Ours                                                   | Verdict         | What the emulator does with _our_ call                                                                                                                                                                       |
 | --------------------------------- | ------------------------------------------------------ | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -161,16 +167,24 @@ The sandbox cannot run the emulator, and that is a fact about the sandbox, not a
 | npm/PyPI wrapper                            | none published (`aws-emulator` is not on either)                                                       |
 
 What _is_ reachable is GitHub, so the source was read at a pinned tag and the 13 handlers the table
-depends on were vendored into `src/framework/console/src/commands/fixtures/aws-emulator/` (512 kB) so the verdicts are
-checked on every `bun test`, not only when someone has a checkout.
+depends on were vendored into `src/framework/console/src/commands/fixtures/aws-emulator/` (512 kB) so
+the verdicts are checked on every `make check`, not only when someone has a checkout. The fixtures
+are read by `src/tools/emulator-check.ts` and excluded from the distribution: they are the gate's
+evidence, not the package's.
 
 **How to run the probe elsewhere** (one `apt install`, then):
 
 ```bash
 aws-emulator --telemetry off            # serves https://127.0.0.1:9297
-tsir deploy:verify                        # table + cross-check + probe
+tsir deploy:verify                        # table + probe
 TSIR_LAMBDA_ZIP=<unit>.zip tsir deploy:verify   # adds the invoke step
+make emulator-check                       # completeness + cross-check over this repository's src/
 ```
+
+`tsir deploy:verify` never fails on what it finds: it answers "what can the emulator prove about
+the AWS calls in front of you", and an unimplemented operation is the answer. The repository's own
+judgement about its table is `make emulator-check`, which fails on a call with no row or a verdict
+that no longer matches the handlers.
 
 The probe exercises the `sqs` driver's own four calls (push → reserve → complete, a held lease, a
 malformed body the driver must drop), the SES transport's `send` after creating the identity, and

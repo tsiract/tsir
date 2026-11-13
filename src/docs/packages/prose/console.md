@@ -22,18 +22,24 @@ console.log(await runCli(['hello:world']));
 ## Checking what a local emulator can prove
 
 `tsir deploy:verify` answers a narrow question for the AWS half of an application: for each AWS
-operation this tree calls, can a local emulator run it, or does it refuse? It prints a verdict per
-operation — `served`, `written-refusal`, `stub` or `absent` — and probes a running emulator when one
-is up. `--json` emits the same as a versioned document.
+operation tsir calls, can a local emulator run it, or does it refuse? It prints a verdict per
+operation — `served`, `written-refusal`, `stub` or `absent` — names what the emulator does and does
+not implement, and probes a running emulator when one is up. `--json` emits the same as a versioned
+document.
 
-It exits `0` when the table covers every call the tree makes and `1` when it does not, so a new
-AWS call cannot be added without a row describing it. A missing emulator is not a failure: the
-command says how to start one and exits `0`.
+The command is **advisory**, and exits `0` whatever the table says. It reads nothing outside this
+package: no scan of the calling project's source, no fixtures, no emulator checkout. A project that
+calls an operation the emulator does not implement has learned something about the emulator — that
+is the answer to the question, not a failure — so `deploy:verify` reports it. A project that wants
+to fail on it reads the `--json` verdicts and decides for itself; a missing emulator is likewise
+not a failure, and the command says how to start one.
 
-The source cross-check — re-deriving each verdict from the emulator's own handler files — runs
-when `AWS_EMULATOR_SRC` names a checkout of the emulator at the pinned tag. Those files live with
-this package in the repository and are not shipped, so in a distribution the table prints and the
-cross-check reports itself as skipped.
+Keeping the table complete and its verdicts true is a question about _tsir's_ source, so it is
+answered where that source and the emulator's handler files both exist: `make emulator-check`, the
+repository gate. It fails on an AWS call with no row, and re-derives each verdict from the
+emulator's handlers vendored at the pinned tag. Those files are the gate's evidence, not the
+package's, and are excluded from the distribution — which is why the command works the same in a
+release as it does in this checkout.
 
 ## Failure modes
 

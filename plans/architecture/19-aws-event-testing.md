@@ -30,11 +30,11 @@ decorators today, because our own emitter drops them.
 
 ## 2. AWS Emulator
 
-**Read at `v1.0.341`** (tag `7eb5bf3`, 2026-11-13). Per-operation verdicts, derived from the
-handler sources and cross-checked on every test run, live in
-[`../../src/framework/console/src/commands/emulator.ts`](../../src/framework/console/src/commands/emulator.ts) and the
-review of 2026-11-13
-in `plans/reviews/`.
+**Read at `v1.0.341`** (tag `7eb5bf3`, 2026-11-13). The per-operation verdicts live in
+[`../../src/framework/console/src/commands/emulator.ts`](../../src/framework/console/src/commands/emulator.ts)
+and are printed by `tsir deploy:verify`; they are re-derived from the handler sources by
+`make emulator-check` ([`../../src/tools/emulator-check.ts`](../../src/tools/emulator-check.ts)) on
+every `make check`. See § 2.4 for the split, and the review of 2026-11-13 in `plans/reviews/`.
 
 ### 2.1 Execution model — the thing that decides everything
 
@@ -63,7 +63,7 @@ The emulator publishes a per-release scorecard (`scores.json.gz`). At `v1.0.322`
 A percentage is not a verdict, and the two published readings of the same release disagree on
 Lambda (46.4% in one, 51.9% in another), which is itself a reason not to reason from the number.
 The useful unit is the operation, in the shape of _our_ call — which is what
-`@tsir/console`'s `commands/emulator.ts` encodes, and `tsir deploy:verify` prints. Note also the contrast that
+`@tsir/console`'s `commands/emulator.ts` encodes and `tsir deploy:verify` prints. Note also the contrast that
 matters: a medium-coverage
 Lambda still passes **4/4 workflow checks** (create and invoke a `python3.12` zip, handler
 exception surfaces as `FunctionError`, `boto3` called from inside the function) and **3/3 Step
@@ -83,26 +83,39 @@ workflow check measures the path we actually walk.
 | `nodejs*` is QuickJS, not Node               | passing here is necessary evidence, not sufficient evidence, for the real runtime                        |
 | Telemetry on by default                      | `--telemetry off` / `EMULATOR_TELEMETRY=off`, or a `config.toml`; our probe never turns it on            |
 
-### 2.4 Running the check, and where it lives
+### 2.4 Running the check, and why it is two surfaces
 
-`tsir deploy:verify` prints one verdict per AWS operation this repository calls, re-derives every
-verdict from the emulator's source at the pinned tag when `AWS_EMULATOR_SRC` points at a checkout,
-and probes a running emulator when there is one. It is a **`tsir` verb, not a `make` target** — the
-question it answers is about the project in front of the developer, so it must not require
-`src/tools/`, and it must be runnable from a distribution.
+There are two questions here, and they have different owners. Answering them with one command made
+the command wrong in both directions, so the split is the design:
 
-What ships in the distribution is the **table** and the probe: the verdicts are data, and
-`tsir deploy:verify` prints them anywhere. The **cross-check** is the repository-time half — it
-re-derives each verdict from the emulator's own handler files, which are vendored beside the
-command in this checkout and deliberately not shipped (`check-dist` forbids a `fixtures` directory
-in the distribution). That is the right split: an application does not own an emulator checkout to
-re-derive verdicts from, and a table whose provenance is a pinned tag and 13 committed files is
-auditable where it is maintained.
+| Question                                                                    | Where it runs                 | Fails?                                        |
+| --------------------------------------------------------------------------- | ----------------------------- | --------------------------------------------- |
+| What can the AWS Emulator prove about **this project's** AWS calls?         | `tsir deploy:verify [--json]` | **Never.** Exit `0` whatever the table says   |
+| Does **tsir's table** cover every AWS call in `src/`, and is it still true? | `make emulator-check`         | Yes — on an uncovered call or a stale verdict |
 
-The placement is also a correction. It was first written as `make aws-emulator`, on the reasoning
-that it reads framework source; that reasoning was wrong in the way `11-dx.md § 1` now spells out —
-`make` builds the framework, and a verb that describes the project in front of the developer belongs
-behind `tsir`, next to `deploy:build` and `deploy:validate`.
+**`tsir deploy:verify` is an application verb.** It prints tsir's AWS surface — one row per
+operation, with the verdict, the shape of the call, and what the emulator does and does not
+implement — states the limitations in a paragraph, and probes a running emulator when credentials
+exist under `~/.aws/emulator/<port>/`. It reads nothing outside its own package: no `--root`, no
+scan of the caller's `src/`, no fixtures. That is deliberate. A project that calls an operation the
+emulator does not implement has learned a fact about the emulator, not broken its build, so the
+command reports it and exits `0`; a project that wants to fail on it reads the `--json` verdict and
+decides for itself.
+
+**`make emulator-check` is a framework gate.** It scans this repository's `src/` for the SDK
+packages and wire calls we make, fails when a called operation has no row, and re-derives each of
+the 13 verdicts from the emulator's own handler sources — vendored under
+`src/framework/console/src/commands/fixtures/aws-emulator/` at the pinned tag and excluded from the
+distribution by `check-dist`. The verdicts are only as good as their provenance, so the half that
+judges provenance runs where the checkout, the vendored files and the tag all exist: in the
+repository, on `make check`.
+
+The naming follows from `11-dx.md § 1`: `make` builds the framework, so its targets are gates over
+`src/`; `tsir` describes the project in front of the developer, so its verbs work from a
+distribution with no `src/tools/` at all. The correction is worth recording, because the first
+version of this shipped as `make aws-emulator` and then as a single `tsir deploy:verify` that
+scanned the caller's tree — the former put an application verb in `make`, the latter made using AWS
+in an application fail a framework command.
 
 ### 2.5 Installing it
 

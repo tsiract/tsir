@@ -12,9 +12,9 @@
  *   · the **table** below — one row per AWS operation this repository calls, naming the file and
  *     function that calls it, the call as our code writes it, the emulator's handler file at a
  *     pinned release, and what that means;
- *   · the emulator's **source at that release**. [`selectorsIn`] derives the first line of code
- *     in each handler, [`verdictFor`] maps it to a verdict, and [`crossCheck`] compares the two —
- *     so the table cannot drift from the evidence without a reader seeing the disagreement.
+ *   · the emulator's **source at that release**. `make emulator-check` derives the first line of
+ *     code in each handler and compares it with the row — so the table cannot drift from the
+ *     evidence without the repository gate failing.
  *
  * ## Why a verdict and not a fidelity score
  *
@@ -86,16 +86,16 @@
  *
  * ## Using it
  *
- *   `tsir deploy:verify` — the table, the cross-check when `AWS_EMULATOR_SRC` names a
- *   checkout, and the probe when an emulator is running. `--json` prints the same as data.
+ *   `tsir deploy:verify` — the table, and the probe when an emulator is running. `--json` prints
+ *   the same as data. It describes **tsir's** AWS surface, so it needs nothing from the caller's
+ *   tree and always exits 0: an absent emulator prints how to start one.
  *
- * An absent emulator prints how to start one and exits 0: it is not a repository defect. The one
- * thing that fails the command is a call in `src/` with no row here ([`coverageProblems`]) — the
- * table is only worth reading while it is complete.
+ * The half that belongs to *this repository* — re-deriving each verdict from the emulator's own
+ * handler files, and failing when a call in our `src/` has no row — is `make emulator-check`
+ * (`src/tools/emulator-check.ts`). Keeping those apart is the point: a completeness gate over our
+ * own source is a framework concern, and a command an application runs must not fail because the
+ * application calls AWS.
  */
-
-import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
-import { join } from 'node:path';
 
 // The four call sites this table is about, imported the way any other command imports the packages
 // it drives. These are real dependencies of `@tsir/console` (not of `@tsir/deploy`), which is the
@@ -106,6 +106,9 @@ import type { SqsLike, SqsReceiveInput, SqsSendInput } from '@tsir/queue/sqs';
 import { sesTransport } from '@tsir/mail';
 import type { MailMessage } from '@tsir/mail';
 import { signRequest } from '@tsir/storage';
+
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { join } from 'node:path';
 
 import { jsonDocument } from '../output.ts';
 
@@ -128,20 +131,6 @@ export const EMULATOR_RELEASE = 'v1.0.341';
  */
 const EMULATOR_SELF = 'src/framework/console/src/commands/emulator.ts';
 
-/**
- * The vendored handler files the verdicts are checked against, at `EMULATOR_RELEASE`.
- *
- * Beside this module rather than under a repository-level `tools/` tree, so the table and the
- * evidence that proves it are one artefact with one owner. They are **not** shipped: `check-dist`
- * forbids a `fixtures` directory in the distribution, and rightly so — an application has no
- * emulator checkout to re-derive verdicts from. `report()` therefore cross-checks only when
- * `AWS_EMULATOR_SRC` names a source tree; the table itself prints anywhere.
- *
- * 13 handler files, ~512 kB, CC0 — each keeps its own `SPDX-License-Identifier` line, which
- * `check-license` reads and honours.
- */
-export const FIXTURE_ROOT = join(import.meta.dir, 'fixtures', 'aws-emulator');
-
 export interface OperationRow {
   /** The emulator's crate directory for the service. */
   readonly crate: string;
@@ -163,9 +152,10 @@ export interface OperationRow {
 /**
  * Every AWS operation this repository calls, at `EMULATOR_RELEASE`.
  *
- * "Every" is checkable: [`awsSurface`] scans `src/` for the SDK packages and wire calls we make,
- * and [`coverageProblems`] fails when a called operation has no row here. A new SDK call therefore
- * cannot be added without saying what the emulator can do with it.
+ * "Every" is checkable, by the repository gate rather than by this module: `make emulator-check`
+ * scans `src/` for the SDK packages and wire calls we make, and fails when a called operation has
+ * no row here. A new SDK call therefore cannot be added without saying what the emulator can do
+ * with it.
  */
 export const OPERATIONS: readonly OperationRow[] = [
   {
@@ -331,311 +321,6 @@ export const OPERATIONS: readonly OperationRow[] = [
     note: 'Written, and a schedule rule fires on its own clock and delivers EventBridge’s scheduled-event envelope to its target — which is the schedule trigger our Lambda adapter has to recognise.',
   },
 ];
-
-/* ────────────────────────────────────────────────────────────────────────────
- * 2. Reading the emulator's source
- * ──────────────────────────────────────────────────────────────────────────── */
-
-/** True when `text` carries a line of code, as opposed to a comment, attribute or blank. */
-export function isCodeLine(line: string): boolean {
-  const t = line.trim();
-  if (t === '') return false;
-  return !(t.startsWith('//') || t.startsWith('#[') || t.startsWith('/*') || t.startsWith('*'));
-}
-
-/**
- * The first line of code in the BODY of the last `fn handle` in a handler file.
- *
- * The signature is skipped by counting braces from the `fn handle(` line to the one that opens
- * the body, because the scaffold writes it across four lines and its continuation lines (`&self,`
- * `input: Self::Input,`) are code by any lexical test. Missing that is not hypothetical: the first
- * version of this function reported `&self,` for every handler and so called a working `Invoke`
- * unimplemented — see the AWS Emulator review of 2026-11-13, finding 1.
- *
- * The line it lands on is what separates the verdicts, because the scaffolder is deterministic
- * about what it leaves: a written handler opens with something that reads or checks the request
- * (`if input.…`, `let region = …`, `let Some(state) = …`); an unwritten one opens with
- * `not_implemented(...)` — sometimes after the `let _ = (&input, ctx);` a Unit-input scaffold keeps
- * — or with `Ok(Self::Output::default())`. `undefined` means no `fn handle` at all.
- */
-export function selectorsIn(source: string): string | undefined {
-  const lines = source.split('\n');
-  let signature = -1;
-  for (let index = 0; index < lines.length; index += 1) {
-    if ((lines[index] ?? '').includes('fn handle')) signature = index;
-  }
-  if (signature === -1) return undefined;
-
-  // The line that opens the body: the first one where the signature's brace depth becomes 1.
-  let depth = 0;
-  let bodyStart = -1;
-  for (let index = signature; index < lines.length && bodyStart === -1; index += 1) {
-    for (const character of lines[index] ?? '') {
-      if (character === '{') depth += 1;
-      else if (character === '}') depth -= 1;
-    }
-    if (depth > 0) bodyStart = index;
-  }
-  if (bodyStart === -1) return undefined;
-
-  // `fn handle(...) {` puts the first statement on the following line; a body that opens on a
-  // `fn handle(` continuation puts it after that line too, because the `{` ends its line.
-  for (const line of lines.slice(bodyStart + 1)) {
-    if (isCodeLine(line)) return line.trim();
-  }
-  return undefined;
-}
-
-/** A body that succeeds without doing anything. */
-const HOLLOW = /^Ok\(\s*(Self::Output::)?default\(\)\s*\)/u;
-/** The scaffold's refusal, directly or through the service's wrapper. */
-const REFUSAL = /(not_implemented\s*\(|scaffolded::)/u;
-/** The `let _ = (&input, ctx);` a Unit-input scaffold places before whatever follows it. */
-const UNIT_INPUT = /^let _ ?= ?\(?&input, ?&?ctx\)?;?$/u;
-
-/**
- * The verdict a handler's first code line implies, or `written`/`unknown` when only a reader can
- * judge the rest — a written body whose *refusals* decide the answer, which is the `SendEmail` row.
- */
-export function verdictFor(firstCodeLine: string | undefined): Verdict | 'written' | 'unknown' {
-  if (firstCodeLine === undefined) return 'absent';
-  if (REFUSAL.test(firstCodeLine)) return 'stub';
-  if (HOLLOW.test(firstCodeLine)) return 'stub';
-  if (UNIT_INPUT.test(firstCodeLine)) return 'unknown';
-  return 'written';
-}
-
-export interface CrossCheck {
-  readonly operation: string;
-  readonly claimed: Verdict;
-  readonly derived: Verdict | 'written' | 'unknown';
-  /** `agrees` — the source says what the row says. `reviewed` — the row needed a reader. */
-  readonly outcome: 'agrees' | 'reviewed' | 'disagrees';
-  readonly firstCodeLine: string | undefined;
-  /** `undefined` when the claimed size matches; otherwise `claimed → actual`. */
-  readonly sizeMismatch: string | undefined;
-}
-
-/** The rule, stated once: what a row may claim, given what its handler's first code line derives. */
-export function agreesWith(claimed: Verdict, derived: Verdict | 'written' | 'unknown'): boolean {
-  if (derived === 'unknown') return true;
-  if (claimed === 'served' || claimed === 'written-refusal') return derived === 'written';
-  if (claimed === 'stub') return derived === 'stub';
-  // `absent` is derived from a missing file; a present-but-hollow one is the same fact on the wire.
-  return derived === 'absent' || derived === 'stub';
-}
-
-/**
- * Re-derive every verdict and every size from a checkout of the emulator at `EMULATOR_RELEASE`.
- *
- * It reads `services/<crate>/src/ops/<handler>` only — not the whole tree — so a shallow checkout
- * of `services/` is enough, which is what a CI job would fetch.
- */
-export function crossCheck(root: string = FIXTURE_ROOT): readonly CrossCheck[] {
-  return OPERATIONS.map((row) => {
-    const dir = join(root, 'services', row.crate, 'src', 'ops');
-    const file = row.handler === undefined ? undefined : join(dir, row.handler);
-    const present = file !== undefined && existsSync(file);
-    const source = present ? readFileSync(file, 'utf8') : undefined;
-    const firstCodeLine = source === undefined ? undefined : selectorsIn(source);
-    const derived: Verdict | 'written' | 'unknown' =
-      source === undefined ? 'absent' : verdictFor(firstCodeLine);
-    const actual = present ? statSync(file).size : 0;
-    return {
-      operation: row.operation,
-      claimed: row.verdict,
-      derived,
-      outcome: agreesWith(row.verdict, derived)
-        ? derived === 'written' || derived === 'unknown'
-          ? 'reviewed'
-          : 'agrees'
-        : 'disagrees',
-      firstCodeLine,
-      sizeMismatch: actual === row.bytes ? undefined : `${String(row.bytes)} → ${String(actual)}`,
-    };
-  });
-}
-
-/* ────────────────────────────────────────────────────────────────────────────
- * 3. What our own source calls
- * ──────────────────────────────────────────────────────────────────────────── */
-
-/** The SDK client modules, the crate their operations live in, and the command prefix they use. */
-const SDK_PACKAGES: readonly {
-  readonly pattern: RegExp;
-  readonly crate: string;
-  readonly prefix: string;
-}[] = [
-  {
-    pattern: /@aws-sdk\/client-sqs\b/u,
-    crate: 'service-com-amazonaws-sqs-amazonsqs',
-    prefix: 'SQS',
-  },
-  {
-    pattern: /@aws-sdk\/client-sesv2\b/u,
-    crate: 'service-com-amazonaws-sesv2-simpleemailservice-v2',
-    prefix: 'SESv2',
-  },
-  {
-    pattern: /@aws-sdk\/client-ses\b/u,
-    crate: 'service-com-amazonaws-ses-simpleemailservice',
-    prefix: 'SES',
-  },
-  {
-    pattern: /@aws-sdk\/client-sns\b/u,
-    crate: 'service-com-amazonaws-sns-amazonsimplenotificationservice',
-    prefix: 'SNS',
-  },
-  {
-    pattern: /@aws-sdk\/client-lambda\b/u,
-    crate: 'service-com-amazonaws-lambda-awsgirapiservice',
-    prefix: 'Lambda',
-  },
-];
-
-export interface SurfaceFinding {
-  readonly path: string;
-  /** `<crate>:<Operation>` — the emulator-side identity of the call. */
-  readonly operation: string;
-}
-
-/** The command-class suffix every AWS SDK v3 command carries. */
-const COMMAND_SUFFIX = 'Command';
-
-/** The crates whose clients a file imports. Exported because it is the half worth testing alone. */
-export function observedCrates(
-  text: string,
-): readonly { readonly crate: string; readonly prefix: string }[] {
-  return SDK_PACKAGES.filter((entry) => entry.pattern.test(text)).map(({ crate, prefix }) => ({
-    crate,
-    prefix,
-  }));
-}
-
-export interface SurfaceFinding {
-  readonly path: string;
-  /** `<crate>:<Operation>` — the emulator-side identity of the call. */
-  readonly operation: string;
-  /**
-   * True when the file imports more than one AWS client and the command sat on a line that named
-   * none of them. The call is real; which service it belongs to is then a guess, so the scan says
-   * so rather than picking one.
-   */
-  readonly ambiguous?: boolean;
-}
-
-/**
- * Every AWS operation `src/` calls, found two ways because our call sites use two shapes:
- *
- *   · **the SDK** — a command class such as `new PublishCommand(…)`. The class name carries NO
- *     service prefix (`PublishCommand`, not `SNSPublishCommand`), so the service comes from the
- *     import statement the command is destructured from, and otherwise from the single client the
- *     file imports. A file that imports two clients and names a command on neither's line is
- *     reported `ambiguous` rather than attributed by guesswork — the first version of this scan
- *     assumed a prefix, matched nothing at all, and reported the repository as calling only SES.
- *   · **the wire** — a service we call by hand. `src/framework/mail/src/transports/ses.ts` posts
- *     SES v2's `/v2/email/outbound-emails` itself, so there is no SDK import to find and the
- *     operation is only visible in the path it posts to.
- *
- * Scanning is textual on purpose: a scan that needed the type checker would only run when
- * `make check` runs, and this has to answer "what would the emulator have to serve" in a checkout
- * that cannot install its dependencies. This file is skipped: it names client modules and the SES
- * path to describe them, and it calls none of them.
- */
-export function awsSurface(
-  files: readonly { readonly path: string; readonly text: string }[],
-): readonly SurfaceFinding[] {
-  const found: SurfaceFinding[] = [];
-  const add = (path: string, operation: string, ambiguous = false): void => {
-    if (!found.some((entry) => entry.path === path && entry.operation === operation)) {
-      found.push({ path, operation, ...(ambiguous ? { ambiguous: true } : {}) });
-    }
-  };
-
-  for (const file of files) {
-    if (
-      file.path.endsWith(EMULATOR_SELF) ||
-      file.path.endsWith('.d.ts') ||
-      file.path.endsWith('.test.ts')
-    ) {
-      continue;
-    }
-
-    const crates = observedCrates(file.text);
-    /** Commands whose service the file's own import statement names. */
-    const attributed = new Map<string, string>();
-    for (const line of file.text.split('\n')) {
-      const onThisLine = SDK_PACKAGES.filter((entry) => entry.pattern.test(line));
-      if (onThisLine.length !== 1) continue;
-      const crate = onThisLine[0]?.crate;
-      if (crate === undefined) continue;
-      for (const match of line.matchAll(/\b([A-Z]\w+)Command\b/gu)) {
-        const operation = match[1];
-        if (operation !== undefined) attributed.set(`${operation}${COMMAND_SUFFIX}`, crate);
-      }
-    }
-
-    for (const match of file.text.matchAll(/\b([A-Z]\w+)Command\b/gu)) {
-      // The capture is already the operation: the literal `Command` after it is the suffix.
-      const operation = match[1];
-      if (operation === undefined || operation === COMMAND_SUFFIX) continue;
-      const name = `${operation}${COMMAND_SUFFIX}`;
-      const exact = attributed.get(name);
-      if (exact !== undefined) {
-        add(file.path, `${exact}:${operation}`);
-        continue;
-      }
-      if (crates.length === 1) {
-        const only = crates[0];
-        if (only !== undefined) add(file.path, `${only.crate}:${operation}`);
-        continue;
-      }
-      for (const crate of crates) add(file.path, `${crate.crate}:${operation}`, true);
-    }
-
-    // The one hand-written AWS call: SES v2 SendEmail at /v2/email/outbound-emails.
-    if (/email\/outbound-emails/u.test(file.text)) {
-      add(file.path, 'service-com-amazonaws-sesv2-simpleemailservice-v2:SendEmail');
-    }
-  }
-  return found;
-}
-
-/**
- * Every called operation has a row in [`OPERATIONS`]. Sorted, so the message is stable.
- *
- * An `ambiguous` finding is one call whose service the scan could not name; it is covered when
- * any of its candidate services has the row, and reported with its candidates when none does.
- */
-export function coverageProblems(surface: readonly SurfaceFinding[]): readonly string[] {
-  const rows = new Set(OPERATIONS.map((row) => `${row.crate}:${row.operation}`));
-  const missing = new Map<string, Set<string>>();
-  const ambiguous = new Map<string, SurfaceFinding[]>();
-
-  for (const call of surface) {
-    if (call.ambiguous === true) {
-      const operation = call.operation.slice(call.operation.indexOf(':') + 1);
-      const group = ambiguous.get(`${call.path}#${operation}`) ?? [];
-      group.push(call);
-      ambiguous.set(`${call.path}#${operation}`, group);
-      continue;
-    }
-    if (!rows.has(call.operation)) missing.set(call.operation, new Set([call.path]));
-  }
-
-  for (const group of ambiguous.values()) {
-    if (group.some((entry) => rows.has(entry.operation))) continue;
-    const first = group[0];
-    if (first === undefined) continue;
-    const operation = first.operation.slice(first.operation.indexOf(':') + 1);
-    const candidates = group.map((entry) => entry.operation.slice(0, entry.operation.indexOf(':')));
-    missing.set(`${operation} (could be ${candidates.join(' or ')})`, new Set([first.path]));
-  }
-
-  return [...missing.entries()]
-    .map(([operation, paths]) => `${operation} (called from ${[...paths].join(', ')})`)
-    .sort();
-}
 
 /* ────────────────────────────────────────────────────────────────────────────
  * 4. The live probe
@@ -1030,88 +715,50 @@ export async function probe(
  * 5. CLI
  * ──────────────────────────────────────────────────────────────────────────── */
 
-/** `src/` TypeScript that is not a test, so a test's SDK use is not counted as a call. */
-export function sourceFiles(
-  root: string,
-): readonly { readonly path: string; readonly text: string }[] {
-  const found: { path: string; text: string }[] = [];
-  const walk = (dir: string): void => {
-    if (!existsSync(dir)) return;
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const path = join(dir, entry.name);
-      if (entry.isDirectory()) {
-        if (entry.name === 'node_modules' || entry.name === 'fixtures') continue;
-        walk(path);
-      } else if (entry.name.endsWith('.ts') && !entry.name.endsWith('.test.ts')) {
-        found.push({ path: path.replace(`${root}/`, ''), text: readFileSync(path, 'utf8') });
-      }
-    }
-  };
-  walk(join(root, 'src'));
-  return found;
-}
-
 export interface Report {
   readonly lines: readonly string[];
-  /** Non-zero when the table is incomplete — a call `src/` makes with no row here. */
-  readonly exitCode: number;
 }
 
-/** The whole report as text, so the CLI and its test render the same thing. */
+/**
+ * What a local emulator can prove about the AWS calls tsir itself makes — the report `tsir
+ * deploy:verify` prints.
+ *
+ * This half is deliberately about **tsir's own surface**, not the caller's. `@tsir/queue`'s SQS
+ * driver and `@tsir/mail`'s SES transport are ours; whether an emulator serves them is a fact a
+ * consumer can use to decide what to test locally, and it is the same fact in every project. The
+ * scan that keeps the table complete — every AWS call in *this repository's* `src/` must have a row
+ * — is a different question with a different answer in every tree, so it lives in
+ * `src/tools/emulator-check.ts` and runs from `make`, not from a command an application runs.
+ */
 export function report(
-  root: string,
   options: {
     readonly env?: Readonly<Record<string, string | undefined>>;
     readonly doFetch?: typeof fetch;
   } = {},
 ): Promise<Report> {
   const env = options.env ?? process.env;
-  const surface = awsSurface(sourceFiles(root));
-  const missing = coverageProblems(surface);
   const lines: string[] = [];
 
-  lines.push(`AWS Emulator ${EMULATOR_RELEASE} — what it can prove about this repository`);
+  lines.push(`AWS Emulator ${EMULATOR_RELEASE} — what it can prove about tsir's own AWS calls`);
   lines.push('');
   lines.push(
     `${String(OPERATIONS.length)} operations in the table: ` +
-      `${String(OPERATIONS.length - OPERATIONS.filter((row) => row.ours.path === EMULATOR_SELF).length)} the framework calls, ` +
-      `the rest the probe's own setup; ${String(surface.length)} call sites found in src/`,
+      `${String(OPERATIONS.length - OPERATIONS.filter((row) => row.ours.path === EMULATOR_SELF).length)} called by framework code, ` +
+      `the rest the probe's own setup`,
   );
   for (const row of OPERATIONS) {
     lines.push(`  ${row.verdict.padEnd(15)} ${row.operation.padEnd(24)} ${row.ours.path}`);
   }
 
-  if (missing.length > 0) {
-    lines.push('');
-    lines.push(`Called with no row in ${EMULATOR_SELF} — the table is incomplete:`);
-    for (const entry of missing) lines.push(`  ${entry}`);
-  }
-
-  const src = env['AWS_EMULATOR_SRC'];
-  if (src !== undefined && existsSync(src)) {
-    const checks = crossCheck(src);
-    lines.push('');
-    lines.push(`Cross-check against the checkout at ${src}:`);
-    for (const check of checks) {
-      const detail =
-        check.outcome === 'agrees'
-          ? 'source agrees'
-          : check.outcome === 'reviewed'
-            ? `body written; the refusal is the reader’s — first code line: ${check.firstCodeLine ?? '(none)'}`
-            : `DISAGREES — derived ${check.derived}, first code line: ${check.firstCodeLine ?? '(none)'}`;
-      const size = check.sizeMismatch === undefined ? '' : ` [size ${check.sizeMismatch}]`;
-      lines.push(`  ${check.outcome.padEnd(10)} ${check.operation.padEnd(14)} ${detail}${size}`);
-    }
-  } else {
-    lines.push('');
-    lines.push(
-      'Cross-check skipped: point AWS_EMULATOR_SRC at a checkout of the emulator at this tag to',
-    );
-    lines.push(
-      're-derive every verdict from the source. Only `services/` is read, so a shallow clone of',
-    );
-    lines.push('that subtree is enough.');
-  }
+  lines.push('');
+  lines.push('A verdict is not an acceptance: no row here discharges a cloud check. A local');
+  lines.push(
+    'emulator cannot answer `sam validate`, cannot report the real `initDuration`, and in',
+  );
+  lines.push(
+    'the AWS Emulator `nodejs*` is QuickJS with no `net`/`http` — so a bundle that reaches',
+  );
+  lines.push('the network at import time fails here for a reason AWS would not have.');
 
   // coercion-ok: `EMULATOR_PORT` is the operator's own port number (the emulator prints it), and
   // `readSetup` only joins it into a path.
@@ -1127,43 +774,38 @@ export function report(
         lines.push(`  ${step.ok ? '✓' : '✗'} ${step.step} — ${step.detail}`);
       for (const refusal of result.refusals) lines.push(`  · ${refusal}`);
     }
-    return { lines, exitCode: missing.length > 0 ? 1 : 0 };
+    return { lines };
   });
 }
 
 /**
- * `tsir deploy:verify` — the row table, the cross-check, and the probe when one is running.
+ * `tsir deploy:verify` — the table, and the probe when an emulator is running.
  *
- * `--json` prints the same thing as data. `--root <dir>` points the source scan at another
- * checkout, which is what the fast test suite uses: the default is the working directory, because
- * every other `deploy:` command describes *the project you are standing in*.
+ * `--json` prints the same thing as data. It describes **tsir's** AWS surface, so it answers the
+ * same way in every project, and it needs nothing from the caller's tree: no scan of their `src/`,
+ * no fixtures, no emulator checkout.
  *
- * Exit codes follow the rest of the deploy surface: `0` when the table covers every call the
- * scanned tree makes, `1` when it does not. An emulator that is not running is **not** a failure —
- * it prints how to start one — because absent tooling must not fail a repository gate.
+ * Exit codes: `0` always, except a usage error. Nothing here is the caller's fault — a missing
+ * emulator prints how to start one. The questions that *can* fail belong to the framework
+ * (`make emulator-check`), not to the application running `tsir`.
  */
 export async function verify(argv: readonly string[]): Promise<number> {
   const json = argv.includes('--json');
-  const rootFlag = argv.indexOf('--root');
-  const root = rootFlag === -1 ? process.cwd() : (argv[rootFlag + 1] ?? process.cwd());
+  const result = await report();
 
-  const result = await report(root);
-  if (!json) {
-    process.stdout.write(`${result.lines.join('\n')}\n`);
-  } else {
-    const surface = awsSurface(sourceFiles(root));
-    const src = process.env['AWS_EMULATOR_SRC'];
+  if (json) {
     // `jsonDocument()` adds the schema version every `tsir --json` output carries (`CLI-002`).
+    const setup = readSetup(process.env['HOME'] ?? '');
     process.stdout.write(
       `${jsonDocument({
         release: EMULATOR_RELEASE,
         operations: OPERATIONS,
-        surface,
-        missing: coverageProblems(surface),
-        crossCheck: src === undefined ? [] : crossCheck(src),
-        probe: await probe(readSetup(process.env['HOME'] ?? '')),
+        probe: await probe(setup),
       })}\n`,
     );
+    return 0;
   }
-  return result.exitCode;
+
+  process.stdout.write(`${result.lines.join('\n')}\n`);
+  return 0;
 }
