@@ -21,6 +21,14 @@ Nothing here is skipped because it is hard; it is skipped because it is **unreac
 this sandbox**: no cloud credentials, no `wrangler` login, no AWS account, no Windows
 machine, and no way to measure a cold start from a machine that is not the one being measured.
 
+**One more tool has been considered** — the AWS Emulator (v1.0.341), which serves the AWS APIs
+locally with no account. It is read in [`../reviews/2026-11-13-aws-emulator.md`](../reviews/2026-11-13-aws-emulator.md)
+and summarised in this file's § 3 notes: it can move **C3** (an invoke, an SQS partial batch, a
+schedule) and part of **C6**, it cannot touch **C5** (`sam` validates a template, not an API) or
+**C4** (it reports no `initDuration`), and nothing else on this list changes. `make aws-emulator`
+prints the per-operation table and probes a running emulator; it skips, loudly, when there is
+none.
+
 ## 2. What is already proven without them
 
 For contrast, so the gap is precise ([`07-deploy.md`](./07-deploy.md) has the details):

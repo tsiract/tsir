@@ -70,7 +70,7 @@ KIND            ?=
 .DEFAULT_GOAL := help
 .PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check compile-cli verify-templates db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli verify-templates aws-emulator db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -104,6 +104,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake release-pack\033[0m    build both release artifacts (dist/ tree + per-package tarballs)\n'
 	@printf '  \033[36mmake compile-cli\033[0m     compile the shipped CLI into one executable, and scaffold from it\n'
 	@printf '  \033[36mmake verify-templates\033[0m install, typecheck and build every frontend template (needs registry)\n'
+	@printf '  \033[36mmake aws-emulator\033[0m what the AWS Emulator can verify of our AWS code (read-only)\n'
 	@printf '  \033[36mmake clean\033[0m           remove %s/ and dist/ — both are generated\n' "$(BUILD_DIR)"
 	@printf '  \033[36mmake clean-cache\033[0m     also remove the bun install cache\n'
 	@printf '\n  \033[1mconstraints\033[0m\n'
@@ -312,6 +313,10 @@ compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaf
 # after `make release-pack`, where the network is already in use.
 verify-templates: ## Install, typecheck and build every shipped frontend template (needs the registry)
 	@$(BUN) src/tools/verify-templates.ts
+
+aws-emulator: ## What the AWS Emulator can verify of our AWS code; probes it when one is running
+	@printf '  \033[2m→ bun src/tools/aws-emulator.ts\033[0m\n'
+	@$(BUN) src/tools/aws-emulator.ts
 
 release-pack: verify-dist ## Build both release artifacts: dist/ tree + per-package tarballs
 	@$(BUN) src/tools/release-pack.ts
