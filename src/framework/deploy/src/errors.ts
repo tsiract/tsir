@@ -32,6 +32,7 @@ export type DeployErrorCode =
   | 'DPL_CRON_INVALID'
   | 'DPL_CRON_NOT_UTC'
   | 'DPL_LISTENER_NOT_FOUND'
+  | 'DPL_LISTENER_NOT_BUILT'
   | 'DPL_PUBLISH_UNKNOWN'
   | 'DPL_INVOKE_UNKNOWN';
 
@@ -342,6 +343,66 @@ export function listenerNotFound(input: {
     `no @On${input.kind === 'sns' ? 'Sns' : input.kind === 'eventbridge' ? 'EventBridge' : 'StepTask'} listener for "${input.key}"`,
     'Add the matching decorator, or filter the source so this event is not delivered to this unit',
     { kind: input.kind, key: input.key },
+  );
+}
+
+/** Which deployment-time failure a listener unit hits (`DPL_LISTENER_NOT_BUILT`). */
+export type ListenerNotBuiltCause =
+  /** The entry exports no `defineApp` handle, so the build has no composition root. */
+  | 'no-app'
+  /** The app has no listener controllers at build time — usually a dropped registration import. */
+  | 'not-registered'
+  /** The app has listener controllers, but none of them handles this unit's trigger. */
+  | 'no-handler';
+
+/**
+ * A unit carries `@OnSns` / `@OnEventBridge` / `@OnStepTask` listeners, but the built bundle
+ * cannot dispatch one of them (`INF-005`, `DPL-026`).
+ *
+ * Raised from two places, because there are two ways to lose the wiring and only one of them is
+ * visible to the build:
+ *
+ * - **Build time** (`no-app`): the entry exports no `defineApp` handle, so there is nothing to
+ *   read the listener controllers from. Emitting anyway is the bug this code prevents — a SAM
+ *   template with a function and a subscription, and a JavaScript file with no callable handler.
+ * - **Module init** (`not-registered`, `no-handler`): the build saw the decorators, but the
+ *   bundle does not. `"sideEffects": false` in a package.json lets the bundler drop the
+ *   `import "./x.controller.ts"` that performs the registration, and the build's own view —
+ *   which imports the app directly — cannot see that pruning. The generated entry therefore
+ *   throws here at init, where the platform reports it, instead of deploying a handler that
+ *   accepts every event and ignores all of them.
+ */
+export function listenerNotBuilt(input: {
+  readonly unit: string;
+  readonly kind: string;
+  readonly detail: readonly string[];
+  readonly cause?: ListenerNotBuiltCause | undefined;
+}): TsirError {
+  const where = `${input.kind} (${input.detail.join(', ')})`;
+
+  if (input.cause === 'no-handler') {
+    return deployError(
+      'DPL_LISTENER_NOT_BUILT',
+      `unit "${input.unit}" is deployed for ${where}, but no listener handles it`,
+      "the compiled listeners do not cover this trigger — check the decorator's `unit` option and its topic/detail-type against the graph",
+      { unit: input.unit, kind: input.kind, detail: input.detail.join(',') },
+    );
+  }
+
+  if (input.cause === 'not-registered') {
+    return deployError(
+      'DPL_LISTENER_NOT_BUILT',
+      `unit "${input.unit}" is reached by ${where}, but no listener controller reached the bundle`,
+      'the bundle has no listeners: check `"sideEffects"` in your package.json — an `import "./x.controller.ts"` that only runs decorators is exactly what a bundler may drop when the package claims no side effects',
+      { unit: input.unit, kind: input.kind, detail: input.detail.join(',') },
+    );
+  }
+
+  return deployError(
+    'DPL_LISTENER_NOT_BUILT',
+    `unit "${input.unit}" is reached by ${where}, but its listeners are not in a bundle the build can see`,
+    'export the app from the entry (`export default defineApp({ … })`) so `deploy:build` can read the listener controllers — until then no artifact is written for this unit',
+    { unit: input.unit, kind: input.kind, detail: input.detail.join(',') },
   );
 }
 

@@ -406,7 +406,19 @@ export function resolveUnits(input: DeploymentInput): readonly Unit[] {
     // Step Functions tasks are manual invokes → `admin` unit kind.
     const defaultUnit = listener.kind === 'steptask' ? 'admin' : 'queue';
     const name = unitNameFor(defaultUnit, listener.unit);
-    const draft = draftFor(drafts, name, name === 'admin' ? 'admin' : 'queue');
+    // One unit per **name**, whatever kind it had. Two listeners on the same controller —
+    // `@OnSns({ topic, unit: 'notify' })` and `@OnStepTask({ name, unit: 'notify' })` — are one
+    // function with two handlers, which is what `toLambdaHandler` dispatches; resolving the
+    // second under a `queue` kind because the first happened to be a `queue` unit is how a
+    // single controller turned into three deployed functions with identical bundles.
+    const existing = drafts.get(name);
+    const kind =
+      existing !== undefined
+        ? existing.kind
+        : name === 'admin' || listener.kind === 'steptask'
+          ? 'admin'
+          : 'queue';
+    const draft = draftFor(drafts, name, kind);
     // The trigger detail carries the topic/bus/task name; `detailType` is folded in for
     // EventBridge so `deploy:plan` shows the full filter without a second source of truth.
     const detail =

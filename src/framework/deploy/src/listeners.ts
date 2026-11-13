@@ -16,10 +16,16 @@
  * failure (SQS), exactly as HTTP returns 400 for a bad request body.
  */
 
+import type { ModuleDefinition } from '@tsir/core';
 import { validate } from '@tsir/validate';
-import type { AwsListenerMeta, ControllerClass, DeclaredListener } from '@tsir/router';
+import {
+  listenerControllers,
+  type AwsListenerMeta,
+  type ControllerClass,
+  type DeclaredListener,
+} from '@tsir/router';
 
-import { listenerNotFound } from './errors.ts';
+import { listenerNotFound, listenerNotBuilt } from './errors.ts';
 import type { LambdaContextLike, LambdaUnit, SnsRecord } from './lambda.ts';
 
 export interface ListenerController {
@@ -272,4 +278,73 @@ function taskBodyFrom(event: unknown): unknown {
     return rest;
   }
   return event;
+}
+
+/**
+ * The bit of `defineApp`'s handle this needs. Structural on purpose: a generated bundle has to
+ * be able to call it without the build importing every application's config type.
+ */
+export interface ListenerApp {
+  readonly load: () => unknown;
+  readonly modulesFor: (config: never) => readonly ModuleDefinition[];
+}
+
+/**
+ * The app's listener unit, built from the app itself — the entry point a generated bundle calls.
+ *
+ * A deployed function has no process-global route registry to read: the bundle is one module
+ * graph built from one entry, and the decorators that populated the registry ran at import
+ * time inside *that* graph. So the generated entry imports the app and asks it for its module
+ * list, rather than the build trying to serialise class references into generated code — which
+ * it cannot do, and which is what `INF-005` was.
+ *
+ * `app.load()` is given no env override: a build runs where the operator runs it, and the
+ * module list has to be the one a boot at that configuration resolves. A module factory that
+ * reads config therefore produces the same units here as it does at request time.
+ *
+ * Returns an empty object — not `undefined` — when the app declares no listeners, so spreading
+ * it into `toLambdaHandler` is always safe.
+ */
+export interface ListenerUnitOptions extends CompileListenersOptions {
+  /**
+   * The handlers this unit is deployed for — the triggers the graph recorded.
+   *
+   * When given, a missing handler throws `DPL_LISTENER_NOT_BUILT` at module init instead of
+   * producing a `LambdaUnit` with a hole in it. That matters because the *bundler*, not the
+   * build, decides whether the decorators survive: a package that declares
+   * `"sideEffects": false` may drop the `import "./x.controller.ts"` that does the registering,
+   * and the build — which imports the app itself — sees a controller the bundle never gets.
+   * A module-init throw surfaces as an init error the platform reports, which is the difference
+   * between a loud failure and a function that silently swallows every event.
+   */
+  readonly expect?: readonly ('sns' | 'eventbridge' | 'invoke')[] | undefined;
+  /** Unit name, for the error message. */
+  readonly unit?: string | undefined;
+}
+
+export function listenerUnitFor(
+  app: ListenerApp,
+  options: ListenerUnitOptions = {},
+): Partial<Pick<LambdaUnit, 'sns' | 'eventbridge' | 'invoke'>> {
+  const modules = app.modulesFor(app.load() as never);
+  const controllers = listenerControllers(modules);
+  const compiled = controllers.length === 0 ? undefined : compileListeners(controllers, options);
+
+  const unit = {
+    ...(compiled?.sns === undefined ? {} : { sns: compiled.sns }),
+    ...(compiled?.eventbridge === undefined ? {} : { eventbridge: compiled.eventbridge }),
+    ...(compiled?.invoke === undefined ? {} : { invoke: compiled.invoke }),
+  };
+
+  for (const trigger of options.expect ?? []) {
+    if (trigger in unit) continue;
+    throw listenerNotBuilt({
+      unit: options.unit ?? 'listeners',
+      kind: trigger,
+      detail: [],
+      cause: controllers.length === 0 ? 'not-registered' : 'no-handler',
+    });
+  }
+
+  return unit;
 }
