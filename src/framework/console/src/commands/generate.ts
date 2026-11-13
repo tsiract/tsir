@@ -89,6 +89,7 @@ const CONFIG_CAPABILITIES: readonly DefaultedCapability[] = [
   'storage',
   'mail',
   'notifications',
+  'featureFlags',
   'broadcast',
   'search',
   'media',
@@ -123,6 +124,7 @@ const CAPABILITY_SECTIONS: Readonly<Record<DefaultedCapability, string | undefin
   search: 'search',
   media: 'media',
   notifications: 'notify',
+  featureFlags: 'featureFlags',
 };
 
 /** The registry key each section holds its entries under. */
@@ -136,6 +138,7 @@ const ENTRY_KEYS: Readonly<Record<string, string>> = {
   search: 'engines',
   media: 'adapters',
   notify: 'channels',
+  featureFlags: 'stores',
 };
 
 /**
@@ -259,6 +262,7 @@ const REQUIRED_VALUES: Readonly<
     fields: '',
     env: driver === 'postgres' ? [['DATABASE_URL', 'the Postgres connection URL']] : [],
   }),
+  featureFlags: () => ({ fields: '', env: [] }),
   sessions: () => ({ fields: '', env: [] }),
 };
 

@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-291 codes across 28 packages.
+296 codes across 28 packages.
 
 ## `@tsir/auth`
 
@@ -307,9 +307,14 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 ## `@tsir/pennant`
 
-| Code                         |
-| ---------------------------- |
-| `PENNANT_ENGINE_UNSUPPORTED` |
+| Code                              |
+| --------------------------------- |
+| `PENNANT_CONFIG_MISSING`          |
+| `PENNANT_DEFAULT_MISSING`         |
+| `PENNANT_DRIVER_MISSING`          |
+| `PENNANT_ENGINE_UNSUPPORTED`      |
+| `PENNANT_FORBIDDEN_IN_PRODUCTION` |
+| `PENNANT_NO_STORE`                |
 
 ## `@tsir/policy`
 

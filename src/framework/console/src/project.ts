@@ -374,6 +374,34 @@ const projectSchema = z.object({
         .optional(),
     })
     .optional(),
+  // `CAP-006`: feature flags were a constructor the entry module wired by hand, and the admin app
+  // wired `memoryStore` — in production every rollout reset on the next deploy, and two instances
+  // disagreed about who was in the experiment. `driver` is a string for the same reason every other
+  // registry's is: an unknown name is a message that lists the real ones.
+  featureFlags: z
+    .object({
+      default: z.string().min(1).optional(),
+      stores: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            table: z.string().min(1).optional(),
+            connection: z.string().min(1).optional(),
+            defaults: z
+              .array(
+                z.object({
+                  name: z.string().min(1),
+                  description: z.string().optional(),
+                  rule: z.record(z.string(), z.unknown()),
+                }),
+              )
+              .optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   // The scheduler's lock. One lock for the project, because
   // a scheduler takes one provider — and `driver` is a string for the same reason the cache and
   // queue drivers are: an unknown name is a message that lists the real ones.

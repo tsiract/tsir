@@ -77,6 +77,7 @@ describe('tsir new', () => {
       'broadcast.ts',
       'cache.ts',
       'database.ts',
+      'featureFlags.ts',
       'mail.ts',
       'media.ts',
       'notify.ts',

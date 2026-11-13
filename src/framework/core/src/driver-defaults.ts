@@ -33,7 +33,8 @@ export type DefaultedCapability =
   | 'broadcast'
   | 'search'
   | 'media'
-  | 'notifications';
+  | 'notifications'
+  | 'featureFlags';
 
 export interface DriverDefault {
   /** The driver name, exactly as `tsir.js` writes it. */
@@ -115,6 +116,11 @@ const CLOUDFLARE: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     requires: ['a SQL port (D1 satisfies it)', 'a mailer — the mail channel composes one'],
     why: 'an inbox in the store the project already has, so a notification survives the isolate that sent it',
   },
+  featureFlags: {
+    driver: 'database',
+    requires: ['a SQL port (D1 satisfies it)', 'a `features` table — `featureTableDdl`'],
+    why: 'a flag has to be the same on every instance and the same tomorrow; D1 is the store the project already has and `memory` resets every rollout on deploy',
+  },
 };
 
 /**
@@ -179,6 +185,14 @@ const LAMBDA: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     ],
     why: 'an inbox in Postgres, so a notification outlives the invocation that sent it',
   },
+  featureFlags: {
+    driver: 'database',
+    requires: [
+      'a query function (the Postgres driver satisfies it)',
+      'a `features` table — `featureTableDdl`',
+    ],
+    why: 'Postgres is already there; a flag in an in-process store is reset by every deploy and disagrees between concurrent functions',
+  },
 };
 
 /**
@@ -231,6 +245,11 @@ const BUN: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     driver: 'memory',
     requires: [],
     why: 'every delivery is kept so a test can assert on it, and nothing leaves the process',
+  },
+  featureFlags: {
+    driver: 'database',
+    requires: ['a SQL port (SQLite satisfies it)', 'a `features` table — `featureTableDdl`'],
+    why: 'the bun target has a real process and a real file, so flags belong in it rather than in a map that a restart forgets',
   },
 };
 

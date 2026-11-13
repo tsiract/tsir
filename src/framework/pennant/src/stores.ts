@@ -38,6 +38,33 @@ export function nullStore(): FeatureStore {
 }
 
 /**
+ * The DDL a `databaseStore` needs, per engine.
+ *
+ * The doc comment below told whoever read it what the table looked like, and nothing turned that
+ * into a migration — so `tsir.js` could name the `database` driver for flags, the app built it, and
+ * the first `active()` failed on a missing table. `@tsir/queue` already ships `queueTableDdl` for the
+ * same reason; this is the flag half of that.
+ *
+ * `rule` is `TEXT` on every engine rather than a JSON column: SQLite and D1 have no JSON type, and
+ * the three engines that do disagree about how to query one. The store serialises, so the column is
+ * a string and stays one.
+ */
+export function featureTableDdl(
+  options: { readonly engine: 'd1' | 'postgres' | 'mysql' | 'sqlite'; readonly table?: string } = {
+    engine: 'postgres',
+  },
+): readonly string[] {
+  const table = options.table ?? 'features';
+  return [
+    `CREATE TABLE IF NOT EXISTS ${table} (`,
+    '  name TEXT PRIMARY KEY,',
+    '  description TEXT,',
+    '  rule TEXT NOT NULL',
+    ')',
+  ];
+}
+
+/**
  * A database-backed store. The caller supplies a `query` function that runs a
  * parameterised SQL statement and returns rows. This keeps the store free of
  * any specific ORM.

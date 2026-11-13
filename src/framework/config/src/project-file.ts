@@ -35,6 +35,7 @@ export const PROJECT_TOP_LEVEL_KEYS: readonly string[] = [
   'broadcast',
   'search',
   'media',
+  'featureFlags',
   'schedule',
   'paths',
   'modules',
@@ -58,6 +59,7 @@ export const NAMED_REGISTRIES: readonly { readonly section: string; readonly ent
   { section: 'broadcast', entries: 'connections' },
   { section: 'search', entries: 'engines' },
   { section: 'media', entries: 'adapters' },
+  { section: 'featureFlags', entries: 'stores' },
 ];
 
 /** Keys allowed inside each nested object that is validated (nested objects not listed are not checked). */
@@ -88,6 +90,8 @@ const NESTED_KEYS: Readonly<Record<string, readonly string[]>> = {
     'required',
   ],
   media: ['default', 'adapters'],
+  featureFlags: ['default', 'stores'],
+  'featureFlags.stores.*': ['driver', 'table', 'connection', 'defaults'],
   'media.adapters.*': [
     'driver',
     'accountId',
@@ -181,6 +185,7 @@ export function unknownProjectKeys(raw: Readonly<Record<string, unknown>>): stri
     ['broadcast', 'connections'],
     ['search', 'engines'],
     ['media', 'adapters'],
+    ['featureFlags', 'stores'],
   ];
   for (const [section, entries] of nested) {
     const block = raw[section];
