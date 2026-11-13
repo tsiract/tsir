@@ -318,8 +318,22 @@ function configFor(
       ? ['//   · nothing — this driver is complete on its own']
       : row.requires.map((need) => `//   · ${need}`);
   const entries = ENTRY_KEYS[section] ?? 'entries';
+  // `bun` means two different deployments — a laptop and a self-hosted server — and a single row
+  // cannot be both. The row is the development answer, so the file says where it stops being right
+  // rather than leaving `APP_ENV=production` to refuse it at boot with no explanation.
+  const developmentNote =
+    target === 'bun'
+      ? [
+          '//',
+          '// These are development defaults: this row is what a laptop wants, where a process that',
+          '// dies and takes the cache with it is correct. Deploying this app means replacing them —',
+          '// the guards refuse `memory` once `APP_ENV=production`, so a self-hosted deploy needs a',
+          '// durable driver here first.',
+        ]
+      : [];
   const body = [
     `// config/${section}.ts — generated for the ${target} target.`,
+    ...developmentNote,
     '//',
     `// The default is what ${capability} converges on for ${target}: \`${row.driver}\`.`,
     '//',

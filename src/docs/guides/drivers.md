@@ -365,7 +365,9 @@ is honest, not because they are acceptable.
 1. **The per-target defaults are read by the starter (`CAP-008`).** `tsir new --target
 cloudflare|lambda|bun` writes one `config/<capability>.ts` per capability from
    `DRIVER_DEFAULTS`, with the row's `requires` as comments and its `why` as the reason — a lambda
-   app now starts on Postgres rather than on a D1 binding that nothing injects. Secrets go in as
+   app now starts on Postgres rather than on a D1 binding that nothing injects. The `bun` rows are
+   development answers — a laptop is one of the two things that target means — and the generated
+   file says so, because `APP_ENV=production` refuses them at boot. Secrets go in as
    `{ fromEnv }` references and the variables are listed in `.env.example`, because the alternative
    was a fresh app whose first `tsir dev` refused with `MAIL_CONFIG_INVALID: the resend driver
 needs an apiKey` — correct, and the wrong moment to say it. What still does not read the table

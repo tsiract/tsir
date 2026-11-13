@@ -93,6 +93,33 @@ describe('tsir new --target (CAP-008)', () => {
     }
   });
 
+  test('the bun starter says its rows are development defaults', async () => {
+    // `bun` means a laptop and a self-hosted server, and one row cannot be both. The row is the
+    // laptop answer; production refuses `memory` at boot, so the file has to say where it stops
+    // being right — otherwise the first deploy fails with a refusal nobody was warned about.
+    const dir = await scaffold('bun', 'bun-notes');
+    try {
+      const text = readFileSync(join(dir, 'config/cache.ts'), 'utf8');
+      expect(text).toContain('development defaults');
+      expect(text).toContain('APP_ENV=production');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the deployed targets make no such disclaimer', async () => {
+    // A warning that appears everywhere is a warning nobody reads. Cloudflare and Lambda rows are
+    // already production answers.
+    const dir = await scaffold('lambda', 'lambda-notes');
+    try {
+      expect(readFileSync(join(dir, 'config/cache.ts'), 'utf8')).not.toContain(
+        'development defaults',
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('the bun starter writes no section for sessions', async () => {
     // `sessions`, `api keys`, `feature flags` and the lock have no `tsir.js` section yet. Writing a
     // block nothing reads is worse than writing none: it looks configured.
