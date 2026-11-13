@@ -35,6 +35,7 @@ import {
   buildGraph,
   classMissing,
   invalidDeployConfig,
+  listenerNotBuilt,
   serializeGraph,
   unitEmpty,
   unsupportedTarget,
@@ -95,17 +96,42 @@ export const DEFAULT_BUDGETS: Readonly<Record<DeployTarget, number>> = {
 /** Warn before the wall, not at it: 80 % of the budget is where people start looking. */
 export const SIZE_WARNING_RATIO = 0.8;
 
-const TRIGGER_ORDER = ['fetch', 'queue', 'scheduled'] as const;
+const TRIGGER_ORDER = ['fetch', 'queue', 'scheduled', 'sns', 'eventbridge', 'invoke'] as const;
 
 /** How the platform names a unit's entry points. The adapter's own vocabulary. */
 export type AdapterTrigger = (typeof TRIGGER_ORDER)[number];
 
-/** Which entry export a trigger is wired to. One contract, three names. */
+/**
+ * Which `LambdaUnit` field a trigger is wired to — and, for the two decorator triggers, which
+ * entry export the build reads it *from*.
+ *
+ * `sns` and `eventbridge` are the `@OnSns` / `@OnEventBridge` path (`DPL-026`). They are not
+ * separate exports on the application entry: an app exports its **app**, and the listener
+ * controllers are in its modules, so the emitter generates the handler from
+ * `listenerControllers()` and imports nothing extra. Wiring them here is what makes
+ * `adapterTriggers()` stop dropping a listener-only unit on the floor (`INF-005`).
+ */
 export const TRIGGER_EXPORTS: Readonly<Record<AdapterTrigger, string>> = {
   fetch: 'handler',
   queue: 'queue',
   scheduled: 'scheduled',
+  sns: 'sns',
+  eventbridge: 'eventbridge',
+  invoke: 'invoke',
 };
+
+/**
+ * Triggers the **application entry** has to export.
+ *
+ * The queue and cron contract has always been "export `queue`/`scheduled`"; a listener unit's
+ * handlers are built from the app's controllers, so `sns`/`eventbridge`/`invoke` are not in
+ * this set and `deploy:build` must not demand them.
+ */
+const ENTRY_EXPORTS: ReadonlySet<AdapterTrigger> = new Set<AdapterTrigger>([
+  'fetch',
+  'queue',
+  'scheduled',
+]);
 
 const RUNTIME_TARGET: Readonly<Record<DeployTarget, 'bun' | 'browser' | 'node'>> = {
   bun: 'bun',
@@ -140,8 +166,13 @@ function externalsFor(target: DeployTarget): readonly string[] {
  * Which adapter triggers a unit needs, from the triggers the graph recorded.
  *
  * `websocket` is a `fetch` with an `Upgrade` header on Workers, and `admin` is HTTP with a
- * private route table, so both land on `fetch`. `manual` is the console: it is not a
- * deployable trigger and produces nothing.
+ * private route table, so both land on `fetch`. `sns` and `eventbridge` are the
+ * `@OnSns`/`@OnEventBridge` listeners (`DPL-026`), and `manual` is `@OnStepTask` — a direct
+ * invoke, which the Lambda adapter dispatches to `invoke` (`DPL-029`).
+ *
+ * A `manual` trigger is **not** always a deployable one: `migrate:<connection>` units also use
+ * it, and they are one-off scripts with no function to invoke (`DPL-021`). `planJobs` skips
+ * those by kind before it asks.
  */
 export function adapterTriggers(unit: Unit): readonly AdapterTrigger[] {
   const kinds = new Set(unit.triggers.map((trigger) => trigger.kind));
@@ -149,14 +180,19 @@ export function adapterTriggers(unit: Unit): readonly AdapterTrigger[] {
   if (kinds.has('http') || kinds.has('websocket')) wanted.add('fetch');
   if (kinds.has('queue')) wanted.add('queue');
   if (kinds.has('cron')) wanted.add('scheduled');
+  if (kinds.has('sns')) wanted.add('sns');
+  if (kinds.has('eventbridge')) wanted.add('eventbridge');
+  if (kinds.has('manual')) wanted.add('invoke');
   // Filtered through `TRIGGER_ORDER` so the export order is the adapter's, not the unit's:
   // two units with the same triggers must generate the same import line.
   return TRIGGER_ORDER.filter((trigger) => wanted.has(trigger));
 }
 
-/** The entry exports a unit needs, in the adapter's order. */
+/** The **entry** exports a unit needs, in the adapter's order. */
 export function requiredExports(triggers: readonly AdapterTrigger[]): readonly string[] {
-  return triggers.map((trigger) => TRIGGER_EXPORTS[trigger]);
+  return triggers
+    .filter((trigger) => ENTRY_EXPORTS.has(trigger))
+    .map((trigger) => TRIGGER_EXPORTS[trigger]);
 }
 
 export interface EntrySpec {
@@ -180,6 +216,16 @@ export interface EntrySpec {
   readonly adapter: string;
   /** Absolute path of the application entry. */
   readonly entry: string;
+  /**
+   * The app the entry exports, when the unit has decorator-declared listeners (`DPL-026`).
+   *
+   * Absent means "no listener triggers": the generated entry imports nothing but the exports
+   * it names. Present means the build found `export const <export> = defineApp(…)`, so the
+   * entry can ask that app for its modules and compile the listeners from them. `adapter` is
+   * the resolved `@tsir/deploy/listeners` module, by absolute path for the same reason
+   * `adapter` above is: the application is not required to depend on `@tsir/deploy`.
+   */
+  readonly app?: { readonly export: string; readonly adapter: string } | undefined;
 }
 
 /**
@@ -192,12 +238,22 @@ export interface EntrySpec {
  */
 export function unitEntrySource(spec: EntrySpec): string {
   const needs = requiredExports(spec.triggers);
-  const imports = spec.triggers.map((trigger) => {
-    const local = `__${trigger}`;
-    return `${TRIGGER_EXPORTS[trigger]} as ${local}`;
-  });
-  const wiring = spec.triggers.map((trigger) => `  ${trigger}: __${trigger},`).join('\n');
-  const destructured = [...spec.triggers].join(', ');
+  const appended = [...needs];
+
+  const imports = spec.triggers
+    .filter((trigger) => ENTRY_EXPORTS.has(trigger))
+    .map((trigger) => `${TRIGGER_EXPORTS[trigger]} as __${trigger}`);
+  // The app, not its controllers: `listenerUnitFor` goes through `defineApp`'s own loader, so
+  // the module list a bundle compiles is the list a boot resolves — one source, not a copy.
+  if (spec.app !== undefined) imports.push(`${spec.app.export} as __app`);
+
+  const wiring = [
+    ...spec.triggers
+      .filter((trigger) => ENTRY_EXPORTS.has(trigger))
+      .map((trigger) => `  ${trigger}: __${trigger},`),
+    ...(spec.app === undefined ? [] : [`  ...__listeners,`]),
+  ].join('\n');
+  const destructured = spec.triggers.filter((trigger) => ENTRY_EXPORTS.has(trigger)).join(', ');
 
   const adapterImport = spec.target === 'cloudflare' ? 'toCloudflareHandler' : 'toLambdaHandler';
   const call =
@@ -209,6 +265,20 @@ export function unitEntrySource(spec: EntrySpec): string {
     spec.target === 'cloudflare'
       ? `export const { ${destructured} } = ${call};`
       : `export const handler = ${call};`;
+
+  const listenerBlock =
+    spec.app === undefined
+      ? []
+      : [
+          '',
+          "// Decorator-declared listeners (DPL-026): the app's own module list, compiled into the",
+          '// `sns` / `eventbridge` / `invoke` fields `toLambdaHandler` dispatches to. `expect` is the',
+          "// graph's answer, so a registration import the bundler pruned fails at init — loudly —",
+          '// instead of shipping a handler that silently ignores every event.',
+          `const __listeners = listenerUnitFor(__app, { unit: ${JSON.stringify(spec.unit)}, expect: ${JSON.stringify(
+            spec.triggers.filter((trigger) => !ENTRY_EXPORTS.has(trigger)),
+          )} });`,
+        ];
 
   const durables = [...(spec.durables ?? [])].sort();
   const reExports =
@@ -222,9 +292,13 @@ export function unitEntrySource(spec: EntrySpec): string {
 
   return [
     `// Generated by \`tsir deploy:build\` for unit ${JSON.stringify(spec.unit)} — do not edit.`,
-    `// Triggers: ${spec.triggers.join(', ')} · entry exports: ${[...needs, ...durables].join(', ')}`,
+    `// Triggers: ${spec.triggers.join(', ')} · entry exports: ${[...appended, ...durables].join(', ')}`,
     `import { ${adapterImport} } from ${JSON.stringify(spec.adapter)};`,
+    ...(spec.app === undefined
+      ? []
+      : [`import { listenerUnitFor } from ${JSON.stringify(spec.app.adapter)};`]),
     `import { ${imports.join(', ')} } from ${JSON.stringify(spec.entry)};`,
+    ...listenerBlock,
     '',
     exported,
     ...reExports,
@@ -277,6 +351,15 @@ export interface ResolvedBuild {
   readonly configured: readonly TargetConfig[];
   /** Absolute path of `app.entry`, the module every generated entry imports. */
   readonly entryPath: string;
+  /**
+   * The entry export holding the `defineApp` handle, when the app has one (`DPL-026`).
+   *
+   * A listener unit cannot be built without it, and a listener unit built without it is the
+   * `INF-005` bug: a function in the template, no handler in the bundle.
+   */
+  readonly appExport: string | undefined;
+  /** Absolute path of `@tsir/deploy/listeners`, for the generated entry's import. */
+  readonly listenersAdapter: string;
   /** The entry's own exports. A unit name is a promise the entry has to keep. */
   readonly provided: ReadonlySet<string>;
   /** `database.connections` — driver and journal folder, per migrate unit (`DPL-021`). */
@@ -374,6 +457,7 @@ export async function resolveBuild(
   // would put the artifacts in `<project>/tmp/build`.
   const outDirName = options.outDir ?? DEFAULT_OUT_DIR;
   const outDir = isAbsolute(outDirName) ? outDirName : join(project.root, outDirName);
+  const appExport = appExportOf(entryModule);
 
   return {
     root: project.root,
@@ -386,6 +470,8 @@ export async function resolveBuild(
     targets,
     configured,
     entryPath: project.entryPath,
+    appExport: appExport,
+    listenersAdapter: listenersSpecifier(),
     provided: new Set(Object.keys(entryModule)),
     connections,
     cloudflare,
@@ -437,6 +523,38 @@ function adapterSpecifier(target: DeployTarget): string {
       ? import.meta.resolve('@tsir/deploy/cloudflare')
       : import.meta.resolve('@tsir/deploy/lambda'),
   );
+}
+
+/** `listenerUnitFor`, resolved the same way and for the same reason as the adapter above. */
+function listenersSpecifier(): string {
+  return fileURLToPath(import.meta.resolve('@tsir/deploy/listeners'));
+}
+
+/**
+ * Picks the entry export that is a `defineApp` handle, if there is one.
+ *
+ * `defineApp` is recognised by shape — `load`, `modulesFor` and `createApp` on one object —
+ * rather than by a brand or an `instanceof`, because a build imports the application's own
+ * copy of `@tsir/core` and a brand would not survive that. The name is preferred in a fixed
+ * order so two builds of the same app generate the same import line.
+ */
+export function appExportOf(entryModule: Readonly<Record<string, unknown>>): string | undefined {
+  // `default` first: the entry contract already requires `export default defineApp(…)`, so a
+  // build that finds anything else is reading an app nothing documents.
+  const preferred = ['default', 'app', 'application', 'server'];
+  const isApp = (value: unknown): boolean =>
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { load?: unknown }).load === 'function' &&
+    typeof (value as { modulesFor?: unknown }).modulesFor === 'function' &&
+    typeof (value as { createApp?: unknown }).createApp === 'function';
+
+  for (const name of preferred) {
+    if (isApp(entryModule[name])) return name;
+  }
+  return Object.keys(entryModule)
+    .sort()
+    .find((name) => isApp(entryModule[name]));
 }
 
 /** `resource: 'Room'` → the field wrangler wants for that binding kind. */
@@ -523,6 +641,8 @@ interface EmitJob {
   readonly triggers: readonly AdapterTrigger[];
   /** Durable Object classes the entry must export for this unit (`DPL-010`). */
   readonly durables: readonly string[];
+  /** Whether the unit has decorator-declared listeners to compile (`DPL-026`). */
+  readonly listeners: boolean;
 }
 
 async function emitUnit(resolved: ResolvedBuild, job: EmitJob): Promise<Artifact> {
@@ -542,6 +662,9 @@ async function emitUnit(resolved: ResolvedBuild, job: EmitJob): Promise<Artifact
       durables: job.durables,
       adapter: adapterSpecifier(target),
       entry: resolved.entryPath,
+      ...(job.listeners && resolved.appExport !== undefined
+        ? { app: { export: resolved.appExport, adapter: resolved.listenersAdapter } }
+        : {}),
     }),
     'utf8',
   );
@@ -638,6 +761,11 @@ export async function emitArtifacts(resolved: ResolvedBuild): Promise<BuildResul
 
   const wrangler = new Map<string, string>();
   const templates = new Map<string, string>();
+  // One config per **job**, not per graph unit. `planJobs` skips migrate units (scripts, not
+  // functions — `DPL-021`) and warns-and-skips units with no deployable trigger; writing a
+  // `template.<unit>.yaml` for either produced a stack resource with no bundle behind it, which
+  // is exactly the `INF-005` shape: a `AWS::Serverless::Function` whose `CodeUri` holds no
+  // `index.js`.
   for (const job of jobs) {
     if (job.target === 'lambda') {
       // Same pre-flight as the wrangler configs: an environment that would exceed Lambda's
@@ -766,6 +894,26 @@ function planJobs(resolved: ResolvedBuild, warnings: string[]): readonly EmitJob
         );
       }
 
+      // A listener unit is built from the app's controllers (`DPL-026`), and only the app can
+      // supply them — a class reference cannot be written into generated code. No app export
+      // means no handler in the bundle, so this is an error rather than a warning: the
+      // alternative is the `INF-005` failure, a deployed function whose `index.js` has nothing
+      // the platform can call.
+      const listenerKinds = ['sns', 'eventbridge', 'manual'] as const;
+      const hasListeners = unit.triggers.some((trigger) =>
+        (listenerKinds as readonly string[]).includes(trigger.kind),
+      );
+      if (hasListeners && resolved.appExport === undefined) {
+        const listener = unit.triggers.find((trigger) =>
+          (listenerKinds as readonly string[]).includes(trigger.kind),
+        );
+        throw listenerNotBuilt({
+          unit: unit.name,
+          kind: listener?.kind ?? 'listener',
+          detail: listener?.detail ?? [],
+        });
+      }
+
       // A Durable Object binding is a promise about the bundle's exports (`DPL-010`).
       const durables =
         target === 'cloudflare'
@@ -789,6 +937,7 @@ function planJobs(resolved: ResolvedBuild, warnings: string[]): readonly EmitJob
         target,
         triggers,
         durables: durables.map((durable) => durable.className),
+        listeners: hasListeners,
       });
     }
   }

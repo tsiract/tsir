@@ -36,7 +36,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (21). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (22). Each one is described in the [error-code reference](../errors.md).
 
 - `DPL_BINDING_MISSING`
 - `DPL_CAPABILITY_MISSING`
@@ -50,6 +50,7 @@ Owned by this package (21). Each one is described in the [error-code reference](
 - `DPL_EVENT_UNRECOGNISED`
 - `DPL_GRAPH_DRIFT`
 - `DPL_INVOKE_UNKNOWN`
+- `DPL_LISTENER_NOT_BUILT`
 - `DPL_LISTENER_NOT_FOUND`
 - `DPL_PRIVATE_EXPOSED`
 - `DPL_PUBLISH_UNKNOWN`
@@ -87,6 +88,29 @@ console.log(
 );
 ```
 
+A `@OnSns` / `@OnEventBridge` / `@OnStepTask` method is turned into a callable by the **bundler**, so
+the generated Lambda entry cannot import a symbol the application exports — it imports the app and
+asks it for its modules. `@tsir/deploy/listeners` is that bridge, and `deploy:build` calls it for
+every unit with a listener trigger:
+
+```ts
+import { listenerUnitFor } from '@tsir/deploy/listeners';
+
+// What the generated entry does, once per listener unit.
+const listeners = listenerUnitFor(app, {
+  unit: 'notify',
+  expect: ['sns', 'eventbridge', 'invoke'],
+});
+
+export const handler = toLambdaHandler({ unit: 'notify', ...listeners });
+```
+
+`expect` is the unit graph's answer, and it is the difference between a loud failure and an inert
+function: if the bundle contains no handler for one of those triggers, `listenerUnitFor` throws
+`DPL_LISTENER_NOT_BUILT` at module init, where the platform reports it. The usual cause is
+`"sideEffects": false` in a package that also does `import './x.controller.ts'` — a bundler may drop
+that import, and with it the decorator that registers the controller.
+
 ## Failure modes
 
 - `DPL_CONFIG_INVALID`: the deploy configuration is invalid. The check runs before anything is built.
@@ -121,6 +145,13 @@ console.log(
 - `DPL_LISTENER_NOT_FOUND`: an SNS, EventBridge or Step Functions event arrived for a key no
   `@OnSns` / `@OnEventBridge` / `@OnStepTask` listener on this unit subscribes to. It is a routing bug
   in the template, not a bad message, so it fails instead of being silently dropped.
+- `DPL_LISTENER_NOT_BUILT`: a unit is deployed for an SNS topic, an EventBridge rule or a Step
+  Functions task, but the bundle has no handler for it. Two moments raise it, because there are two
+  ways to lose the wiring: at build time when the entry exports no `defineApp` handle to read the
+  listener controllers from, and at module init when it does but the built bundle contains no
+  listeners — the usual cause being `"sideEffects": false` letting a bundler drop the
+  `import "./x.controller.ts"` that registers them. Either way it fails loudly: the alternative is a
+  function that accepts every event and ignores all of them.
 - `DPL_PUBLISH_UNKNOWN`: `publish` named a topic that no `@OnSns` listener reads. The message would go
   to a topic nobody consumes — the quietest way to lose work — so the call is refused at the call site.
 - `DPL_INVOKE_UNKNOWN`: `invokeUnit` named a unit or task that no `@OnStepTask` listener handles. The

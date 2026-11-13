@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-281 codes across 27 packages.
+282 codes across 27 packages.
 
 ## `@tsir/auth`
 
@@ -147,6 +147,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DPL_EVENT_UNRECOGNISED`    |
 | `DPL_GRAPH_DRIFT`           |
 | `DPL_INVOKE_UNKNOWN`        |
+| `DPL_LISTENER_NOT_BUILT`    |
 | `DPL_LISTENER_NOT_FOUND`    |
 | `DPL_PRIVATE_EXPOSED`       |
 | `DPL_PUBLISH_UNKNOWN`       |

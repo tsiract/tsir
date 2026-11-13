@@ -15,7 +15,8 @@
     "tsir": "./src/cli.ts"
   },
   "sideEffects": [
-    "./src/commands/fixtures/http-app/src/**/*.controller.ts"
+    "./src/commands/fixtures/http-app/src/**/*.controller.ts",
+    "./src/commands/fixtures/listener-app/src/**/*.controller.ts"
   ],
   "dependencies": {
     "@tsir/cache": "workspace:*",

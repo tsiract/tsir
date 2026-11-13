@@ -111,6 +111,7 @@
     "DPL_EVENTS_OUTBOX_MISSING": "deploy",
     "DPL_GRAPH_DRIFT": "deploy",
     "DPL_INVOKE_UNKNOWN": "deploy",
+    "DPL_LISTENER_NOT_BUILT": "deploy",
     "DPL_LISTENER_NOT_FOUND": "deploy",
     "DPL_PRIVATE_EXPOSED": "deploy",
     "DPL_PUBLISH_UNKNOWN": "deploy",

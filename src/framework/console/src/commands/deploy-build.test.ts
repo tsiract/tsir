@@ -41,6 +41,7 @@ import { type CliRun, runCliSubprocess } from '../../test-support/in-process.ts'
 const FIXTURE = join(import.meta.dir, 'fixtures', 'deploy-app');
 const BUDGET_FIXTURE = join(import.meta.dir, 'fixtures', 'budget-app');
 const HTTP_EXAMPLE = join(import.meta.dir, 'fixtures', 'http-app');
+const LISTENER_APP = join(import.meta.dir, 'fixtures', 'listener-app');
 
 const cleanup: string[] = [];
 
@@ -97,20 +98,56 @@ describe('what a unit needs from the entry', () => {
     ).toEqual(['queue', 'scheduled']);
   });
 
-  test('a console-only unit has nothing to deploy', async () => {
+  test('@OnSns, @OnEventBridge and @OnStepTask are deployable triggers (INF-005)', async () => {
     expect(
       adapterTriggers(
-        unit({ name: 'c', kind: 'admin', triggers: [{ kind: 'manual', detail: ['x'] }] }),
+        unit({ name: 'notify', kind: 'queue', triggers: [{ kind: 'sns', detail: ['orders'] }] }),
       ),
-    ).toEqual([]);
+    ).toEqual(['sns']);
+    expect(
+      adapterTriggers(
+        unit({
+          name: 'events',
+          kind: 'queue',
+          triggers: [{ kind: 'eventbridge', detail: ['orders:order.placed'] }],
+        }),
+      ),
+    ).toEqual(['eventbridge']);
+    expect(
+      adapterTriggers(
+        unit({ name: 'tasks', kind: 'admin', triggers: [{ kind: 'manual', detail: ['charge'] }] }),
+      ),
+    ).toEqual(['invoke']);
+    // The order is the adapter's, not the unit's, so two units with the same triggers generate
+    // the same import line in their entries.
+    expect(
+      adapterTriggers(
+        unit({
+          name: 'mixed',
+          kind: 'queue',
+          triggers: [
+            { kind: 'sns', detail: ['orders'] },
+            { kind: 'eventbridge', detail: ['orders:order.placed'] },
+            { kind: 'queue', detail: ['jobs'] },
+          ],
+        }),
+      ),
+    ).toEqual(['queue', 'sns', 'eventbridge']);
   });
 
-  test('the export names are the contract: handler, queue, scheduled', async () => {
+  test('a unit with no trigger at all still deploys nothing', async () => {
+    expect(adapterTriggers(unit({ name: 'c', kind: 'admin', triggers: [] }))).toEqual([]);
+  });
+
+  test('the entry exports are the contract: handler, queue, scheduled', async () => {
     expect(requiredExports(['fetch', 'queue', 'scheduled'])).toEqual([
       'handler',
       'queue',
       'scheduled',
     ]);
+    // A listener unit's handlers come from the app's controllers, not from entry exports —
+    // demanding `sns` from the entry would ask every app for a name it has no reason to export.
+    expect(requiredExports(['sns', 'eventbridge', 'invoke'])).toEqual([]);
   });
 });
 
@@ -150,6 +187,36 @@ describe('the generated entry', () => {
 
   test('the same unit generates the same bytes', async () => {
     expect(unitEntrySource(spec)).toBe(unitEntrySource(spec));
+  });
+
+  test('a listener unit compiles them from the app, not from an entry export (INF-005)', async () => {
+    const source = unitEntrySource({
+      ...spec,
+      unit: 'notify',
+      target: 'lambda',
+      adapter: '/abs/lambda.ts',
+      triggers: ['sns', 'eventbridge', 'invoke'],
+      app: { export: 'app', adapter: '/abs/listeners.ts' },
+    });
+
+    // The app is imported; no `sns`/`eventbridge` export is demanded from the entry.
+    expect(source).toContain('import { listenerUnitFor } from "/abs/listeners.ts";');
+    expect(source).toContain('import { app as __app } from "/abs/src/app.ts";');
+    // `expect` is the graph's answer: the generated entry refuses to build a handler that
+    // silently covers fewer triggers than the unit is deployed for.
+    expect(source).toContain('const __listeners = listenerUnitFor(__app, {');
+    expect(source).toContain('expect: ["sns","eventbridge","invoke"]');
+    expect(source).toContain('...__listeners,');
+    expect(source).toContain('export const handler = toLambdaHandler({');
+    // The failure this replaced: an import with no bindings and a handler with no fields.
+    expect(source).not.toContain('import {  }');
+    expect(source).not.toMatch(/unit: "notify",\s*\n\s*\n/u);
+  });
+
+  test('a unit without listeners does not import the app', async () => {
+    const source = unitEntrySource({ ...spec, triggers: ['fetch'] });
+    expect(source).not.toContain('listenerUnitFor');
+    expect(source).not.toContain('__app');
   });
 });
 
@@ -195,6 +262,8 @@ describe('budgets', () => {
         outDirName: 'dist',
         app: 'app',
         topology: 'separate',
+        appExport: undefined,
+        listenersAdapter: '/abs/listeners.ts',
         graph: {
           schemaVersion: 1,
           app: 'app',
@@ -463,6 +532,76 @@ describe('a real build (DPL-018)', () => {
     expect(result.output).toContain('bun → ');
     expect(existsSync(join(out, 'bun', 'server.mjs'))).toBe(true);
     expect(existsSync(join(out, 'cloudflare'))).toBe(false);
+  });
+});
+
+describe('decorator-declared listeners reach the bundle (INF-005)', () => {
+  test('build → import → invoke: SNS, EventBridge and a Step Functions task all dispatch', async () => {
+    const out = await outDir();
+    const built = await runCli(['deploy:build', '--target', 'lambda', '--out', out], LISTENER_APP);
+    expect(built.code).toBe(EXIT.ok);
+
+    // One unit, not three: the three decorators name the same `unit`, so they are one
+    // function with three handlers — which is what `toLambdaHandler` dispatches between.
+    expect(existsSync(join(out, 'lambda', 'notify', 'index.mjs'))).toBe(true);
+    expect(existsSync(join(out, 'lambda', 'notify', 'template.notify.yaml'))).toBe(true);
+
+    const template = await readFile(join(out, 'lambda', 'notify', 'template.notify.yaml'), 'utf8');
+    expect(template).toContain('Type: AWS::Serverless::Function');
+    expect(template).toContain('Type: AWS::Events::Rule');
+    // SAM's `Events` shorthand, one subscription per SNS trigger.
+    expect(template).toContain('Type: SNS');
+    expect(template).toContain('Topic: !Ref OrdersTopicArn');
+
+    // The assertion the whole `INF-005` story is about: an event goes in, the decorated
+    // method runs. Before the fix this bundle existed and answered every event with
+    // `DPL_UNIT_EMPTY` — the function was deployed, wired, and inert.
+    const bundle = (await import(join(out, 'lambda', 'notify', 'index.mjs'))) as {
+      handler: (
+        event: unknown,
+        context: unknown,
+      ) => Promise<{
+        statusCode: number;
+        body: string;
+      }>;
+    };
+    const context = {
+      functionName: 'notify',
+      awsRequestId: 'test',
+      getRemainingTimeInMillis: () => 30_000,
+    };
+
+    const sns = await bundle.handler(
+      {
+        Records: [
+          {
+            EventSource: 'aws:sns',
+            Sns: {
+              MessageId: 'm-1',
+              TopicArn: 'arn:aws:sns:us-west-2:000000000000:orders',
+              Message: JSON.stringify({ orderId: 'o_1' }),
+            },
+          },
+        ],
+      },
+      context,
+    );
+    expect(sns.statusCode).toBe(200);
+
+    const eventbridge = await bundle.handler(
+      {
+        source: 'orders',
+        'detail-type': 'order.placed',
+        detail: { orderId: 'o_2' },
+        time: '2026-11-13T00:00:00Z',
+      },
+      context,
+    );
+    expect(eventbridge.statusCode).toBe(200);
+
+    const task = await bundle.handler({ taskName: 'charge', input: { orderId: 'o_3' } }, context);
+    expect(task.statusCode).toBe(200);
+    expect(JSON.parse(task.body)).toEqual({ ok: true });
   });
 });
 
