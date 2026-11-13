@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/database`**
 
-`BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseBootstrap`, `DatabaseBootstrapOptions`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDatabaseBootstrap`, `createDrizzle`, `createRotationStore`, `createSqliteBinding`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
+`BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseBootstrap`, `DatabaseBootstrapOptions`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `HttpMysqlOptions`, `HttpMysqlResponse`, `HttpPostgresOptions`, `HttpPostgresResponse`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `SQLITE_CAPABILITIES`, `SqliteDriverOptions`, `SqliteLike`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDatabaseBootstrap`, `createDrizzle`, `createHttpMysqlDriver`, `createHttpPostgresDriver`, `createRotationStore`, `createSqliteBinding`, `createSqliteDriver`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `parsePostgresUrl`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
 
 **`@tsir/database/postgres`**
 
@@ -28,7 +28,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (25). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (30). Each one is described in the [error-code reference](../errors.md).
 
 - `DB_BATCH_EMPTY`
 - `DB_BATCH_UNSUPPORTED`
@@ -42,19 +42,24 @@ Owned by this package (25). Each one is described in the [error-code reference](
 - `DB_D1_NO_BINDING`
 - `DB_DRIVER_UNAVAILABLE`
 - `DB_HEALTH_FAILED`
+- `DB_MYSQL_HTTP_FAILED`
 - `DB_NO_CONNECTIONS`
 - `DB_POSTGRES_BOOTSTRAP_UNWIRED`
+- `DB_POSTGRES_HTTP_FAILED`
 - `DB_RAW_UNSUPPORTED`
 - `DB_REQUIRES_INTERACTIVE_TX`
 - `DB_REQUIRES_TX_CONNECTION`
 - `DB_ROTATION_INVALID_IDENTIFIER`
 - `DB_ROTATION_TARGET_MISMATCH`
+- `DB_SQLITE_NO_HANDLE`
 - `DB_TX_DEPTH_EXCEEDED`
 - `DB_TX_INTERACTIVE_UNSUPPORTED`
+- `DB_TX_NESTED_UNSUPPORTED`
 - `DB_TX_OPTION_UNSUPPORTED`
 - `DB_TX_STATEMENT_UNSUPPORTED`
 - `DB_UNKNOWN_CONNECTION`
 - `DB_UNKNOWN_DEFAULT`
+- `DB_URL_REQUIRED`
 
 ## Example
 
@@ -83,6 +88,19 @@ console.log(result.rows);
 
 ## Failure modes
 
+- `DB_POSTGRES_HTTP_FAILED` / `DB_MYSQL_HTTP_FAILED`: the provider rejected a statement. The message
+  carries what the provider said, because that is the operable part — a missing table, a stale
+  password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
+  this" without parsing vendor prose.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. The file is opened lazily, and a
+  connection that reached its first statement without one is a bootstrap that never ran — the error
+  names the path rather than failing with an unhandled `EBADF`.
+- `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
+  nested transactions and no savepoints in this driver; flatten the work into one transaction, or
+  run the statements as a batch.
+- `DB_URL_REQUIRED`: a `postgres` or `mysql` connection has no `url`. Both engines reach a pooler
+  over HTTP, so the URL is the connection — there is no pool object to fall back on, and a
+  connection that built without one would fail on its first statement instead of at boot.
 - `DB_D1_NO_BINDING`: a `d1` connection has no `binding` in `config/database.ts`. D1 is reached through
   a Worker binding, never a connection string, so the binding name is required even though the rest of
   the entry looks complete.

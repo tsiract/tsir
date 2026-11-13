@@ -25,6 +25,19 @@ console.log(result.rows);
 
 ## Failure modes
 
+- `DB_POSTGRES_HTTP_FAILED` / `DB_MYSQL_HTTP_FAILED`: the provider rejected a statement. The message
+  carries what the provider said, because that is the operable part — a missing table, a stale
+  password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
+  this" without parsing vendor prose.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. The file is opened lazily, and a
+  connection that reached its first statement without one is a bootstrap that never ran — the error
+  names the path rather than failing with an unhandled `EBADF`.
+- `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
+  nested transactions and no savepoints in this driver; flatten the work into one transaction, or
+  run the statements as a batch.
+- `DB_URL_REQUIRED`: a `postgres` or `mysql` connection has no `url`. Both engines reach a pooler
+  over HTTP, so the URL is the connection — there is no pool object to fall back on, and a
+  connection that built without one would fail on its first statement instead of at boot.
 - `DB_D1_NO_BINDING`: a `d1` connection has no `binding` in `config/database.ts`. D1 is reached through
   a Worker binding, never a connection string, so the binding name is required even though the rest of
   the entry looks complete.

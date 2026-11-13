@@ -27,6 +27,10 @@ console.log(await store.get('u:1'));
 
 ## Failure modes
 
+- `CAP_ENGINE_UNSUPPORTED`: the `database` store was given a `mysql` connection. Writing a value is
+  one upsert — `ON CONFLICT … RETURNING` — which MySQL does not speak; the alternative would be a
+  read-then-write with a race in it, and a cache that stores the wrong bytes is worse than one that
+  refuses to build.
 - `CAP_UNKNOWN_STORE`: a store name was used that was never declared. There is no fallback to the
   default store, so the code asks for a store it cannot have.
 - `CAP_UNKNOWN_DEFAULT`: the default names a store that is not declared.

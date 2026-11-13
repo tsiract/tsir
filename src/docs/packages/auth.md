@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/auth`**
 
-`ApiKeyPrincipal`, `ApiKeyRecord`, `ApiKeyStore`, `ApiKeys`, `ApiKeysOptions`, `AuthErrorCode`, `AuthSessionData`, `DatabaseSessionStoreOptions`, `Guard`, `GuardRequest`, `PASSWORD_LIMITS`, `ParsedHash`, `PasswordHasher`, `PasswordPolicy`, `Pbkdf2Options`, `Principal`, `ReadSession`, `SESSION_DEFAULTS`, `SessionOptions`, `SessionRecord`, `SessionSql`, `SessionSqlResult`, `SessionSqlStatement`, `SessionStore`, `Sessions`, `StartedSession`, `algorithmOf`, `apiKeyGuard`, `apiKeyTableDdl`, `assertPasswordAcceptable`, `base64url`, `bearerGuard`, `composeGuards`, `constantTimeEqual`, `cookieFrom`, `createApiKeys`, `createSessions`, `databaseApiKeyStore`, `databaseSessionStore`, `defaultHasher`, `formatApiKey`, `fromBase64url`, `hashToken`, `parseApiKey`, `parseHash`, `pbkdf2Hasher`, `randomHex`, `randomToken`, `sessionErrors`, `sessionGuard`, `sessionTableDdl`, `tokenPrefix`, `verifyPassword`
+`API_KEY_DRIVERS`, `ApiKeyPrincipal`, `ApiKeyRecord`, `ApiKeyStore`, `ApiKeys`, `ApiKeysOptions`, `AuthErrorCode`, `AuthQuery`, `AuthSessionData`, `AuthStoreBuildOptions`, `ConfiguredAuthStore`, `DatabaseSessionStoreOptions`, `Guard`, `GuardRequest`, `PASSWORD_LIMITS`, `PERSISTENT_AUTH_DRIVERS`, `ParsedHash`, `PasswordHasher`, `PasswordPolicy`, `Pbkdf2Options`, `Principal`, `ReadSession`, `SESSION_DEFAULTS`, `SESSION_DRIVERS`, `SessionOptions`, `SessionRecord`, `SessionSql`, `SessionSqlResult`, `SessionSqlStatement`, `SessionStore`, `Sessions`, `StartedSession`, `algorithmOf`, `apiKeyGuard`, `apiKeyStoreFromConfig`, `apiKeyTableDdl`, `assertPasswordAcceptable`, `base64url`, `bearerGuard`, `composeGuards`, `constantTimeEqual`, `cookieFrom`, `createApiKeys`, `createSessions`, `databaseApiKeyStore`, `databaseSessionStore`, `defaultHasher`, `driverMissing`, `forbiddenInProduction`, `formatApiKey`, `fromBase64url`, `hashToken`, `parseApiKey`, `parseHash`, `pbkdf2Hasher`, `randomHex`, `randomToken`, `sessionErrors`, `sessionGuard`, `sessionStoreFromConfig`, `sessionTableDdl`, `tokenPrefix`, `verifyPassword`
 
 **`@tsir/auth/bun`**
 
@@ -28,11 +28,13 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (11). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (13). Each one is described in the [error-code reference](../errors.md).
 
 - `AUTH_API_KEY_INVALID`
 - `AUTH_API_KEY_REVOKED`
 - `AUTH_CONFIG_INVALID`
+- `AUTH_DRIVER_MISSING`
+- `AUTH_FORBIDDEN_IN_PRODUCTION`
 - `AUTH_INVALID_CREDENTIALS`
 - `AUTH_INVALID_HASH`
 - `AUTH_INVALID_TOKEN`
@@ -59,6 +61,12 @@ console.log(await hasher.verify('wrong guess', stored));
 
 ## Failure modes
 
+- `AUTH_DRIVER_MISSING`: `sessions.store` or `apiKeys.store` names a store this build does not ship.
+  The hint lists the ones it does, because the name is usually a near-miss.
+- `AUTH_FORBIDDEN_IN_PRODUCTION`: a `memory` session or API-key store with `APP_ENV=production`. A
+  session in one process logs the user out when their next request lands on another instance, and a
+  key in one process is `401` on the instance that has not seen it — neither throws, which is why it
+  is refused at boot instead.
 - `AUTH_WEAK_PASSWORD`: the password does not meet the policy. The check runs before hashing, so it costs
   nothing. Raise `minLength` or require more character classes in the hasher options.
 - `AUTH_INVALID_CREDENTIALS`: the email and password do not match an account. The message is the same

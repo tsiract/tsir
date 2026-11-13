@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/broadcast`**
 
-`AuthorizeResult`, `BroadcastBootstrap`, `BroadcastBootstrapOptions`, `BroadcastMessage`, `Broadcaster`, `ChannelSubscriber`, `EchoChannel`, `EchoOptions`, `EchoPresenceChannel`, `EchoPrivateChannel`, `PresenceMember`, `PusherBroadcasterOptions`, `PusherLike`, `RedisBroadcasterOptions`, `RedisPubSubClient`, `WebSocketConnection`, `WebSocketPrincipal`, `WebSocketServerOptions`, `createBroadcastBootstrap`, `createEcho`, `createWebSocketHandler`, `memoryBroadcaster`, `pusherBroadcaster`, `redisBroadcaster`
+`AuthorizeResult`, `BROADCAST_DRIVERS`, `BroadcastBindings`, `BroadcastBootstrap`, `BroadcastBootstrapOptions`, `BroadcastDriverName`, `BroadcastMessage`, `Broadcaster`, `ChannelSubscriber`, `ConfiguredBroadcast`, `DURABLE_OBJECT_HUB`, `DurableObjectBroadcasterOptions`, `DurableObjectNamespaceLike`, `EchoChannel`, `EchoOptions`, `EchoPresenceChannel`, `EchoPrivateChannel`, `PresenceMember`, `PusherBroadcasterOptions`, `PusherLike`, `RedisBroadcasterOptions`, `RedisPubSubClient`, `WebSocketConnection`, `WebSocketPrincipal`, `WebSocketServerOptions`, `broadcasterFor`, `broadcasterFromConfig`, `createBroadcastBootstrap`, `createEcho`, `createWebSocketHandler`, `durableObjectBroadcaster`, `memoryBroadcaster`, `pusherBroadcaster`, `redisBroadcaster`
 
 ## Error codes
 

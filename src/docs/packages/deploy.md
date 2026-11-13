@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/deploy`**
 
-`BindingKind`, `BindingRef`, `BuildGraphResult`, `CompileListenersOptions`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `InternalTransport`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ListenerContext`, `ListenerController`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `compileListeners`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `invokeUnit`, `listenerNotFound`, `logicalName`, `parseGraph`, `privateExposed`, `publish`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `setInternalTransport`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
+`BindingKind`, `BindingRef`, `BuildGraphResult`, `CompileListenersOptions`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `InternalTransport`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ListenerApp`, `ListenerContext`, `ListenerController`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `compileListeners`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `invokeUnit`, `listenerNotBuilt`, `listenerNotFound`, `listenerUnitFor`, `logicalName`, `parseGraph`, `privateExposed`, `publish`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `setInternalTransport`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
 
 **`@tsir/deploy/cloudflare`**
 
@@ -25,6 +25,10 @@ The packages are not yet published to npm.
 **`@tsir/deploy/lambda`**
 
 `ApiGatewayV2Event`, `EventBridgeEvent`, `LambdaContextLike`, `LambdaHandler`, `LambdaOptions`, `LambdaResponse`, `LambdaUnit`, `SnsEvent`, `SnsRecord`, `SqsEvent`, `SqsRecord`, `deadlineSignal`, `decodeBase64`, `encodeBase64`, `isRetryable`, `requestFromApiGatewayV2`, `responseToApiGatewayV2`, `toLambdaHandler`
+
+**`@tsir/deploy/listeners`**
+
+`CompileListenersOptions`, `ListenerApp`, `ListenerContext`, `ListenerController`, `ListenerUnitOptions`, `compileListeners`, `listenerUnitFor`
 
 **`@tsir/deploy/sam`**
 

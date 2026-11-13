@@ -16,7 +16,11 @@ The packages are not yet published to npm.
 
 **`@tsir/scout`**
 
-`ScoutBootstrap`, `ScoutBootstrapOptions`, `SearchDocument`, `SearchEngine`, `SearchResult`, `createScoutBootstrap`, `memoryEngine`, `postgresEngine`, `sqliteEngine`
+`ConfiguredSearch`, `ConformanceCase`, `ConformanceOptions`, `EnvRef`, `HOSTED_SEARCH_PROVIDERS`, `HostedSearchError`, `HostedSearchOptions`, `HostedSearchProvider`, `QueryFn`, `QueryableDatabase`, `SEARCH_DRIVERS`, `ScoutBootstrap`, `ScoutBootstrapOptions`, `SearchBindings`, `SearchDocument`, `SearchDriverName`, `SearchEngine`, `SearchResult`, `conformanceCases`, `createScoutBootstrap`, `databaseQuery`, `engineFor`, `hostedSearch`, `memoryEngine`, `postgresEngine`, `searchFromConfig`, `sqliteEngine`
+
+**`@tsir/scout/conformance`**
+
+`ConformanceCase`, `ConformanceOptions`, `conformanceCases`
 
 ## Error codes
 

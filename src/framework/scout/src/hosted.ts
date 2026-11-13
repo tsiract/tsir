@@ -215,14 +215,24 @@ export function hostedSearch(options: HostedSearchOptions): SearchEngine {
   const call = async (
     operation: 'index' | 'remove' | 'search',
     url: string,
-    init: RequestInit,
+    init: {
+      readonly method: string;
+      readonly body?: string | undefined;
+      readonly tolerate?: readonly number[] | undefined;
+      readonly headers?: RequestInit['headers'];
+    },
   ): Promise<unknown> => {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
     let response: Response;
     try {
       response = await doFetch(url, {
-        ...init,
+        // `tolerate` is this module's, not `fetch`'s — spreading it would be a `RequestInit` field a
+        // runtime ignores today and may reject tomorrow, which is why the request is built from
+        // named fields rather than by spreading `init`.
+        ...(init.body === undefined
+          ? { method: init.method }
+          : { method: init.method, body: init.body }),
         headers: {
           'content-type': 'application/json',
           ...authHeaders(options, applicationId),
@@ -245,6 +255,9 @@ export function hostedSearch(options: HostedSearchOptions): SearchEngine {
     }
 
     const text = await response.text();
+    // A status the caller named as tolerable answers the same as success: the operation's goal is
+    // already true. See `remove` — a delete whose document is gone has done its job.
+    if (init.tolerate?.includes(response.status) === true) return {};
     if (!response.ok) {
       throw new HostedSearchError(
         options.provider,
@@ -290,7 +303,14 @@ export function hostedSearch(options: HostedSearchOptions): SearchEngine {
     },
 
     async remove(id) {
-      await call('remove', endpointOf(options, 'document', id), { method: 'DELETE' });
+      // Deleting is retried — a queue redelivery, a webhook sent twice, a retry after a timeout
+      // where the write had already landed. `404` means the document is gone, which is what the
+      // caller asked for; surfacing it turns an at-least-once job into a permanent failure on its
+      // second attempt. Every other status stays an error.
+      await call('remove', endpointOf(options, 'document', id), {
+        method: 'DELETE',
+        tolerate: [404],
+      });
     },
 
     async search(query, limit = 20) {

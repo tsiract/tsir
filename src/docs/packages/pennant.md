@@ -16,11 +16,18 @@ The packages are not yet published to npm.
 
 **`@tsir/pennant`**
 
-`FeatureContext`, `FeatureDefinition`, `FeatureManager`, `FeatureRule`, `FeatureStore`, `PennantBootstrap`, `PennantBootstrapOptions`, `createFeatureManager`, `createPennantBootstrap`, `databaseStore`, `evaluate`, `memoryStore`, `nullStore`
+`ConfiguredFeatureFlags`, `ConfiguredFeatureStore`, `FeatureContext`, `FeatureDefinition`, `FeatureManager`, `FeatureRule`, `FeatureStore`, `FeatureStoreBuildOptions`, `PENNANT_DRIVERS`, `PERSISTENT_PENNANT_DRIVERS`, `PennantBootstrap`, `PennantBootstrapOptions`, `PennantDriverName`, `PennantErrorCode`, `configMissing`, `createFeatureManager`, `createFeatureStore`, `createPennantBootstrap`, `databaseStore`, `defaultMissing`, `driverMissing`, `evaluate`, `featureFlagsFromConfig`, `featureTableDdl`, `forbiddenInProduction`, `memoryStore`, `noStore`, `nullStore`
 
 ## Error codes
 
-This package raises no error codes of its own.
+Owned by this package (6). Each one is described in the [error-code reference](../errors.md).
+
+- `PENNANT_CONFIG_MISSING`
+- `PENNANT_DEFAULT_MISSING`
+- `PENNANT_DRIVER_MISSING`
+- `PENNANT_ENGINE_UNSUPPORTED`
+- `PENNANT_FORBIDDEN_IN_PRODUCTION`
+- `PENNANT_NO_STORE`
 
 ## Example
 

@@ -16,14 +16,15 @@ The packages are not yet published to npm.
 
 **`@tsir/migrate`**
 
-`AUDIT_TABLE`, `AppliedMigration`, `AppliedOne`, `AppliedWhen`, `DriftedMigration`, `EMPTY_TARGET`, `GuidanceInput`, `JOURNAL_PATH`, `JOURNAL_TABLE`, `Journal`, `JournalEntry`, `JournalError`, `LockHandle`, `MigrateOptions`, `MigrateResult`, `Migration`, `MigrationFile`, `MigrationFolder`, `MigrationPathOptions`, `MigrationPlan`, `MigrationRun`, `MigrationStatus`, `RUNBOOK`, `RollbackOptions`, `RollbackPlan`, `RollbackResult`, `StatusOptions`, `TableNames`, `TransactionPolicy`, `acquireMigrationLock`, `advisoryLockKey`, `checksum`, `describeRollback`, `describeStatus`, `driftError`, `isApplicable`, `isDefaultMigrationFolder`, `lockHeldMessage`, `lockUnsupported`, `migrate`, `migrationFolder`, `migrationStatus`, `parseJournal`, `parseTransactionPolicy`, `planMigrations`, `planRollback`, `preflightGuidance`, `readAppliedOrEmpty`, `readMigrationFolder`, `readRuns`, `rollback`, `splitStatements`, `statusIsHealthy`
+`AUDIT_TABLE`, `AppliedMigration`, `AppliedOne`, `AppliedWhen`, `DriftedMigration`, `EMPTY_TARGET`, `GuidanceInput`, `JOURNAL_PATH`, `JOURNAL_TABLE`, `Journal`, `JournalEntry`, `JournalError`, `LockHandle`, `MigrateOptions`, `MigrateResult`, `Migration`, `MigrationFile`, `MigrationFolder`, `MigrationPathOptions`, `MigrationPlan`, `MigrationRun`, `MigrationStatus`, `RUNBOOK`, `RollbackOptions`, `RollbackPlan`, `RollbackResult`, `StatusOptions`, `TableNames`, `TransactionPolicy`, `acquireMigrationLock`, `advisoryLockKey`, `checksum`, `describeRollback`, `describeStatus`, `driftError`, `isApplicable`, `isDefaultMigrationFolder`, `lockHeldMessage`, `lockUnsupported`, `migrate`, `migrationEngine`, `migrationFolder`, `migrationStatus`, `parseJournal`, `parseTransactionPolicy`, `planMigrations`, `planRollback`, `preflightGuidance`, `readAppliedOrEmpty`, `readMigrationFolder`, `readRuns`, `rollback`, `splitStatements`, `statusIsHealthy`
 
 ## Error codes
 
-Owned by this package (7). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (8). Each one is described in the [error-code reference](../errors.md).
 
 - `DB_MIGRATION_DRIFT`
 - `DB_MIGRATION_EMPTY`
+- `DB_MIGRATION_ENGINE_UNSUPPORTED`
 - `DB_MIGRATION_FAILED`
 - `DB_MIGRATION_LOCK_UNSUPPORTED`
 - `DB_ROLLBACK_DESTRUCTIVE`
@@ -47,6 +48,10 @@ console.log(splitStatements(sql).length, checksum(sql).slice(0, 12));
 
 ## Failure modes
 
+- `DB_MIGRATION_ENGINE_UNSUPPORTED`: the connection's engine is neither `d1`, `postgres` nor
+  `sqlite` — today that means `mysql`, whose migrations are not written yet. Refused before the
+  journal is touched, because the alternative is failing on the first insert with some migrations
+  already applied.
 - `DB_MIGRATION_FAILED`: a statement in a migration failed. If the migration runs in a transaction, the
   transaction was rolled back, so fix the SQL and run the migration again. If `tsir:transaction=off` is
   set, earlier statements may have been applied, so inspect the schema before re-running.

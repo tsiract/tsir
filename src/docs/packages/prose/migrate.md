@@ -15,6 +15,10 @@ console.log(splitStatements(sql).length, checksum(sql).slice(0, 12));
 
 ## Failure modes
 
+- `DB_MIGRATION_ENGINE_UNSUPPORTED`: the connection's engine is neither `d1`, `postgres` nor
+  `sqlite` — today that means `mysql`, whose migrations are not written yet. Refused before the
+  journal is touched, because the alternative is failing on the first insert with some migrations
+  already applied.
 - `DB_MIGRATION_FAILED`: a statement in a migration failed. If the migration runs in a transaction, the
   transaction was rolled back, so fix the SQL and run the migration again. If `tsir:transaction=off` is
   set, earlier statements may have been applied, so inspect the schema before re-running.

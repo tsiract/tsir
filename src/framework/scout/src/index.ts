@@ -42,3 +42,6 @@ export {
 
 export { createScoutBootstrap } from './bootstrap.ts';
 export type { ScoutBootstrap, ScoutBootstrapOptions } from './bootstrap.ts';
+
+export { conformanceCases } from './conformance.ts';
+export type { ConformanceCase, ConformanceOptions } from './conformance.ts';

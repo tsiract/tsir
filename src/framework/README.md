@@ -31,18 +31,19 @@ Runtime-neutral packages (no `node:*` / `bun:*` imports, enforced by ESLint) hol
 Everything below is built, tested and covered by the gate in `make coverage`; each has a task
 README recording what it ships and what it does not.
 
-| Package          | Depends on                    | Contents                                                                       |
-| ---------------- | ----------------------------- | ------------------------------------------------------------------------------ |
-| `@tsir/cache`    | `container`, `core`, `config` | Port, codecs, 5 drivers, `cache:*`, a conformance kit                          |
-| `@tsir/queue`    | `container`                   | Port, worker, 5 drivers, outbox, `queue:*`, per-connection triggers            |
-| `@tsir/events`   | `container`, `queue`          | Typed dispatch, sync/queued listeners, the transactional outbox writer         |
-| `@tsir/schedule` | `container`                   | Cron parser, task registry, the tick, `LockProvider` + 2 drivers, `schedule:*` |
-| `@tsir/storage`  | `container`                   | Disk registry, 3 drivers, SigV4 in WebCrypto, `storage:*`                      |
-| `@tsir/mail`     | `container`, `storage`        | Mailers, 7 transports, templates, MIME, `mail:*`                               |
-| `@tsir/notify`   | `container`, `mail`, `queue`  | Channels (mail, database inbox, webhook, chat, sms, memory), queued delivery   |
-| `@tsir/policy`   | `container`                   | Roles, permissions, gates, `authorize`/`require`, `toHttpPolicies`             |
-| `@tsir/auth`     | `container`                   | Passwords (PBKDF2, argon2id on Bun), sessions, API keys, guards                |
-| `@tsir/pulse`    | `container`                   | Logger + 3-layer redaction, metrics, tracing, health/readiness                 |
+| Package          | Depends on                    | Contents                                                                         |
+| ---------------- | ----------------------------- | -------------------------------------------------------------------------------- |
+| `@tsir/cache`    | `container`, `core`, `config` | Port, codecs, 5 drivers, `cache:*`, a conformance kit                            |
+| `@tsir/queue`    | `container`                   | Port, worker, 5 drivers, outbox, `queue:*`, per-connection triggers              |
+| `@tsir/events`   | `container`, `queue`          | Typed dispatch, sync/queued listeners, the transactional outbox writer           |
+| `@tsir/schedule` | `container`                   | Cron parser, task registry, the tick, `LockProvider` + 2 drivers, `schedule:*`   |
+| `@tsir/storage`  | `container`                   | Disk registry, 3 drivers, SigV4 in WebCrypto, `storage:*`                        |
+| `@tsir/mail`     | `container`, `storage`        | Mailers, 7 transports, templates, MIME, `mail:*`                                 |
+| `@tsir/notify`   | `container`, `mail`, `queue`  | Channels (mail, database inbox, webhook, chat, sms, memory), queued delivery     |
+| `@tsir/policy`   | `container`                   | Roles, permissions, gates, `authorize`/`require`, `toHttpPolicies`               |
+| `@tsir/auth`     | `container`                   | Passwords (PBKDF2, argon2id on Bun), sessions, API keys, guards                  |
+| `@tsir/pulse`    | `container`                   | Logger + 3-layer redaction, metrics, tracing, health/readiness                   |
+| `@tsir/scout`    | `container`                   | Port, 6 engines (FTS5, `tsvector`, 3 hosted, memory), `scout:*`, conformance kit |
 
 Two things are worth noticing in that table. First, every capability package depends on `container`
 and nothing else it does not have to — `policy`, `auth` and `pulse` are leaves, which is why a project

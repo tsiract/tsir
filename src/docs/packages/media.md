@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/media`**
 
-`CloudflareAdapterOptions`, `CloudinaryAdapterOptions`, `FfmpegAdapterOptions`, `ImageKitAdapterOptions`, `MediaAdapter`, `MediaBootstrap`, `MediaBootstrapOptions`, `MediaKind`, `MediaManager`, `ProcessOptions`, `ProcessResult`, `SharpAdapterOptions`, `cloudflareAdapter`, `cloudinaryAdapter`, `createMediaBootstrap`, `createMediaManager`, `ffmpegAdapter`, `imagekitAdapter`, `sharpAdapter`
+`CloudflareAdapterOptions`, `CloudinaryAdapterOptions`, `ConfiguredMedia`, `ConfiguredMediaAdapter`, `EnvRef`, `FfmpegAdapterOptions`, `ImageKitAdapterOptions`, `MEDIA_DRIVERS`, `MediaAdapter`, `MediaBootstrap`, `MediaBootstrapOptions`, `MediaBuildOptions`, `MediaDriverName`, `MediaKind`, `MediaManager`, `PERSISTENT_MEDIA_DRIVERS`, `ProcessOptions`, `ProcessResult`, `SharpAdapterOptions`, `adapterFor`, `cloudflareAdapter`, `cloudinaryAdapter`, `createMediaBootstrap`, `createMediaManager`, `ffmpegAdapter`, `imagekitAdapter`, `mediaFromConfig`, `sharpAdapter`
 
 **`@tsir/media/cloudflare`**
 
