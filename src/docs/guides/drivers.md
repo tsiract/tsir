@@ -443,9 +443,9 @@ needs an apiKey` — correct, and the wrong moment to say it. What still does no
 | `CAP-2`  | ~~Validate every kind's driver from its constant~~ — done                           | `make-connection.ts` § 5                                   |
 | `CAP-3`  | ~~Settle the cache table name in one place~~ — done                                 | `admin.product.com/config/cache.ts`                        |
 | `CAP-4`  | ~~Wire `production: true` from `APP_ENV` into every bootstrap~~ — done (`CAP-007`)  | `isProduction()` in `@tsir/core`, `make production-wiring` |
-| `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)               |
-| `CAP-6`  | ~~Registries for the four remaining constructor-only ports~~ — done                 | `plans/tasks/07-capabilities.md` (`CAP-006`, `CAP-018`)    |
-| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                          |
+| `CAP-5`  | ~~`tsir new --target cloudflare` writes the Cloudflare rows~~ — done (`CAP-008`)    | `tsir new --target`, `@tsir/core`'s `DRIVER_DEFAULTS`      |
+| `CAP-6`  | ~~Registries for the four remaining constructor-only ports~~ — done                 | `CAP-006`, `CAP-018` in the task index                     |
+| `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | open — the one piece of the five-part change still missing |
 | `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                              |
 | `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts`           |
 | `CAP-10` | ~~A `tsir.js` registry for `media`~~ — done (`CAP-017`)                             | `src/framework/media/src/config.ts`                        |

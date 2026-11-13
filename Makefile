@@ -68,9 +68,9 @@ NAME            ?=
 KIND            ?=
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
-        make-check compile-cli verify-templates emulator-check driver-defaults production-wiring db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
+        make-check compile-cli verify-templates emulator-check driver-defaults production-wiring llms llms-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
@@ -86,6 +86,9 @@ help: ## Show available targets
 	@printf '  \033[36mmake kill-ports\033[0m       free every listening port that is not a service we need (dry run: kill-ports-dry)\n'
 	@printf '\n  \033[1mverify\033[0m\n'
 	@printf '  \033[36mmake check\033[0m           typecheck + lint + boundaries + frontpage + license + deps + format\n'
+	@printf '  \033[36mmake verify\033[0m          \033[36mmake check\033[0m plus the test suite — the real "is my branch sane?"\n'
+	@printf '  \033[36mmake llms\033[0m            regenerate llms.txt from the doc tree\n'
+	@printf '  \033[36mmake llms-check\033[0m      llms.txt matches the doc tree, so a model reads a current index\n'
 	@printf '  \033[36mmake typecheck\033[0m       tsc --noEmit across the workspace\n'
 	@printf '  \033[36mmake lint\033[0m            eslint (type-aware)\n'
 	@printf '  \033[36mmake format\033[0m          prettier --write (\033[36mmake format-check\033[0m to verify only)\n'
@@ -188,8 +191,15 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
+
+# `check` deliberately excludes the test suite: it has to pass without a database, a network or a
+# Docker daemon, and some tests need all three. The consequence is that `make check` can be green
+# while `bun test` is red, which is a trap — CI runs both, and a contributor who ran only `check`
+# finds out in review. `verify` is the target that means what people assume `check` means.
+verify: check test ## Every gate plus the whole test suite — this is "is my branch sane"
+	@printf '  \033[32m✓\033[0m verify complete\n'
 
 docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
 	@$(BUN) src/tools/check-docs-in-pr.ts
@@ -331,6 +341,14 @@ driver-defaults: ## Every driver default names a shipped driver, and no stateles
 production-wiring: ## Every app bootstrap passes `production`, or the guard that package implements never fires
 	@printf '  \033[2m→ bun src/tools/check-production-wiring.ts\033[0m\n'
 	@$(BUN) src/tools/check-production-wiring.ts
+
+llms: ## Regenerate llms.txt — the documentation index written for a model (AI-001)
+	@printf '  \033[2m→ bun src/tools/llms.ts\033[0m\n'
+	@$(BUN) src/tools/llms.ts
+
+llms-check: ## llms.txt matches the doc tree, so the index a model reads is never stale
+	@printf '  \033[2m→ bun src/tools/llms.ts --check\033[0m\n'
+	@$(BUN) src/tools/llms.ts --check
 
 # Needs a package registry, so it is not part of `make check` (which must pass offline). CI runs it
 # after `make release-pack`, where the network is already in use.
