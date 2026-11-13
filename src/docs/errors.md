@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-288 codes across 27 packages.
+291 codes across 28 packages.
 
 ## `@tsir/auth`
 
@@ -29,6 +29,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | ----------------------------- |
 | `CAP_CODEC_FAILED`            |
 | `CAP_DRIVER_MISSING`          |
+| `CAP_ENGINE_UNSUPPORTED`      |
 | `CAP_FORBIDDEN_IN_PRODUCTION` |
 | `CAP_NO_STORES`               |
 | `CAP_UNKNOWN_DEFAULT`         |
@@ -290,6 +291,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `NOTIFY_DELIVERY_FAILED`         |
 | `NOTIFY_DUPLICATE_CHANNEL`       |
 | `NOTIFY_DUPLICATE_NOTIFICATION`  |
+| `NOTIFY_ENGINE_UNSUPPORTED`      |
 | `NOTIFY_FORBIDDEN_IN_PRODUCTION` |
 | `NOTIFY_INVALID_PAYLOAD`         |
 | `NOTIFY_NOTIFIABLE`              |
@@ -302,6 +304,12 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `NOTIFY_UNKNOWN_NOTIFICATION`    |
 | `NOTIFY_UNSUPPORTED_OPERATION`   |
 | `NOTIFY_WEBHOOK_BLOCKED`         |
+
+## `@tsir/pennant`
+
+| Code                         |
+| ---------------------------- |
+| `PENNANT_ENGINE_UNSUPPORTED` |
 
 ## `@tsir/policy`
 

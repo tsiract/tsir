@@ -72,3 +72,37 @@ describe('databaseStore · the placeholder is the engine’s, not ours', () => {
     expect(statements[0]?.params).toEqual(['beta', 'the beta', '{"type":"boolean","value":true}']);
   });
 });
+
+describe('databaseStore · the engine decides what is legal (CAP-009)', () => {
+  test('a mysql connection is refused, because the placeholder cannot reveal it', async () => {
+    // `$1` means Postgres *and* MySQL, so `placeholder` alone passes a MySQL connection through and
+    // the upsert fails later. The flag is what makes the refusal possible.
+    const { query } = recorder();
+    let caught: unknown;
+    try {
+      databaseStore(query, { placeholder: 'dollar', engine: 'mysql' });
+    } catch (thrown: unknown) {
+      caught = thrown;
+    }
+    expect(String(caught)).toMatch(/mysql/u);
+    expect(String(caught)).toMatch(/ON CONFLICT/u);
+  });
+
+  test('postgres and sqlite are accepted', () => {
+    for (const engine of ['d1', 'sqlite', 'postgres'] as const) {
+      const { query } = recorder();
+      expect(() =>
+        databaseStore(query, {
+          placeholder: engine === 'postgres' ? 'dollar' : 'question',
+          engine,
+        }),
+      ).not.toThrow();
+    }
+  });
+
+  test('a caller that omits the engine is still allowed', () => {
+    // Optional on purpose: the store only needs a query function, and a test double has no engine.
+    const { query } = recorder();
+    expect(() => databaseStore(query)).not.toThrow();
+  });
+});

@@ -167,6 +167,27 @@ transaction begun in one and committed in the next are two different backends. `
 it. A project that needs transactions on either wants a client that holds a socket — which on
 Workers means D1 or Hyperdrive, not these transports.
 
+### Which engines each capability accepts
+
+Four capabilities are tables, and a table's driver writes SQL to a _dialect_. The upsert is where
+they diverge: SQLite and Postgres have `ON CONFLICT … DO UPDATE … RETURNING`, and MySQL has
+`ON DUPLICATE KEY UPDATE`, which cannot carry the `WHERE` that makes a conditional write
+conditional. So the ports are not all interchangeable, and each refuses the engines it cannot serve
+**at construction** — a coded error, not a syntax error on the first tick:
+
+| Port                        | Engines                    | Why the others are refused                                                         |
+| --------------------------- | -------------------------- | ---------------------------------------------------------------------------------- |
+| `cache` (`database`)        | `d1`, `postgres`, `sqlite` | the acquire and increment upserts need `ON CONFLICT … RETURNING`                   |
+| `notify` inbox              | `d1`, `postgres`, `sqlite` | `ON CONFLICT DO NOTHING`; MySQL's `INSERT IGNORE` also swallows a truncated column |
+| `pennant` (`databaseStore`) | `d1`, `postgres`, `sqlite` | `ON CONFLICT (name) DO UPDATE`                                                     |
+| scheduler lock              | `d1`, `postgres`, `sqlite` | the conditional upsert; MySQL's form has no `WHERE`                                |
+| `queue` (`database`)        | all four                   | plain `UPDATE`/`SELECT` — no upsert syntax                                         |
+| `auth` sessions and keys    | all four                   | plain `INSERT`/`SELECT`/`DELETE`                                                   |
+
+`pennant`'s store takes a query function and a `placeholder`, which distinguishes Postgres from
+SQLite but **not** Postgres from MySQL — both answer `$1`. That is why it also takes `engine`, and
+why the flag alone was never enough.
+
 ### Broadcast — `broadcast.connections.<name>`
 
 | Driver           | Needs                           | Defaults that apply                                  |
@@ -357,8 +378,10 @@ is honest, not because they are acceptable.
    needs one, before the first request, with the fix in the message.
 1. **`mysql` shipped, and it needed more than a driver.** It was in `make:connection`'s list by
    mistake and never in `DATABASE_ENGINES`, so adding it was an engine: a third placeholder style
-   (`?` like SQLite, nothing else alike). The five structural SQL ports widened to all four
-   engines, because they branch on `placeholder` and never on the name. `migrate` kept two
+   (`?` like SQLite, nothing else alike). The structural SQL ports took `mysql` in the type and
+   refuse it at construction where their upsert cannot be expressed in it — a type that excluded it
+   would only move the failure to whoever typed the config, and the caller holds an engine that is
+   a runtime value, not a literal. `migrate` kept two
    dialects plus `sqlite` — its branches are `=== 'postgres'` with SQLite as the else, so a file is
    the same SQL as a binding — and refuses `mysql` with `DB_MIGRATION_ENGINE_UNSUPPORTED`, because
    its two tables are written in two dialects and a third would be invented SQL.

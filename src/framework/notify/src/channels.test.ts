@@ -161,7 +161,7 @@ describe('the mail channel', () => {
 
 // ─── database ──────────────────────────────────────────────────────────────
 
-function fakeSql(engine: 'd1' | 'postgres'): InboxSql & {
+function fakeSql(engine: 'd1' | 'postgres' | 'mysql' | 'sqlite'): InboxSql & {
   readonly statements: { sql: string; params: readonly unknown[] }[];
   readonly rows: unknown[];
 } {
@@ -180,6 +180,25 @@ function fakeSql(engine: 'd1' | 'postgres'): InboxSql & {
     },
   };
 }
+
+describe('the inbox store refuses an engine without the idempotent insert', () => {
+  test('mysql is refused at construction, because INSERT IGNORE is not the same statement', () => {
+    // `INSERT IGNORE` also swallows a truncated column and a bad foreign key. For an inbox that is
+    // a notification dropped with no record that it ever existed — worse than a failed delivery.
+    let caught: unknown;
+    try {
+      createInboxStore(fakeSql('mysql'));
+    } catch (thrown: unknown) {
+      caught = thrown;
+    }
+    expect(String(caught)).toMatch(/mysql/u);
+    expect(String(caught)).toMatch(/ON CONFLICT/u);
+  });
+
+  test('sqlite is accepted — it has the same insert as d1', () => {
+    expect(() => createInboxStore(fakeSql('sqlite'))).not.toThrow();
+  });
+});
 
 describe('the database channel and its inbox store', () => {
   test('a delivery is one row whose id is the delivery id, so a retry cannot duplicate it', async () => {

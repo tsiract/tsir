@@ -6,6 +6,7 @@
  *     function so the store is ORM-agnostic).
  *   · `nullStore`    — always returns no flags; useful as a fallback.
  */
+import { engineUnsupported } from './errors.ts';
 import type { FeatureDefinition, FeatureRule, FeatureStore } from './pennant.ts';
 
 export function memoryStore(initial: readonly FeatureDefinition[] = []): FeatureStore {
@@ -63,6 +64,15 @@ export interface DatabaseStoreOptions {
    * error on Postgres, and the error names the placeholder rather than the config that caused it.
    */
   readonly placeholder?: 'question' | 'dollar' | undefined;
+  /**
+   * The connection's engine, when the caller knows it.
+   *
+   * Optional because this store only requires a query function, and a test double has no engine.
+   * Supplying it turns a silent syntax error into a boot refusal on the one engine whose upsert
+   * cannot express this store's `ON CONFLICT (name) DO UPDATE` — MySQL. `dollar` alone cannot
+   * distinguish Postgres from MySQL, which is why the flag is not enough.
+   */
+  readonly engine?: 'd1' | 'postgres' | 'mysql' | 'sqlite' | undefined;
   /** Default `features`. */
   readonly table?: string | undefined;
 }
@@ -73,6 +83,12 @@ export function databaseStore(
 ): FeatureStore {
   const dollar = options.placeholder === 'dollar';
   const table = options.table ?? 'features';
+
+  // Constructed, so this is boot time. A store that built and then failed on `set` would lose the
+  // flag write and report a syntax error from a layer that never saw the config.
+  if (options.engine === 'mysql') {
+    throw engineUnsupported(table, options.engine);
+  }
   /** `$1`, `$2`, … for Postgres; `?` for everything else. */
   const placeholder = (index: number): string => (dollar ? `$${String(index + 1)}` : '?');
 

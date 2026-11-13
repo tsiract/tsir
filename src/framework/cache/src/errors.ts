@@ -24,7 +24,8 @@ export type CacheErrorCode =
   | 'CAP_UNKNOWN_DEFAULT'
   | 'CAP_DRIVER_MISSING'
   | 'CAP_FORBIDDEN_IN_PRODUCTION'
-  | 'CAP_CODEC_FAILED';
+  | 'CAP_CODEC_FAILED'
+  | 'CAP_ENGINE_UNSUPPORTED';
 
 const KIND = 'capability';
 
@@ -133,6 +134,33 @@ export function codecFailed(store: string, key: string, detail: string): TsirErr
       kind: KIND,
       hint: 'a stored value is only readable by the codec that wrote it — pin the codec per key prefix',
       context: { store, key },
+    },
+  );
+}
+
+/**
+ * The connection's engine cannot run the statements this driver emits (`CAP-009`).
+ *
+ * Refused at **construction**, not on the first write. The cache's upsert is
+ * `ON CONFLICT … DO UPDATE … RETURNING`, which SQLite and Postgres have and MySQL does not — its
+ * `ON DUPLICATE KEY UPDATE` cannot carry the `WHERE` that makes the acquire conditional. A type
+ * that excluded `mysql` would only move the failure to whoever typed the config, and the caller
+ * here holds a `Database` whose engine is a runtime value; a coded refusal at boot is the place
+ * the mistake is cheap.
+ */
+export function engineUnsupported(
+  store: string,
+  engine: string,
+  supported: readonly string[],
+): TsirError {
+  return new TsirError(
+    'CAP_ENGINE_UNSUPPORTED',
+    `cache store "${store}" cannot use a "${engine}" connection: its upsert is \
+\`ON CONFLICT … RETURNING\`, which that engine does not speak`,
+    {
+      kind: KIND,
+      hint: `use a connection on one of: ${supported.join(', ')} — \`tsir cache:table\` prints the DDL for each`,
+      context: { store, engine },
     },
   );
 }

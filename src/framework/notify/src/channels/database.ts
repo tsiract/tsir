@@ -18,7 +18,7 @@
  *     implementation serves D1 and Postgres and this package gains no dependency.
  */
 
-import { deliveryFailed, invalidPayload, notifiableMissing } from '../errors.ts';
+import { deliveryFailed, engineUnsupported, invalidPayload, notifiableMissing } from '../errors.ts';
 import type { Channel } from '../channel.ts';
 import type { InboxLevel, InboxPayload } from '../payloads.ts';
 
@@ -107,6 +107,12 @@ export function inboxTableDdl(options: {
 export function createInboxStore(sql: InboxSql, options: InboxStoreOptions = {}): InboxStore {
   const table = options.table ?? 'notification_inbox';
   const engine = sql.capabilities.engine;
+
+  // At construction. `mysql` reaches this with a working connection, so the refusal is about the
+  // statement, and it belongs before the first delivery rather than after one was dropped.
+  if (engine !== 'd1' && engine !== 'postgres' && engine !== 'sqlite') {
+    throw engineUnsupported(engine);
+  }
 
   /** `?` on D1, `$1` on Postgres — resolved once, from the backend's own declaration. */
   const placeholders = (count: number): string => {

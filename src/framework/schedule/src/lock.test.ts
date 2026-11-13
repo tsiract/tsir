@@ -27,12 +27,12 @@ const TTL = 30_000;
  * whose `WHERE` decides everything, and a fake that does not honour it would happily pass a
  * driver whose conditional write is broken.
  */
-function fakeSql(engine: 'd1' | 'postgres' = 'd1') {
+function fakeSql(engine: 'd1' | 'postgres' | 'mysql' | 'sqlite' = 'd1') {
   const rows = new Map<string, { name: string; owner: string; expires_at: number }>();
   const statements: { sql: string; params: readonly unknown[] }[] = [];
 
   const sql: LockSql = {
-    capabilities: { engine, placeholder: engine === 'd1' ? 'question' : 'dollar' },
+    capabilities: { engine, placeholder: engine === 'postgres' ? 'dollar' : 'question' },
     query({ sql: text, params }): Promise<LockSqlResult> {
       statements.push({ sql: text, params });
 
@@ -191,5 +191,24 @@ describe('scheduleLockDdl', () => {
     expect(scheduleLockDdl({ engine: 'postgres', table: 'locks' })[0]).toContain(
       'CREATE TABLE IF NOT EXISTS locks',
     );
+  });
+});
+
+describe('the lock takes the engines that can express a conditional upsert (CAP-009)', () => {
+  test('sqlite is accepted, because it is the same statement as d1', () => {
+    // The regression this covers: widening the engine union made `sqlite` a value, and the guard
+    // still listed only d1 and postgres — so a file-backed connection was refused a lock that its
+    // own SQL supports.
+    expect(() => databaseLock({ sql: fakeSql('sqlite').sql })).not.toThrow();
+  });
+
+  test('mysql is refused, because ON DUPLICATE KEY UPDATE has no WHERE', () => {
+    let caught: unknown;
+    try {
+      databaseLock({ sql: fakeSql('mysql').sql });
+    } catch (thrown: unknown) {
+      caught = thrown;
+    }
+    expect(String(caught)).toMatch(/mysql/u);
   });
 });

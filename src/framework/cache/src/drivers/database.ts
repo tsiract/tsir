@@ -19,6 +19,7 @@
  *     form, so `get` still returns the store's declared type.
  */
 
+import { engineUnsupported } from '../errors.ts';
 import type { CacheBackend, CacheDriver, StoredValue } from '../port.ts';
 
 /** The slice of `@tsir/database` this driver needs. `Database` satisfies it structurally. */
@@ -113,10 +114,21 @@ function finiteOrUndefined(value: unknown): number | undefined {
   return Number.isFinite(parsed) ? parsed : undefined;
 }
 
+/** The engines whose upsert syntax this driver emits. `mysql` is absent, and refused below. */
+const SUPPORTED_ENGINES = ['d1', 'postgres', 'sqlite'] as const;
+
 export function databaseDriver(options: DatabaseDriverOptions): CacheDriver<never> {
   const table = options.table ?? 'cache_entries';
   const tagTable = options.tagTable ?? 'cache_entry_tags';
   const now = options.now ?? Date.now;
+
+  // At construction, not at `open()` and not at the first write: the engine is known the moment a
+  // connection is handed over, and a cache that builds and then fails on `increment` is the
+  // failure this check exists to prevent.
+  const engine = options.database.capabilities.engine;
+  if (!(SUPPORTED_ENGINES as readonly string[]).includes(engine)) {
+    throw engineUnsupported(table, engine, SUPPORTED_ENGINES);
+  }
 
   return {
     name: 'database',

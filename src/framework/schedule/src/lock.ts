@@ -193,7 +193,10 @@ export function databaseLock(options: DatabaseLockOptions): LockProvider {
   const engine = sql.capabilities.engine;
   const now = options.now ?? ((): number => Date.now());
 
-  if (engine !== 'd1' && engine !== 'postgres') {
+  // `d1` and `sqlite` are one dialect — SQLite's `ON CONFLICT … WHERE … RETURNING` — so a
+  // file-backed connection takes the same lock a binding-backed one does. `mysql` is refused
+  // because `ON DUPLICATE KEY UPDATE` has no `WHERE`, which is the whole reason this guard exists.
+  if (engine !== 'd1' && engine !== 'sqlite' && engine !== 'postgres') {
     throw lockRefused(
       'database',
       `the "${String(engine)}" engine cannot express a conditional upsert, so acquire would take a live lock`,
