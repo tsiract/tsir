@@ -34,7 +34,8 @@ export type DefaultedCapability =
   | 'search'
   | 'media'
   | 'notifications'
-  | 'featureFlags';
+  | 'featureFlags'
+  | 'scheduleLock';
 
 export interface DriverDefault {
   /** The driver name, exactly as `tsir.js` writes it. */
@@ -116,6 +117,11 @@ const CLOUDFLARE: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     requires: ['a SQL port (D1 satisfies it)', 'a mailer — the mail channel composes one'],
     why: 'an inbox in the store the project already has, so a notification survives the isolate that sent it',
   },
+  scheduleLock: {
+    driver: 'database',
+    requires: ['a SQL port (D1 satisfies it)', 'a `schedule_locks` table — `scheduleLockDdl`'],
+    why: 'a lock has to be held somewhere both instances can see; a `Map` per isolate is not a lock',
+  },
   featureFlags: {
     driver: 'database',
     requires: ['a SQL port (D1 satisfies it)', 'a `features` table — `featureTableDdl`'],
@@ -185,6 +191,14 @@ const LAMBDA: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     ],
     why: 'an inbox in Postgres, so a notification outlives the invocation that sent it',
   },
+  scheduleLock: {
+    driver: 'database',
+    requires: [
+      'a query function (the Postgres driver satisfies it)',
+      'a `schedule_locks` table — `scheduleLockDdl`',
+    ],
+    why: 'concurrent functions need one row they can all see; a lock held per invocation is not a lock',
+  },
   featureFlags: {
     driver: 'database',
     requires: [
@@ -245,6 +259,11 @@ const BUN: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     driver: 'memory',
     requires: [],
     why: 'every delivery is kept so a test can assert on it, and nothing leaves the process',
+  },
+  scheduleLock: {
+    driver: 'database',
+    requires: ['a SQL port (SQLite satisfies it)', 'a `schedule_locks` table — `scheduleLockDdl`'],
+    why: 'a file-backed lock survives the process and is still one file, so a restart does not forget a running task',
   },
   featureFlags: {
     driver: 'database',

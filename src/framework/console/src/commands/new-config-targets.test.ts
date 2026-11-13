@@ -131,6 +131,37 @@ describe('tsir new --target (CAP-008)', () => {
     }
   });
 
+  test('the generated featureFlags and schedule sections name their tables', async () => {
+    // Caught by running the scaffold, not by the test that came before it: the entry fell through
+    // to a generic `{ driver }`, so the file was valid TypeScript, passed the schema, and would
+    // have booted a store reading `features` by luck of the default. A person reading `config/` is
+    // supposed to see which tables `tsir migrate` has to have created.
+    const dir = await scaffold('cloudflare', 'tables');
+    try {
+      expect(readFileSync(join(dir, 'config/featureFlags.ts'), 'utf8')).toContain(
+        "table: 'features'",
+      );
+      expect(readFileSync(join(dir, 'config/schedule.ts'), 'utf8')).toContain(
+        "table: 'schedule_locks'",
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the schedule section is not a named registry', async () => {
+    // A scheduler takes one provider, so the section holds `lock`, not `lock: { main: … }`. The
+    // registry shape would pass a schema check and then resolve nothing.
+    const dir = await scaffold('cloudflare', 'lock-shape');
+    try {
+      const text = readFileSync(join(dir, 'config/schedule.ts'), 'utf8');
+      expect(text).toContain('lock: {');
+      expect(text).not.toContain('default:');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test('an unknown target is a usage error, not a silent fallback', async () => {
     const root = mkdtempSync(join(tmpdir(), 'tsir-new-bad-'));
     const previous = process.cwd();

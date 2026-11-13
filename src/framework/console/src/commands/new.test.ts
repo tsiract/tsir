@@ -82,6 +82,7 @@ describe('tsir new', () => {
       'media.ts',
       'notify.ts',
       'queue.ts',
+      'schedule.ts',
       'search.ts',
       'storage.ts',
     ]);

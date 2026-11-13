@@ -90,6 +90,7 @@ const CONFIG_CAPABILITIES: readonly DefaultedCapability[] = [
   'mail',
   'notifications',
   'featureFlags',
+  'scheduleLock',
   'broadcast',
   'search',
   'media',
@@ -125,6 +126,7 @@ const CAPABILITY_SECTIONS: Readonly<Record<DefaultedCapability, string | undefin
   media: 'media',
   notifications: 'notify',
   featureFlags: 'featureFlags',
+  scheduleLock: 'schedule',
 };
 
 /** The registry key each section holds its entries under. */
@@ -139,6 +141,7 @@ const ENTRY_KEYS: Readonly<Record<string, string>> = {
   media: 'adapters',
   notify: 'channels',
   featureFlags: 'stores',
+  schedule: 'lock',
 };
 
 /**
@@ -262,7 +265,16 @@ const REQUIRED_VALUES: Readonly<
     fields: '',
     env: driver === 'postgres' ? [['DATABASE_URL', 'the Postgres connection URL']] : [],
   }),
-  featureFlags: () => ({ fields: '', env: [] }),
+  // The table names are the defaults the store falls back to, written out so a person looking at
+  // `config/` can see which tables `tsir migrate` has to have created.
+  featureFlags: (driver) => ({
+    fields: driver === 'database' ? ", table: 'features'" : '',
+    env: [],
+  }),
+  scheduleLock: (driver) => ({
+    fields: driver === 'database' ? ", table: 'schedule_locks'" : '',
+    env: [],
+  }),
   sessions: () => ({ fields: '', env: [] }),
 };
 
@@ -341,13 +353,19 @@ function configFor(
     ...requires,
     '//',
     `// Why: ${row.why}`,
-    'export default {',
-    `  default: 'main',`,
-    `  ${entries}: {`,
-    `    main: ${entry},`,
-    '  },',
-    '};',
-    '',
+    // `schedule` is not a named registry: it holds one lock for the project, because a scheduler
+    // takes one provider. Writing `lock: { main: … }` would be a shape the schema refuses.
+    ...(capability === 'scheduleLock'
+      ? ['export default {', `  ${entries}: ${entry},`, '};', '']
+      : [
+          'export default {',
+          `  default: 'main',`,
+          `  ${entries}: {`,
+          `    main: ${entry},`,
+          '  },',
+          '};',
+          '',
+        ]),
   ].join('\n');
   return { body, env };
 }

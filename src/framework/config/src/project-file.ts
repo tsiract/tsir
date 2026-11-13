@@ -98,6 +98,8 @@ const NESTED_KEYS: Readonly<Record<string, readonly string[]>> = {
   'auth.apiKeys': ['store'],
   'auth.sessions.store': ['driver', 'table', 'connection'],
   'auth.apiKeys.store': ['driver', 'table', 'connection'],
+  schedule: ['lock'],
+  'schedule.lock': ['driver', 'connection', 'table'],
   'media.adapters.*': [
     'driver',
     'accountId',
@@ -231,6 +233,16 @@ export function unknownProjectKeys(raw: Readonly<Record<string, unknown>>): stri
           NESTED_KEYS[`auth.${concern}.store`] ?? [],
         ),
       );
+    }
+  }
+  // `schedule.lock` had a schema in two places and a reader in none. Validating its keys is part of
+  // making the section worth reading: a typo there used to pass silently.
+  const schedule = raw['schedule'];
+  if (isRecord(schedule)) {
+    lines.push(...unknownKeyLines('schedule', schedule, NESTED_KEYS['schedule'] ?? []));
+    const lock = schedule['lock'];
+    if (isRecord(lock)) {
+      lines.push(...unknownKeyLines('schedule.lock', lock, NESTED_KEYS['schedule.lock'] ?? []));
     }
   }
   return lines;

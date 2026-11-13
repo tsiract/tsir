@@ -47,6 +47,14 @@ export type {
 } from './scheduler.ts';
 
 export { databaseLock, memoryLock, scheduleLockDdl } from './lock.ts';
+
+export {
+  lockFromConfig,
+  LOCK_DRIVERS,
+  PERSISTENT_LOCK_DRIVERS,
+  type ConfiguredLock,
+  type LockBuildOptions,
+} from './config.ts';
 export type {
   DatabaseLockOptions,
   LockCapabilities,

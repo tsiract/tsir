@@ -420,8 +420,14 @@ needs an apiKey` — correct, and the wrong moment to say it. What still does no
    hands every user the control group again and two instances disagree about who is in an
    experiment. `null` stays legal everywhere ("flags are off" loses nothing). `mysql` is refused at
    construction because the store's upsert is `ON CONFLICT (name) DO UPDATE`, which that engine does
-   not speak. What remains constructor-only is `sessions` and `api keys` — both default to
-   `database`, a real engine on every target.
+   not speak.
+1. **The scheduler lock has a registry too.** `schedule.lock` had a zod block in the console and a
+   key list in `@tsir/config`, and nothing read either — so the section validated and did nothing,
+   which is worse than an absent one because it looks configured. The admin app built
+   `memoryLock()` unconditionally: two instances, two maps, both see the lock as free, both run
+   the task. `production: true` refuses `memory` now, and `mysql` is refused at construction
+   because the acquire is one upsert whose `WHERE` decides whether an existing lock has expired —
+   `ON DUPLICATE KEY UPDATE` has no `WHERE`.
 1. **`sessions` and `api keys` have registries now (`CAP-018`).** `auth.sessions.store` and
    `auth.apiKeys.store` are read from `tsir.js`, kept separate because an app may well put sessions
    in one place and keys in another. `production: true` refuses `memory` on both: a session in one
@@ -438,7 +444,7 @@ needs an apiKey` — correct, and the wrong moment to say it. What still does no
 | `CAP-3`  | ~~Settle the cache table name in one place~~ — done                                 | `admin.product.com/config/cache.ts`                        |
 | `CAP-4`  | ~~Wire `production: true` from `APP_ENV` into every bootstrap~~ — done (`CAP-007`)  | `isProduction()` in `@tsir/core`, `make production-wiring` |
 | `CAP-5`  | `tsir new --target cloudflare` writes the Cloudflare rows                           | `plans/tasks/07-capabilities.md` (`CAP-008`)               |
-| `CAP-6`  | Registries for the four remaining constructor-only ports                            | `plans/tasks/07-capabilities.md` (`CAP-006`)               |
+| `CAP-6`  | ~~Registries for the four remaining constructor-only ports~~ — done                 | `plans/tasks/07-capabilities.md` (`CAP-006`, `CAP-018`)    |
 | `CAP-8`  | `tsir <capability>:drivers` for every registry                                      | `plans/operations/11-dx.md` § 2.4                          |
 | `CAP-7`  | ~~Database engines `mysql` and `sqlite`~~ — done (`CAP-009`)                        | `src/framework/database/src/`                              |
 | `CAP-9`  | ~~A `tsir.js` registry for `broadcast` and `search`~~ — done (`CAP-014`, `CAP-015`) | `broadcast/src/config.ts`, `scout/src/config.ts`           |
@@ -447,11 +453,11 @@ needs an apiKey` — correct, and the wrong moment to say it. What still does no
 
 ### Open questions
 
-| ID    | Question                                                                                 | Status                                                                                                                                                                                                                                                           |
-| ----- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place? | **answered for cache, queue, mail, storage, notify, broadcast, search and media**: a registry, because it is what lets the production guard run. Still open only for `sessions`, `api keys`, `feature flags` and the lock, whose defaults are already `database` |
-| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?        | open                                                                                                                                                                                                                                                             |
-| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit? | open                                                                                                                                                                                                                                                             |
+| ID    | Question                                                                                 | Status                                                                                                                                                                                                                                                                                                                                                                                                             |
+| ----- | ---------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place? | **answered for all twelve**: a registry. Not for tidiness — a constructor called from `app.ts` cannot know it is in production, so each package's refusal only existed in tests. `cache`, `queue`, `mail`, `storage`, `notify`, `broadcast`, `search`, `media`, `featureFlags`, `sessions`, `api keys`, and now the scheduler lock, whose `schedule.lock` section was validated by two schemas and read by nothing |
+| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?        | open                                                                                                                                                                                                                                                                                                                                                                                                               |
+| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit? | open                                                                                                                                                                                                                                                                                                                                                                                                               |
 
 ### Failure modes
 
