@@ -27,10 +27,15 @@ it does not evaluate policies, so nothing about authorisation can be concluded f
 
 ## 2. The finding that changes the plan
 
-**`Invoke` is implemented, and it runs the handler.** An earlier reading of
-`issues/things-that-do-not-work/20261022T213144Z-lambda-invoke-refuses-every-real-invocation-with-notimplemented.md`
-— which is in the repository at this tag — says a synchronous `Invoke` answers `NotImplemented`
-because "there is no in-process runtime". **That issue is stale.** `src/ops/invoke.rs` is 74 kB, and
+**`Invoke` is implemented, and it runs the handler.** Two issues in
+`issues/things-that-do-not-work/` — `20261022T213144Z-lambda-invoke-refuses-…` and
+`20261024T055421Z-lambda-opensearch-s3-lambda-invoke-cannot-execute-…` — are in the repository at
+this tag, and both say a synchronous `Invoke` answers `NotImplemented` because "there is no
+in-process runtime". **Both are stale.** They were filed against commits `bd3308b` (2026-10-22) and
+`7eba44b` (2026-10-24); the runtime they ask for landed **2026-11-10 → 11-12** (commits `097f2981`,
+`2c37a7e0`, `2d4f5f9b`, all ancestors of `v1.0.341`), and the message they quote — "is not
+implemented in this emulator" — **does not exist in `invoke.rs` at this tag** (0 occurrences; the
+`execution::` path appears 17 times). `src/ops/invoke.rs` is 74 kB, and
 `src/state/execution/node.rs` embeds **QuickJS** (`rquickjs`) to run `nodejs*` packages in-process:
 it resolves the handler's module, builds the context, calls the handler, and serialises what it
 returned. Python is served by an embedded interpreter the same way.
@@ -174,13 +179,13 @@ emulator is not a repository defect.
 
 ## 6. Findings
 
-| #   | Severity | Finding                                                                                                                                     | Disposition                                                                                           |
-| --- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| 1   | high     | The first version of the selector reported every handler's first code line as `&self,`, so a working `Invoke` read as unimplemented.        | fixed — `selectorsIn` brace-matches the signature; regression test uses the real `invoke.rs`          |
-| 2   | high     | The first version of the surface scan assumed `SNS<Publish>Command` naming, found no SNS or Lambda call at all, and said so confidently.    | fixed — attribution per import line, `ambiguous` fallback, three tests                                |
-| 3   | medium   | `issues/things-that-do-not-work/…lambda-invoke-refuses…` is stale at v1.0.341: `Invoke` runs handlers. Reading the gap list alone misleads. | recorded here; the table is keyed on source and cross-checked, so a stale issue cannot flip a verdict |
-| 4   | medium   | The conformance kit cannot run against a live broker (fixed virtual clock, `lastError` assumption, `sql`-only dead letters).                | accepted for now; fix filed as injecting a clock into `conformanceCases` (§ 4.4)                      |
-| 5   | low      | The emulator's `nodejs*` engine is QuickJS with no `net`/`http`/`https`; our Lambda bundle has never been put through it.                   | open — one invoke of one unit, on a machine that can run the emulator, settles it (§ 4.1)             |
+| #   | Severity | Finding                                                                                                                                                                                                                                                                    | Disposition                                                                                         |
+| --- | -------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| 1   | high     | The first version of the selector reported every handler's first code line as `&self,`, so a working `Invoke` read as unimplemented.                                                                                                                                       | fixed — `selectorsIn` brace-matches the signature; regression test uses the real `invoke.rs`        |
+| 2   | high     | The first version of the surface scan assumed `SNS<Publish>Command` naming, found no SNS or Lambda call at all, and said so confidently.                                                                                                                                   | fixed — attribution per import line, `ambiguous` fallback, three tests                              |
+| 3   | medium   | The emulator's own gap list lags its code by ~3 weeks: two `lambda-invoke` issues describe behaviour fixed on 2026-11-10→12, and the message they quote no longer exists in the file they name. Reading the gap list alone would have concluded "Lambda is unimplemented". | recorded here; verdicts are derived from source and cross-checked, so a stale issue cannot flip one |
+| 4   | medium   | The conformance kit cannot run against a live broker (fixed virtual clock, `lastError` assumption, `sql`-only dead letters).                                                                                                                                               | accepted for now; fix filed as injecting a clock into `conformanceCases` (§ 4.4)                    |
+| 5   | low      | The emulator's `nodejs*` engine is QuickJS with no `net`/`http`/`https`; our Lambda bundle has never been put through it.                                                                                                                                                  | open — one invoke of one unit, on a machine that can run the emulator, settles it (§ 4.1)           |
 
 ## 7. Open risks
 
