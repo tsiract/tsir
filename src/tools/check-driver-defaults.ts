@@ -22,6 +22,7 @@
 // Relative `src/` imports, not `@tsir/*`: `src/tools` is outside the workspace, so a package
 // specifier does not resolve here. The gate reads the packages it checks, which is exactly what
 // a framework script is allowed to do and an application is not.
+import { BROADCAST_DRIVERS } from '../framework/broadcast/src/broadcaster.ts';
 import { CACHE_DRIVERS } from '../framework/cache/src/config.ts';
 import {
   DRIVER_DEFAULTS,
@@ -33,6 +34,7 @@ import { DATABASE_ENGINES } from '../framework/database/src/config.ts';
 import { MAIL_DRIVERS } from '../framework/mail/src/config.ts';
 import { CHANNEL_DRIVERS } from '../framework/notify/src/config.ts';
 import { QUEUE_DRIVERS } from '../framework/queue/src/config.ts';
+import { SEARCH_DRIVERS } from '../framework/scout/src/scout.ts';
 import { STORAGE_DRIVERS } from '../framework/storage/src/config.ts';
 
 /** The registry a capability's default must be a member of. `undefined` = constructor-only. */
@@ -43,12 +45,12 @@ const REGISTRIES: Readonly<Record<string, readonly string[] | undefined>> = {
   storage: STORAGE_DRIVERS,
   database: DATABASE_ENGINES,
   notifications: CHANNEL_DRIVERS,
+  broadcast: BROADCAST_DRIVERS,
+  search: SEARCH_DRIVERS,
   // `CAP-006`: still constructor-only, so there is no constant to check against. Each of these
   // gains an entry here the day its registry lands, and the omission becomes visible rather than
   // remembered — which is the same reason this file exists instead of a comment in core.
   sessions: undefined,
-  broadcast: undefined,
-  search: undefined,
   media: undefined,
 };
 

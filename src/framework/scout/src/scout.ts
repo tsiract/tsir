@@ -11,6 +11,23 @@
  * drivers.
  */
 
+/**
+ * The engines this build ships, by the name a `tsir.js` writes.
+ *
+ * Four are ours and three are hosted third parties (`hosted.ts`); one list, because a project
+ * choosing a search engine should not have to know which file implements it.
+ */
+export const SEARCH_DRIVERS = [
+  'memory',
+  'sqlite',
+  'postgres',
+  'typesense',
+  'meilisearch',
+  'algolia',
+] as const;
+
+export type SearchDriverName = (typeof SEARCH_DRIVERS)[number];
+
 export interface SearchDocument {
   id: string;
   fields: Record<string, string>;

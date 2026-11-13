@@ -24,6 +24,7 @@ import { logTransport, type LogTransportOptions } from './transports/log.ts';
 import { memoryTransport } from './transports/memory.ts';
 import { postmarkTransport } from './transports/postmark.ts';
 import { resendTransport } from './transports/resend.ts';
+import { sendgridTransport } from './transports/sendgrid.ts';
 import { sesTransport } from './transports/ses.ts';
 import { smtpTransport, type SmtpConnector } from './transports/smtp.ts';
 import type { AddressInput, MailTransport } from './port.ts';
@@ -35,6 +36,7 @@ export const MAIL_DRIVERS = [
   'cloudflare',
   'resend',
   'postmark',
+  'sendgrid',
   'ses',
   'smtp',
 ] as const;
@@ -51,7 +53,7 @@ export interface ConfiguredMailer {
   readonly from?:
     string | { readonly email: string; readonly name?: string | undefined } | undefined;
   readonly replyTo?: string | undefined;
-  /** `resend`, `postmark`: `{ fromEnv: 'RESEND_API_KEY' }`. */
+  /** `resend`, `sendgrid`, `postmark`: `{ fromEnv: 'RESEND_API_KEY' }`. */
   readonly apiKey?: EnvRef | undefined;
   /** `postmark`: the server token, and the message stream to send on. */
   readonly serverToken?: EnvRef | undefined;
@@ -189,6 +191,22 @@ export function transportFromConfig(
       return postmarkTransport({
         serverToken,
         ...(config.messageStream === undefined ? {} : { messageStream: config.messageStream }),
+        ...(config.endpoint === undefined ? {} : { baseUrl: config.endpoint }),
+        ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+      });
+    }
+
+    case 'sendgrid': {
+      const apiKey = resolveRef(config.apiKey, env, name, 'apiKey');
+      if (apiKey === undefined) {
+        throw configInvalid(
+          name,
+          'the `sendgrid` driver needs an `apiKey`',
+          "set `apiKey: { fromEnv: 'SENDGRID_API_KEY' }` — the value never belongs in `tsir.js`",
+        );
+      }
+      return sendgridTransport({
+        apiKey,
         ...(config.endpoint === undefined ? {} : { baseUrl: config.endpoint }),
         ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
       });

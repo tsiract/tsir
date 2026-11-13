@@ -81,9 +81,9 @@ const CLOUDFLARE: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     why: 'R2 speaks the S3 API, so the s3 driver with an R2 endpoint is the R2 driver: zero egress, no second vendor',
   },
   mail: {
-    driver: 'cloudflare',
-    requires: ['bindings.EMAIL — the send_email binding'],
-    why: 'Workers Email Sending, so the deploy that needs no AWS account needs no mail account either',
+    driver: 'resend',
+    requires: ['apiKey — { fromEnv: RESEND_API_KEY }', 'from'],
+    why: 'Cloudflare Email Sending is still beta with a 50-recipient cap and a Workers Paid requirement, and it needs a verified destination before a domain is onboarded — Resend is the top-DX pick, 3 000/month free, and one fetch; `cloudflare` stays selectable',
   },
   database: {
     driver: 'd1',
@@ -96,14 +96,14 @@ const CLOUDFLARE: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     why: 'a stateless isolate forgets an in-memory session on every cold start, which is a logout',
   },
   broadcast: {
-    driver: 'websocket',
-    requires: ['the Worker /ws route, backed by a Durable Object'],
-    why: 'the only broadcaster on Workers that is real rather than a Pusher account; a Durable Object is the fan-out point',
+    driver: 'durable-object',
+    requires: ['bindings.realtime — the Durable Object namespace binding'],
+    why: 'the platform has no process to hold a listener list, so the fan-out point is a Durable Object (one per channel); `websocket` cannot work here for that reason',
   },
   search: {
-    driver: 'sqlite',
-    requires: ['a query function (the D1 port satisfies it)'],
-    why: 'D1 has the FTS5 the sqlite engine uses; there is nothing else on Workers worth naming',
+    driver: 'typesense',
+    requires: ['host — the cluster URL', 'apiKey — { fromEnv }', 'collection'],
+    why: 'Cloudflare has no search product; D1 FTS5 (`sqlite`) is the free start and Typesense is the cheapest hosted step up — flat node pricing instead of per query',
   },
   media: {
     driver: 'cloudflare',
@@ -157,14 +157,14 @@ const LAMBDA: Readonly<Record<DefaultedCapability, DriverDefault>> = {
     why: 'a function that scales to zero forgets an in-memory session on every cold start',
   },
   broadcast: {
-    driver: 'websocket',
-    requires: ['the dedicated ws unit behind API Gateway WebSocket'],
-    why: 'the framework owns the connection registry; the AWS WebSocket API only routes frames',
+    driver: 'redis',
+    requires: ['bindings.redis — a Redis client (ElastiCache or Upstash)'],
+    why: 'API Gateway WebSocket only routes frames, so the fan-out point is a shared broker; Redis pub/sub is the one every `ws` unit can reach, and it is the same driver the Bun target uses for multi-process',
   },
   search: {
     driver: 'postgres',
     requires: ['a query function (the Postgres driver satisfies it)'],
-    why: 'Postgres full-text search, so no OpenSearch cluster to run before search works',
+    why: 'Postgres full-text search needs no cluster; OpenSearch is there when relevance outgrows it, and Typesense or Meilisearch are the hosted options the `typesense`/`meilisearch`/`algolia` drivers cover',
   },
   media: {
     driver: 'sharp',

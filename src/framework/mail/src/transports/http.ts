@@ -18,6 +18,14 @@ import { transportFailed } from '../errors.ts';
 export interface JsonResponse {
   readonly status: number;
   readonly body: unknown;
+  /**
+   * Response headers, lower-cased.
+   *
+   * SendGrid returns its message id here rather than in the body, and a 202 has an empty body — so
+   * without this the one provider whose id is a header hands the caller a delivery it cannot
+   * track. Every other transport ignores it.
+   */
+  readonly headers?: Readonly<Record<string, string>> | undefined;
 }
 
 /** POST JSON, and answer the parsed body — or a coded failure naming the provider. */
@@ -61,6 +69,11 @@ export async function postJson(input: {
     if (timer !== undefined) clearTimeout(timer);
   }
 
+  const headers: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value;
+  });
+
   const text = await response.text();
   let body: unknown;
   try {
@@ -84,7 +97,7 @@ export async function postJson(input: {
     });
   }
 
-  return { status: response.status, body };
+  return { status: response.status, body, headers };
 }
 
 /** The message a provider puts in its error body, under one of the names they all use. */

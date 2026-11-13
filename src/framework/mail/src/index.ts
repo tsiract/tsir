@@ -76,6 +76,7 @@ export {
 } from './transports/cloudflare.ts';
 export { resendTransport, type ResendTransportOptions } from './transports/resend.ts';
 export { postmarkTransport, type PostmarkTransportOptions } from './transports/postmark.ts';
+export { sendgridTransport, type SendGridTransportOptions } from './transports/sendgrid.ts';
 export { sesTransport, type SesTransportOptions } from './transports/ses.ts';
 export {
   dotStuff,

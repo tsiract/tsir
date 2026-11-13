@@ -20,22 +20,22 @@ refusal: a driver whose data dies with the process is refused as the default whe
 
 Ours = the driver ships in this repository. Selectable = the name works in `tsir.js` today.
 
-| Capability         | Port           | Default: Cloudflare → AWS → bun      | Drivers this build ships                                           | Selectable in `tsir.js`  | Refused in production                           |
-| ------------------ | -------------- | ------------------------------------ | ------------------------------------------------------------------ | ------------------------ | ----------------------------------------------- |
-| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory` | `memory`, `null`, `database`, `redis`, `cloudflare-kv`             | all five                 | `memory`, `null` as default or `required`       |
-| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync` | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`           | all five                 | `memory`, `sync` as default or `required`       |
-| **Mail**           | `Mailer`       | `cloudflare` → `ses` → `log`         | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `cloudflare` | all seven                | `log`, `memory` as default (see note)           |
-| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`  | `memory`, `local`, `s3`                                            | all three                | `memory` as default or `required`               |
-| **Notifications**  | `Notifier`     | `database` → `database` → `memory`   | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`             | all six                  | `memory` — any send in production throws        |
-| **Broadcast**      | `Broadcaster`  | `websocket` → `websocket` → `memory` | `memory`, `redis`, `pusher`, `websocket`                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Search**         | `SearchEngine` | `sqlite` → `postgres` → `memory`     | `memory`, `sqlite`, `postgres`                                     | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`     | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`          | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Sessions**       | `SessionStore` | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **API keys**       | `KeyStore`     | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`   | `memory`, `database`, `null`                                       | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`   | `memory`, `database`                                               | **none** yet (`CAP-006`) | nothing yet — no registry                       |
-| **Database**       | `Database`     | `d1` → `postgres` → `postgres`       | `d1`, `postgres` (+ [see § 5](#5-what-is-missing))                 | both                     | nothing — a binding or a URL is required anyway |
-| **Vault keys**     | `Keyring`      | generated at first run               | `file` (`TSIR_KEYRING_FILE`)                                       | n/a (one mechanism)      | an absent key refuses to boot                   |
+| Capability         | Port           | Default: Cloudflare → AWS → bun       | Drivers this build ships                                                       | Selectable in `tsir.js`  | Refused in production                           |
+| ------------------ | -------------- | ------------------------------------- | ------------------------------------------------------------------------------ | ------------------------ | ----------------------------------------------- |
+| **Cache**          | `Cache`        | `cloudflare-kv` → `redis` → `memory`  | `memory`, `null`, `database`, `redis`, `cloudflare-kv`                         | all five                 | `memory`, `null` as default or `required`       |
+| **Queue**          | `Queue`        | `cloudflare-queues` → `sqs` → `sync`  | `memory`, `sync`, `database`, `cloudflare-queues`, `sqs`                       | all five                 | `memory`, `sync` as default or `required`       |
+| **Mail**           | `Mailer`       | `resend` → `ses` → `log`              | `log`, `memory`, `smtp`, `ses`, `resend`, `postmark`, `sendgrid`, `cloudflare` | all eight                | `log`, `memory` as default                      |
+| **Storage**        | `Disk`         | `s3` + R2 endpoint → `s3` → `local`   | `memory`, `local`, `s3`                                                        | all three                | `memory` as default or `required`               |
+| **Notifications**  | `Notifier`     | `database` → `database` → `memory`    | `mail`, `database`, `webhook`, `chat`, `sms`, `memory`                         | all six                  | `memory` — any send in production throws        |
+| **Broadcast**      | `Broadcaster`  | `durable-object` → `redis` → `memory` | `memory`, `redis`, `pusher`, `durable-object`                                  | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Search**         | `SearchEngine` | `typesense` → `postgres` → `memory`   | `memory`, `sqlite`, `postgres`, `typesense`, `meilisearch`, `algolia`          | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Media**          | `MediaManager` | `cloudflare` → `sharp` → `sharp`      | `cloudflare`, `cloudinary`, `imagekit`, `sharp`, `ffmpeg`                      | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Sessions**       | `SessionStore` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **API keys**       | `KeyStore`     | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Feature flags**  | `FeatureStore` | `database` → `database` → `memory`    | `memory`, `database`, `null`                                                   | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Scheduler lock** | `LockProvider` | `database` → `database` → `memory`    | `memory`, `database`                                                           | **none** yet (`CAP-006`) | nothing yet — no registry                       |
+| **Database**       | `Database`     | `d1` → `postgres` → `postgres`        | `d1`, `postgres` (+ `sqlite`, `mysql` — [see § 5](#5-what-is-missing))         | both                     | nothing — a binding or a URL is required anyway |
+| **Vault keys**     | `Keyring`      | generated at first run                | `file` (`TSIR_KEYRING_FILE`)                                                   | n/a (one mechanism)      | an absent key refuses to boot                   |
 
 **Two notes the columns hide.**
 
@@ -144,6 +144,47 @@ which is the asymmetry in § 5.
 | Scheduler lock | `memoryLock`, `databaseLock`                                                                 | a SQL port for the database one                                                                                                  |
 
 ---
+
+## 2.5 When neither Cloudflare nor AWS has it
+
+Two capabilities have no first-party answer on either platform, and inventing one would be the
+"memory as an excuse" this table exists to avoid. Both have a settled field, and the drivers are
+real:
+
+### Search — Cloudflare has none, AWS has OpenSearch
+
+D1's FTS5 (`sqlite`) is a genuine engine and the free starting point. Past a few thousand rows the
+choices that matter are hosted, and 2026 has consolidated on three. All three are `fetch` + a key,
+which is why one driver covers them (`hostedSearch({ provider })`):
+
+| Provider        | Free tier                   | ~$/mo at 500K docs | Why it wins                                                  |
+| --------------- | --------------------------- | ------------------ | ------------------------------------------------------------ |
+| **Typesense**   | 30-day trial, MIT self-host | ~$14–28            | flat node pricing, ~4 ms median, no per-query invoice spikes |
+| **Meilisearch** | 14-day trial, MIT self-host | ~$170              | typo tolerance and hybrid/semantic search                    |
+| **Algolia**     | 10K records / 10K searches  | ~$655              | the commercial default; merchandising and analytics          |
+
+Default for a Workers deploy is **Typesense**, because flat pricing fits a startup that cannot
+predict traffic, and leaving for Algolia or Meilisearch is a config change rather than a rewrite.
+AWS defaults to Postgres full-text (no cluster to run) with the same three hosted drivers
+available.
+
+### Mail — Cloudflare's is beta, capped, and paid
+
+`send_email` is real, but it is still beta, requires Workers Paid, caps a message at 50 recipients,
+and before domain onboarding can only send to verified destinations. That is not a default to be
+surprised by on launch day, so the Workers default is **Resend** (3,000/month free, one POST) with
+`cloudflare` a selectable driver for projects already committed to the Workers plan. The top three
+for transactional are covered: Resend, Postmark (highest deliverability) and SendGrid (the
+long-established workhorse, now with a real `content`/`personalizations` shape here). SES covers
+AWS.
+
+### Broadcast — nothing hosted, so the platform's own primitive
+
+There is no "WebSocket-as-a-service" worth naming that is not Pusher/Ably (covered as `pusher`).
+Workers' own answer is a **Durable Object**: one actor per channel, reachable from every isolate.
+That is now `durableObjectBroadcaster`, and the hub class ships as source the app drops into its
+Worker entry (`DURABLE_OBJECT_HUB`) — the protocol is the framework's, so a rename cannot silently
+break it.
 
 ## 3. The DDL you must run
 
@@ -285,28 +326,35 @@ is honest, not because they are acceptable.
    the commented-out entry would have created the wrong table.
 1. **`broadcast`'s `memory` default leaks.** `createBroadcastBootstrap` appends listeners and never
    releases them (`INF-009`), so its default is the one driver that grows without bound. It has no
-   production guard because it has no registry to carry one.
+   production guard because it has no registry to carry one. The Durable Object driver does not
+   leak — it aborts the stream when the last listener leaves — which is another reason it is the
+   Workers default.
+1. **`broadcast` and `search` ship drivers with no `tsir.js` registry yet.** `BROADCAST_DRIVERS` and
+   `SEARCH_DRIVERS` exist and `make driver-defaults` reads them, but nothing in `tsir.js` does:
+   today a project wires `durableObjectBroadcaster` and `hostedSearch` in its entry. That is the
+   `CAP-006` work below, and these two are next because their defaults are now real services
+   rather than `memory`.
 
 ### Task index
 
-| ID      | Task                                                      | Where                               |
-| ------- | --------------------------------------------------------- | ----------------------------------- |
-| `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done     | `make-connection.ts` § 5            |
-| `CAP-2` | ~~Validate every kind's driver from its constant~~ — done | `make-connection.ts` § 5            |
-| `CAP-3` | ~~Settle the cache table name in one place~~ — done       | `admin.product.com/config/cache.ts` |
+| ID      | Task                                                        | Where                                        |
+| ------- | ----------------------------------------------------------- | -------------------------------------------- |
+| `CAP-1` | ~~`mysql` in `make:connection`'s driver list~~ — done       | `make-connection.ts` § 5                     |
+| `CAP-2` | ~~Validate every kind's driver from its constant~~ — done   | `make-connection.ts` § 5                     |
+| `CAP-3` | ~~Settle the cache table name in one place~~ — done         | `admin.product.com/config/cache.ts`          |
 | `CAP-4` | Wire `production: true` from `APP_ENV` into every bootstrap | `plans/tasks/07-capabilities.md` (`CAP-007`) |
-| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows  | `plans/tasks/07-capabilities.md` (`CAP-008`) |
-| `CAP-6` | Registries for the constructor-only ports                  | `plans/tasks/07-capabilities.md` (`CAP-006`) |
-| `CAP-7` | A `sqlite` database driver (`CAP-009`)                     | `src/framework/database/src/`       |
-| `CAP-8` | `tsir <capability>:drivers` for every registry             | `plans/operations/11-dx.md` § 2.4   |
+| `CAP-5` | `tsir new --target cloudflare` writes the Cloudflare rows   | `plans/tasks/07-capabilities.md` (`CAP-008`) |
+| `CAP-6` | Registries for the constructor-only ports                   | `plans/tasks/07-capabilities.md` (`CAP-006`) |
+| `CAP-7` | A `sqlite` database driver (`CAP-009`)                      | `src/framework/database/src/`                |
+| `CAP-8` | `tsir <capability>:drivers` for every registry              | `plans/operations/11-dx.md` § 2.4            |
 
 ### Open questions
 
-| ID    | Question                                                                                      | Status |
-| ----- | --------------------------------------------------------------------------------------------- | ------ |
-| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place?       | open   |
-| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?             | open   |
-| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit?       | open   |
+| ID    | Question                                                                                 | Status |
+| ----- | ---------------------------------------------------------------------------------------- | ------ |
+| `Q72` | Should the constructor-only ports get `tsir.js` registries, or is code the better place? | open   |
+| `Q73` | `cache` on Workers: KV (fast, convergent) or D1 (consistent, costs a query slot)?        | open   |
+| `Q74` | Should `memory` remain a selectable driver at all, or only reachable through a test kit? | open   |
 
 ### Failure modes
 

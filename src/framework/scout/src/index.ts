@@ -18,7 +18,16 @@ export {
   type SearchResult,
 } from './scout.ts';
 
+export { SEARCH_DRIVERS, type SearchDriverName } from './scout.ts';
 export { sqliteEngine, postgresEngine } from './drivers.ts';
+
+export {
+  HOSTED_SEARCH_PROVIDERS,
+  HostedSearchError,
+  hostedSearch,
+  type HostedSearchOptions,
+  type HostedSearchProvider,
+} from './hosted.ts';
 
 export { createScoutBootstrap } from './bootstrap.ts';
 export type { ScoutBootstrap, ScoutBootstrapOptions } from './bootstrap.ts';

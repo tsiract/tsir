@@ -10,6 +10,8 @@
  * ```
  */
 
+export { BROADCAST_DRIVERS, type BroadcastDriverName } from './broadcaster.ts';
+
 export {
   memoryBroadcaster,
   type BroadcastMessage,
@@ -20,6 +22,13 @@ export {
 export { redisBroadcaster, type RedisBroadcasterOptions, type RedisPubSubClient } from './redis.ts';
 
 export { pusherBroadcaster, type PusherBroadcasterOptions, type PusherLike } from './pusher.ts';
+
+export {
+  DURABLE_OBJECT_HUB,
+  durableObjectBroadcaster,
+  type DurableObjectBroadcasterOptions,
+  type DurableObjectNamespaceLike,
+} from './durable-object.ts';
 
 export {
   createWebSocketHandler,
