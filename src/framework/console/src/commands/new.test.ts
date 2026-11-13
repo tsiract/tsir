@@ -68,8 +68,25 @@ describe('tsir new', () => {
     expect(readFileSync(join(root, 'tsir.js'), 'utf8')).toContain('configDir');
     expect(readFileSync(join(root, 'config', 'app.ts'), 'utf8')).toContain("name: 'shop-api'");
     expect(readFileSync(join(root, 'config', 'app.ts'), 'utf8')).toContain("entry: './app.ts'");
-    // Only the sections the application actually uses are created.
-    expect(readdirSync(join(root, 'config')).sort()).toEqual(['app.ts', 'database.ts']);
+    // `CAP-008`: every capability whose driver `tsir.js` can name now gets a section, and the
+    // driver in it is the row for the target (cloudflare, when `--target` is not given). Before
+    // that, the starter wrote only `database` — and hardcoded `d1` into it, which `--target lambda`
+    // could not correct.
+    expect(readdirSync(join(root, 'config')).sort()).toEqual([
+      'app.ts',
+      'broadcast.ts',
+      'cache.ts',
+      'database.ts',
+      'mail.ts',
+      'media.ts',
+      'notify.ts',
+      'queue.ts',
+      'search.ts',
+      'storage.ts',
+    ]);
+    expect(readFileSync(join(root, 'config', 'cache.ts'), 'utf8')).toContain(
+      "driver: 'cloudflare-kv'",
+    );
   });
 
   test('CLI-018: the scaffold ships an executable extensionless ract that runs tsir commands', async () => {
@@ -140,7 +157,11 @@ describe('tsir new', () => {
     const assignments = example
       .split('\n')
       .filter((line) => line.trim() !== '' && !line.startsWith('#'));
-    expect(assignments).toEqual(['APP_ENV=development']);
+    // `CAP-008`: a generated config references its secrets as `{ fromEnv }`, so the variables are
+    // listed — a name and an empty value. The property under test is unchanged: no value, ever.
+    expect(assignments).toContain('APP_ENV=development');
+    // `APP_ENV` is the one assignment that carries a value, and `development` is not a secret.
+    expect(assignments.filter((line) => !line.endsWith('='))).toEqual(['APP_ENV=development']);
     expect(example).toContain('Never commit real secrets');
   });
 

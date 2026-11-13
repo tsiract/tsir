@@ -41,7 +41,6 @@ import moduleTestTs from './stubs/module/test.ts.slug.txt' with { type: 'text' }
 import newAppTs from './stubs/new/app.ts.slug.txt' with { type: 'text' };
 import newConfigTs from './stubs/new/config.ts.slug.txt' with { type: 'text' };
 import newConfigAppTs from './stubs/new/config/app.ts.slug.txt' with { type: 'text' };
-import newConfigDatabaseTs from './stubs/new/config/database.ts.slug.txt' with { type: 'text' };
 import newDatabaseTs from './stubs/new/database.ts.slug.txt' with { type: 'text' };
 import newHomeHttpHomeControllerTs from './stubs/new/home/http/home.controller.ts.slug.txt' with { type: 'text' };
 import newHomeIndexTs from './stubs/new/home/index.ts.slug.txt' with { type: 'text' };
@@ -76,7 +75,6 @@ export const STUBS: ReadonlyMap<string, string> = new Map([
   ['new/app.ts.slug', newAppTs],
   ['new/config.ts.slug', newConfigTs],
   ['new/config/app.ts.slug', newConfigAppTs],
-  ['new/config/database.ts.slug', newConfigDatabaseTs],
   ['new/database.ts.slug', newDatabaseTs],
   ['new/home/http/home.controller.ts.slug', newHomeHttpHomeControllerTs],
   ['new/home/index.ts.slug', newHomeIndexTs],

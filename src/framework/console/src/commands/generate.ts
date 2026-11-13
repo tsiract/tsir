@@ -17,11 +17,12 @@
 import { chmodSync, existsSync, readdirSync, realpathSync } from 'node:fs';
 import { basename, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import { boolFlag, parseArgs } from '../args.ts';
+import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
 import { commitWrites, displayPath, type GeneratedFile, type PlannedWrite } from '../generator.ts';
 import { CliError, EXIT, info, ok, style, UsageError, warn } from '../output.ts';
 import { findConfigFile } from '../project.ts';
 import { renderStub } from '../stub.ts';
+import { driverDefaultFor, type DefaultedCapability, type DeployTarget } from '@tsir/core';
 import { canPrompt, openSession, text as promptText } from '@tsir/tui/ui';
 import { RACT_MODE, RACT_TEMPLATE } from './project-command.ts';
 import { scopedName, splitAppModule } from './naming.ts';
@@ -54,6 +55,285 @@ async function askForName(): Promise<string> {
   }
 }
 
+/**
+ * Every `config/<section>.ts` the starter writes for `target`.
+ *
+ * One per capability whose driver can be named in `tsir.js` — which is now all but `sessions`,
+ * `api keys`, `feature flags` and the lock. The four are absent because they have no section: a
+ * generated block nothing reads would be worse than no block, because it looks configured.
+ */
+function configFiles(target: DeployTarget): {
+  readonly files: (readonly [string, string])[];
+  readonly env: readonly EnvEntry[];
+} {
+  const files: (readonly [string, string])[] = [];
+  const env: EnvEntry[] = [];
+  for (const capability of CONFIG_CAPABILITIES) {
+    const section = CAPABILITY_SECTIONS[capability];
+    if (section === undefined) continue;
+    const generated = configFor(target, capability);
+    if (generated === undefined) continue;
+    files.push([`config/${section}.ts`, generated.body]);
+    for (const variable of generated.env) {
+      if (!env.some(([name]) => name === variable[0])) env.push(variable);
+    }
+  }
+  return { files, env };
+}
+
+/** The capabilities the starter writes a section for, in the order a person reads them. */
+const CONFIG_CAPABILITIES: readonly DefaultedCapability[] = [
+  'database',
+  'cache',
+  'queue',
+  'storage',
+  'mail',
+  'notifications',
+  'broadcast',
+  'search',
+  'media',
+];
+
+/** The deploy target `tsir new` scaffolds for. `cloudflare` is the default, not a guess. */
+function targetOf(args: ParsedArgs): DeployTarget {
+  const raw = stringFlag(args, '--target');
+  if (raw === undefined) return 'cloudflare';
+  if (raw === 'cloudflare' || raw === 'lambda' || raw === 'bun') return raw;
+  throw new UsageError(
+    `--target ${String(raw)} is not a deploy target`,
+    'use cloudflare, lambda or bun',
+  );
+}
+
+/**
+ * The section a capability's defaults live under, and the key its entries use.
+ *
+ * `notifications` is `notify` in `tsir.js`, and `sessions` has no section yet — the two places the
+ * table's vocabulary and the project file's disagree. Written out rather than derived, because a
+ * derived name that is wrong writes a config the loader refuses.
+ */
+const CAPABILITY_SECTIONS: Readonly<Record<DefaultedCapability, string | undefined>> = {
+  cache: 'cache',
+  queue: 'queue',
+  storage: 'storage',
+  mail: 'mail',
+  database: 'database',
+  sessions: undefined,
+  broadcast: 'broadcast',
+  search: 'search',
+  media: 'media',
+  notifications: 'notify',
+};
+
+/** The registry key each section holds its entries under. */
+const ENTRY_KEYS: Readonly<Record<string, string>> = {
+  cache: 'stores',
+  queue: 'connections',
+  storage: 'disks',
+  mail: 'mailers',
+  database: 'connections',
+  broadcast: 'connections',
+  search: 'engines',
+  media: 'adapters',
+  notify: 'channels',
+};
+
+/**
+ * The value each driver needs, as config writes it — with secrets as `{ fromEnv }`.
+ *
+ * A scaffold that writes `resend` with no key produces an app that refuses to boot with "the
+ * `resend` driver needs an `apiKey`". That is the right refusal and terrible first contact: the
+ * person just asked for an app to exist. So the key is written as a *reference* and the variable
+ * it names is added to `.env.example`, which turns the refusal into a checklist.
+ *
+ * Where a value cannot be an env reference (`typesense`'s `host` is a plain string), the entry gets
+ * a placeholder naming the variable, because a wrong-but-labelled URL is easier to fix than a boot
+ * error that does not say which key is absent.
+ */
+type EnvEntry = readonly [string, string];
+
+const REQUIRED_VALUES: Readonly<
+  Record<string, (driver: string) => { fields: string; env: readonly EnvEntry[] }>
+> = {
+  cache: (driver) => ({
+    fields: driver === 'redis' ? ", connection: 'default'" : '',
+    env: driver === 'redis' ? [['REDIS_URL', 'the Redis connection string'] as EnvEntry] : [],
+  }),
+  queue: (driver) => ({
+    fields:
+      driver === 'sqs'
+        ? ", queueUrl: 'QUEUE_URL', outbox: true"
+        : driver === 'cloudflare-queues'
+          ? ', outbox: true'
+          : '',
+    env: driver === 'sqs' ? [['QUEUE_URL', 'the SQS queue URL'] as EnvEntry] : [],
+  }),
+  storage: (driver) => ({
+    fields:
+      driver === 's3'
+        ? ", bucket: 'BUCKET', credentials: { accessKeyId: { fromEnv: 'S3_ACCESS_KEY_ID' }, secretAccessKey: { fromEnv: 'S3_SECRET_ACCESS_KEY' } }"
+        : '',
+    env:
+      driver === 's3'
+        ? [
+            ['BUCKET', 'the S3 bucket name'],
+            ['S3_ACCESS_KEY_ID', 'the AWS access key'],
+            ['S3_SECRET_ACCESS_KEY', 'the AWS secret key'],
+          ]
+        : [],
+  }),
+  mail: (driver) => ({
+    fields:
+      driver === 'resend'
+        ? ", apiKey: { fromEnv: 'RESEND_API_KEY' }"
+        : driver === 'postmark'
+          ? ", apiKey: { fromEnv: 'POSTMARK_TOKEN' }"
+          : driver === 'sendgrid'
+            ? ", apiKey: { fromEnv: 'SENDGRID_API_KEY' }"
+            : driver === 'ses'
+              ? ", credentials: { accessKeyId: { fromEnv: 'SES_ACCESS_KEY_ID' }, secretAccessKey: { fromEnv: 'SES_SECRET_ACCESS_KEY' } }"
+              : '',
+    env:
+      driver === 'resend'
+        ? [['RESEND_API_KEY', 'the Resend API key']]
+        : driver === 'postmark'
+          ? [['POSTMARK_TOKEN', 'the Postmark server token']]
+          : driver === 'sendgrid'
+            ? [['SENDGRID_API_KEY', 'the SendGrid API key']]
+            : driver === 'ses'
+              ? [
+                  ['SES_ACCESS_KEY_ID', 'the AWS access key'],
+                  ['SES_SECRET_ACCESS_KEY', 'the AWS secret key'],
+                ]
+              : [],
+  }),
+  notifications: (driver) => ({
+    fields:
+      driver === 'mail'
+        ? ", mailer: 'main'"
+        : ", connection: 'default', table: 'notification_inbox'",
+    env: [],
+  }),
+  broadcast: (driver) => ({
+    fields: driver === 'redis' || driver === 'durable-object' ? ", connection: 'default'" : '',
+    env: [],
+  }),
+  search: (driver) => ({
+    fields:
+      driver === 'typesense'
+        ? ", host: 'https://replace-me.a1.typesense.net', collection: 'main', apiKey: { fromEnv: 'TYPESENSE_API_KEY' }"
+        : driver === 'meilisearch'
+          ? ", host: 'https://replace-me.meilisearch.io', collection: 'main', apiKey: { fromEnv: 'MEILISEARCH_API_KEY' }"
+          : driver === 'algolia'
+            ? ", host: 'https://replace-me-dsn.algolia.net', collection: 'main', apiKey: { fromEnv: 'ALGOLIA_API_KEY' }"
+            : ", connection: 'main', collection: 'main'",
+    env:
+      driver === 'typesense'
+        ? [['TYPESENSE_API_KEY', 'the Typesense write key']]
+        : driver === 'meilisearch'
+          ? [['MEILISEARCH_API_KEY', 'the Meilisearch admin key']]
+          : driver === 'algolia'
+            ? [['ALGOLIA_API_KEY', 'the Algolia write key']]
+            : [],
+  }),
+  media: (driver) => ({
+    fields:
+      driver === 'cloudflare'
+        ? ", accountId: 'ACCOUNT_ID', apiToken: { fromEnv: 'CF_IMAGES_TOKEN' }"
+        : driver === 'cloudinary'
+          ? ", cloudName: 'CLOUD_NAME', uploadPreset: 'unsigned_default'"
+          : driver === 'imagekit'
+            ? ", publicKey: 'PUBLIC_KEY', privateKey: { fromEnv: 'IMAGEKIT_PRIVATE_KEY' }, urlEndpoint: 'https://ik.imagekit.io/replace-me'"
+            : '',
+    env:
+      driver === 'cloudflare'
+        ? [
+            ['ACCOUNT_ID', 'the Cloudflare account id'],
+            ['CF_IMAGES_TOKEN', 'the Images API token'],
+          ]
+        : driver === 'imagekit'
+          ? [['IMAGEKIT_PRIVATE_KEY', 'the ImageKit private key']]
+          : [],
+  }),
+  database: (driver) => ({
+    fields: '',
+    env: driver === 'postgres' ? [['DATABASE_URL', 'the Postgres connection URL']] : [],
+  }),
+  sessions: () => ({ fields: '', env: [] }),
+};
+
+/**
+ * A minimal, schema-valid entry for one driver, plus the variables it references.
+ *
+ * Minimal on purpose: the starter's job is to boot and to be honest about which driver it picked,
+ * not to pre-fill values the project has to invent.
+ */
+function entryFor(
+  capability: DefaultedCapability,
+  driver: string,
+): { readonly entry: string; readonly env: readonly (readonly [string, string])[] } {
+  if (capability === 'database') {
+    return {
+      entry:
+        driver === 'd1'
+          ? "{ driver: 'd1', binding: 'DB', journal: false }"
+          : "{ driver: 'postgres', url: { fromEnv: 'DATABASE_URL' } }",
+      env: driver === 'd1' ? [] : [['DATABASE_URL', 'the Postgres connection URL']],
+    };
+  }
+  if (capability === 'sessions') return { entry: `{ driver: '${driver}' }`, env: [] };
+  const extra = REQUIRED_VALUES[capability];
+  const fields = extra === undefined ? { fields: '', env: [] } : extra(driver);
+  return {
+    entry: `{ driver: '${driver}'${fields.fields} }`,
+    env: fields.env,
+  };
+}
+
+/**
+ * The `config/<capability>.ts` a fresh app starts with, for one target (`CAP-008`).
+ *
+ * Generated from `DRIVER_DEFAULTS` rather than from a stub per target. A stub is a copy, and a copy
+ * drifts: one edit is supposed to change every target, so the starter reading the table is the
+ * difference between a documented default and an actual one.
+ *
+ * Each entry carries its `requires` as a comment. That is the part a person cannot look up: the
+ * table knows a Cloudflare cache is `cloudflare-kv` and needs `bindings.kv`, and whoever opens a
+ * fresh `config/cache.ts` does not.
+ */
+function configFor(
+  target: DeployTarget,
+  capability: DefaultedCapability,
+): { readonly body: string; readonly env: readonly EnvEntry[] } | undefined {
+  const section = CAPABILITY_SECTIONS[capability];
+  if (section === undefined) return undefined;
+  const row = driverDefaultFor(target, capability);
+  const { entry, env } = entryFor(capability, row.driver);
+  const requires =
+    row.requires.length === 0
+      ? ['//   · nothing — this driver is complete on its own']
+      : row.requires.map((need) => `//   · ${need}`);
+  const entries = ENTRY_KEYS[section] ?? 'entries';
+  const body = [
+    `// config/${section}.ts — generated for the ${target} target.`,
+    '//',
+    `// The default is what ${capability} converges on for ${target}: \`${row.driver}\`.`,
+    '//',
+    '// It needs:',
+    ...requires,
+    '//',
+    `// Why: ${row.why}`,
+    'export default {',
+    `  default: 'main',`,
+    `  ${entries}: {`,
+    `    main: ${entry},`,
+    '  },',
+    '};',
+    '',
+  ].join('\n');
+  return { body, env };
+}
+
 export async function newCommand(argv: readonly string[]): Promise<number> {
   const args = parseArgs(argv, {
     '--force': { type: 'boolean', description: 'overwrite an existing directory' },
@@ -62,6 +342,11 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     '--no-interactive': {
       type: 'boolean',
       description: 'never prompt; fail if an answer is missing',
+    },
+    '--target': {
+      type: 'string',
+      description:
+        'cloudflare (default), lambda or bun — decides the driver every capability starts on',
     },
   });
   let name = args.positionals[0];
@@ -78,6 +363,7 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     throw new UsageError(`"${name}" is not a valid app name`, 'use lowercase kebab-case');
   }
 
+  const target = targetOf(args);
   const force = boolFlag(args, '--force');
   // Applications live in `apps/<name>/`. The workspace root is the directory the developer is
   // working in — or, when they are already inside it, the one that owns `apps/`. Without that
@@ -195,6 +481,10 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
   const devDependencies = { '@types/bun': 'latest' };
 
   const stubVars = { name };
+  // `CAP-008`: config comes from `DRIVER_DEFAULTS` for the chosen target, not from a stub that
+  // hardcoded `d1`. A lambda app scaffolded with `d1` was a Worker's config in a function with no
+  // binding to receive it, and the mismatch surfaced at first use rather than at creation.
+  const config = configFiles(target);
   const files: readonly (readonly [string, string])[] = [
     [
       'package.json',
@@ -219,7 +509,7 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     ['app.ts', renderStub('new/app.ts', stubVars)],
     ['config.ts', renderStub('new/config.ts', stubVars)],
     ['config/app.ts', renderStub('new/config/app.ts', stubVars)],
-    ['config/database.ts', renderStub('new/config/database.ts', stubVars)],
+    ...config.files,
     ['database.ts', renderStub('new/database.ts', stubVars)],
     ['home/index.ts', renderStub('new/home/index.ts', stubVars)],
     ['home/registry.ts', renderStub('new/home/registry.ts', stubVars)],
@@ -260,7 +550,12 @@ export async function newCommand(argv: readonly string[]): Promise<number> {
     ['test/app.test.ts', renderStub('new/test/app.test.ts', stubVars)],
     [
       '.env.example',
-      '# Copy to .env and fill in. Never commit real secrets.\nAPP_ENV=development\n',
+      [
+        '# Copy to .env and fill in. Never commit real secrets.',
+        'APP_ENV=development',
+        ...config.env.map(([name_, why]) => `# ${why}\n${name_}=`),
+        '',
+      ].join('\n'),
     ],
   ];
 

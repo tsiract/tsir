@@ -12,8 +12,10 @@
 // What belongs elsewhere:
 //   · environment-validated application values (ports, URLs, secrets) → config.ts
 //     (`defineConfig` from @tsir/config, one schema for the whole app)
-//   · a capability the application does not use → no file, because an empty
-//     section implies configuration that does not exist
+//   · a capability the application does not use → delete its section. `tsir new`
+//     writes one per capability because the driver in it is the target's
+//     default (see `DRIVER_DEFAULTS`), and a section nobody uses still boots —
+//     it just resolves a driver nothing asks for.
 import { checkProjectFile } from '@tsir/config';
 
 const app = {

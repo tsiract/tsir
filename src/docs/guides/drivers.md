@@ -363,11 +363,14 @@ is honest, not because they are acceptable.
 1. **The guards run now.** `isProduction()` derives the flag from `APP_ENV`, every bootstrap in
    `src/apps` passes it, and `make production-wiring` fails when a new one does not. Before that
    every refusal in this guide was reachable only from a test.
-1. **The per-target defaults are data, not yet a resolver.** `DRIVER_DEFAULTS` in `@tsir/core` says
-   what each capability converges on per target, and `make check` holds it to "durable on a
-   stateless target". Nothing reads it yet: the starter writes `memory` for every block, and
-   `tsir doctor` does not print the row. The next step is `tsir new --target cloudflare` writing
-   the Cloudflare rows, which is the difference between a default and a documented intention.
+1. **The per-target defaults are read by the starter (`CAP-008`).** `tsir new --target
+cloudflare|lambda|bun` writes one `config/<capability>.ts` per capability from
+   `DRIVER_DEFAULTS`, with the row's `requires` as comments and its `why` as the reason — a lambda
+   app now starts on Postgres rather than on a D1 binding that nothing injects. Secrets go in as
+   `{ fromEnv }` references and the variables are listed in `.env.example`, because the alternative
+   was a fresh app whose first `tsir dev` refused with `MAIL_CONFIG_INVALID: the resend driver
+needs an apiKey` — correct, and the wrong moment to say it. What still does not read the table
+   is `tsir doctor`, which should print the row it would have chosen.
 1. **The three missing database engines are shipped (`CAP-009`).** `DATABASE_ENGINES` is
    `['d1', 'postgres', 'mysql', 'sqlite']` and every one of the four is built from `tsir.js`, which
    it was not before: `from-config.ts` answered `DB_POSTGRES_BOOTSTRAP_UNWIRED` for _any_
