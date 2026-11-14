@@ -120,6 +120,16 @@ export function tasksIn(
       .join(' | ')
       .trim();
 
+    // A `PARITY-*` row is a different shape and says so honestly: the cells *before* the status —
+    // the @tsir implementation and its evidence — are the acceptance note. An empty one (`—`) is a
+    // finding about the feature, not a defect in the row: it means nobody has implemented it.
+    const parityNote = id.startsWith('PARITY-')
+      ? cells
+          .slice(0, statusIndex)
+          .reverse()
+          .find((cell) => cell !== '' && cell !== '—')
+      : undefined;
+
     const idIndex = cells.findIndex((cell) => ID.exec(cell)?.[1] === id);
 
     found.push({
@@ -127,7 +137,7 @@ export function tasksIn(
       title: cells[idIndex + 1] ?? '',
       state,
       depends,
-      acceptance,
+      acceptance: acceptance === '' ? (parityNote ?? '') : acceptance,
       file: relative(ROOT, file),
       line: index + 1,
     });
@@ -422,6 +432,27 @@ function main(): number {
   if (process.argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
     return report.problems.length > 0 ? 1 : 0;
+  }
+
+  if (process.argv.includes('--parity')) {
+    // The parity summary was typed by hand and drifted from the rows twice. Recount it from the
+    // `PARITY-*` rows so § 7.2 is a measurement; print only — the section is prose-wrapped and a
+    // generator for it is `DOCS-013`'s follow-up, not this tool's job today.
+    const parity = report.tasks.filter((task) => task.id.startsWith('PARITY-'));
+    const counts = { verified: 0, partial: 0, open: 0 };
+    for (const task of parity) {
+      if (task.state === 'done') counts.verified += 1;
+      else if (task.state === 'partial') counts.partial += 1;
+      else counts.open += 1;
+    }
+    const total = parity.length;
+    console.log(
+      `PARITY rows: ${String(total)} — verified ${String(counts.verified)}, partial ${String(counts.partial)}, open ${String(counts.open)}`,
+    );
+    console.log(
+      `verified ${String(((counts.verified / total) * 100).toFixed(1))}%, incl. partial ${String((((counts.verified + counts.partial) / total) * 100).toFixed(1))}%`,
+    );
+    return 0;
   }
 
   if (check) {

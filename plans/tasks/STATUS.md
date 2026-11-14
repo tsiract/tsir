@@ -8,50 +8,50 @@
 
 | State     | Count   | Meaning                             |
 | --------- | ------- | ----------------------------------- |
-| done      | 560     | acceptance met, evidence linked     |
-| partial   | 14      | a branch or a half landed           |
-| open      | 128     | not started                         |
+| done      | 735     | acceptance met, evidence linked     |
+| partial   | 22      | a branch or a half landed           |
+| open      | 174     | not started                         |
 | blocked   | 0       | waiting on a named task or decision |
-| **total** | **702** | **560/702 (80%) done**              |
+| **total** | **931** | **735/931 (79%) done**              |
 
 ## By file
 
-| File                                                                 | Done | Partial | Open | Blocked |              |
-| -------------------------------------------------------------------- | ---- | ------- | ---- | ------- | ------------ |
-| [`01-foundation.md`](./01-foundation.md)                             | 39   | 0       | 0    | 0       | 39/39 (100%) |
-| [`02-core.md`](./02-core.md)                                         | 46   | 1       | 0    | 0       | 46/47 (98%)  |
-| [`03-http.md`](./03-http.md)                                         | 43   | 0       | 6    | 0       | 43/49 (88%)  |
-| [`04-database.md`](./04-database.md)                                 | 48   | 0       | 7    | 0       | 48/55 (87%)  |
-| [`05-vault.md`](./05-vault.md)                                       | 26   | 1       | 2    | 0       | 26/29 (90%)  |
-| [`06-link.md`](./06-link.md)                                         | 25   | 0       | 0    | 0       | 25/25 (100%) |
-| [`07-capabilities.md`](./07-capabilities.md)                         | 29   | 0       | 0    | 0       | 29/29 (100%) |
-| [`07-deploy.md`](./07-deploy.md)                                     | 28   | 4       | 1    | 0       | 28/33 (85%)  |
-| [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) | 5    | 0       | 17   | 0       | 5/22 (23%)   |
-| [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       | 0    | 0       | 20   | 0       | 0/20 (0%)    |
-| [`20-dx.md`](./20-dx.md)                                             | 48   | 1       | 0    | 0       | 48/49 (98%)  |
-| [`21-frontpage.md`](./21-frontpage.md)                               | 14   | 0       | 3    | 0       | 14/17 (82%)  |
-| [`22-testing.md`](./22-testing.md)                                   | 15   | 3       | 2    | 0       | 15/20 (75%)  |
-| [`23-observability.md`](./23-observability.md)                       | 24   | 1       | 5    | 0       | 24/30 (80%)  |
-| [`24-security.md`](./24-security.md)                                 | 13   | 0       | 5    | 0       | 13/18 (72%)  |
-| [`25-modularity.md`](./25-modularity.md)                             | 7    | 0       | 1    | 0       | 7/8 (88%)    |
-| [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             | 0    | 0       | 12   | 0       | 0/12 (0%)    |
-| [`27-feature-parity.md`](./27-feature-parity.md)                     | 4    | 3       | 13   | 0       | 4/20 (20%)   |
-| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 0    | 0       | 17   | 0       | 0/17 (0%)    |
-| [`auth.md`](./auth.md)                                               | 12   | 0       | 3    | 0       | 12/15 (80%)  |
-| [`billing.md`](./billing.md)                                         | 4    | 0       | 1    | 0       | 4/5 (80%)    |
-| [`browser.md`](./browser.md)                                         | 3    | 0       | 3    | 0       | 3/6 (50%)    |
-| [`events.md`](./events.md)                                           | 7    | 0       | 0    | 0       | 7/7 (100%)   |
-| [`mail.md`](./mail.md)                                               | 12   | 0       | 0    | 0       | 12/12 (100%) |
-| [`notify.md`](./notify.md)                                           | 12   | 0       | 0    | 0       | 12/12 (100%) |
-| [`oauth.md`](./oauth.md)                                             | 5    | 0       | 3    | 0       | 5/8 (63%)    |
-| [`policy.md`](./policy.md)                                           | 9    | 0       | 1    | 0       | 9/10 (90%)   |
-| [`pulse.md`](./pulse.md)                                             | 20   | 0       | 0    | 0       | 20/20 (100%) |
-| [`queue.md`](./queue.md)                                             | 18   | 0       | 0    | 0       | 18/18 (100%) |
-| [`schedule.md`](./schedule.md)                                       | 14   | 0       | 0    | 0       | 14/14 (100%) |
-| [`search.md`](./search.md)                                           | 8    | 0       | 0    | 0       | 8/8 (100%)   |
-| [`servers.md`](./servers.md)                                         | 5    | 0       | 1    | 0       | 5/6 (83%)    |
-| [`storage.md`](./storage.md)                                         | 13   | 0       | 0    | 0       | 13/13 (100%) |
-| [`telemetry.md`](./telemetry.md)                                     | 4    | 0       | 5    | 0       | 4/9 (44%)    |
+| File                                                                 | Done | Partial | Open | Blocked |               |
+| -------------------------------------------------------------------- | ---- | ------- | ---- | ------- | ------------- |
+| [`01-foundation.md`](./01-foundation.md)                             | 39   | 0       | 0    | 0       | 39/39 (100%)  |
+| [`02-core.md`](./02-core.md)                                         | 46   | 1       | 0    | 0       | 46/47 (98%)   |
+| [`03-http.md`](./03-http.md)                                         | 43   | 0       | 6    | 0       | 43/49 (88%)   |
+| [`04-database.md`](./04-database.md)                                 | 48   | 0       | 7    | 0       | 48/55 (87%)   |
+| [`05-vault.md`](./05-vault.md)                                       | 26   | 1       | 2    | 0       | 26/29 (90%)   |
+| [`06-link.md`](./06-link.md)                                         | 25   | 0       | 0    | 0       | 25/25 (100%)  |
+| [`07-capabilities.md`](./07-capabilities.md)                         | 29   | 0       | 0    | 0       | 29/29 (100%)  |
+| [`07-deploy.md`](./07-deploy.md)                                     | 28   | 4       | 1    | 0       | 28/33 (85%)   |
+| [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) | 5    | 0       | 17   | 0       | 5/22 (23%)    |
+| [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       | 0    | 0       | 20   | 0       | 0/20 (0%)     |
+| [`20-dx.md`](./20-dx.md)                                             | 48   | 1       | 0    | 0       | 48/49 (98%)   |
+| [`21-frontpage.md`](./21-frontpage.md)                               | 14   | 0       | 3    | 0       | 14/17 (82%)   |
+| [`22-testing.md`](./22-testing.md)                                   | 15   | 3       | 2    | 0       | 15/20 (75%)   |
+| [`23-observability.md`](./23-observability.md)                       | 24   | 1       | 5    | 0       | 24/30 (80%)   |
+| [`24-security.md`](./24-security.md)                                 | 13   | 0       | 5    | 0       | 13/18 (72%)   |
+| [`25-modularity.md`](./25-modularity.md)                             | 7    | 0       | 1    | 0       | 7/8 (88%)     |
+| [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             | 0    | 0       | 12   | 0       | 0/12 (0%)     |
+| [`27-feature-parity.md`](./27-feature-parity.md)                     | 176  | 11      | 62   | 0       | 176/249 (71%) |
+| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 3    | 0       | 14   | 0       | 3/17 (18%)    |
+| [`auth.md`](./auth.md)                                               | 12   | 0       | 3    | 0       | 12/15 (80%)   |
+| [`billing.md`](./billing.md)                                         | 4    | 0       | 1    | 0       | 4/5 (80%)     |
+| [`browser.md`](./browser.md)                                         | 3    | 0       | 3    | 0       | 3/6 (50%)     |
+| [`events.md`](./events.md)                                           | 7    | 0       | 0    | 0       | 7/7 (100%)    |
+| [`mail.md`](./mail.md)                                               | 12   | 0       | 0    | 0       | 12/12 (100%)  |
+| [`notify.md`](./notify.md)                                           | 12   | 0       | 0    | 0       | 12/12 (100%)  |
+| [`oauth.md`](./oauth.md)                                             | 5    | 0       | 3    | 0       | 5/8 (63%)     |
+| [`policy.md`](./policy.md)                                           | 9    | 0       | 1    | 0       | 9/10 (90%)    |
+| [`pulse.md`](./pulse.md)                                             | 20   | 0       | 0    | 0       | 20/20 (100%)  |
+| [`queue.md`](./queue.md)                                             | 18   | 0       | 0    | 0       | 18/18 (100%)  |
+| [`schedule.md`](./schedule.md)                                       | 14   | 0       | 0    | 0       | 14/14 (100%)  |
+| [`search.md`](./search.md)                                           | 8    | 0       | 0    | 0       | 8/8 (100%)    |
+| [`servers.md`](./servers.md)                                         | 5    | 0       | 1    | 0       | 5/6 (83%)     |
+| [`storage.md`](./storage.md)                                         | 13   | 0       | 0    | 0       | 13/13 (100%)  |
+| [`telemetry.md`](./telemetry.md)                                     | 4    | 0       | 5    | 0       | 4/9 (44%)     |
 
 ## By id prefix
 
@@ -70,7 +70,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `CTN-*`    | 14   | 14    |
 | `DB-*`     | 22   | 28    |
 | `DOC-*`    | 14   | 17    |
-| `DOCS-*`   | 0    | 17    |
+| `DOCS-*`   | 3    | 17    |
 | `DPL-*`    | 28   | 33    |
 | `DX-*`     | 0    | 20    |
 | `DXS-*`    | 15   | 15    |
@@ -86,7 +86,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `NOTIFY-*` | 12   | 12    |
 | `OAUTH-*`  | 5    | 8     |
 | `OBS-*`    | 24   | 30    |
-| `PARITY-*` | 4    | 20    |
+| `PARITY-*` | 176  | 249   |
 | `POL-*`    | 9    | 10    |
 | `PULSE-*`  | 20   | 20    |
 | `QUEUE-*`  | 18   | 18    |
@@ -103,7 +103,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `VLD-*`    | 10   | 10    |
 | `VLT-*`    | 26   | 29    |
 
-## Open work (142 tasks)
+## Open work (196 tasks)
 
 Every row is a task in a ledger file. A task not listed here is done or does not exist.
 
@@ -201,22 +201,79 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `RBR-010`    | open    | Reword telemetry & admin descriptions/comments/UI                                          | [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             |
 | `RBR-011`    | open    | Update docs                                                                                | [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             |
 | `RBR-012`    | open    | Regenerate artifacts & final verification                                                  | [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             |
-| `PARITY-001` | partial | `@tsir/billing` (cashier): checkout, payment methods, coupons, tax                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-002` | partial | `@tsir/servers` (forge): cloud providers                                                   | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-003` | partial | `@tsir/search` (scout): third-party engines                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-008` | open    | `@tsir/auth`: Sanctum SPA, CSRF, email verification                                        | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-009` | open    | `@tsir/queue`: batching, chains                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-010` | open    | `@tsir/telemetry`: exception, cache, DB, mail tracking                                     | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-005` | partial | Token abilities/scopes                                                                     | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-007` | open    | SPA cookie auth (Sanctum)                                                                  | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-008` | open    | CSRF protection                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-009` | open    | Email verification                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-010` | partial | Password reset                                                                             | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-017` | open    | Resource policies                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-023` | open    | Signed URLs                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-024` | open    | Encrypted cookies                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-056` | open    | Factories                                                                                  | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-063` | partial | Broadcast events                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-071` | open    | Job batching                                                                               | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-072` | open    | Job chains                                                                                 | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-073` | partial | Delayed jobs                                                                               | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-074` | partial | Unique jobs                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-082` | partial | One server                                                                                 | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-089` | open    | Markdown mail                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-090` | partial | Queued mail                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-099` | open    | Broadcast notifications                                                                    | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-100` | open    | Notification preferences                                                                   | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-115` | open    | Unique rule                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-116` | open    | Exists rule                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-127` | open    | Metrics exporters                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-128` | partial | Pulse dashboard UI                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-139` | open    | Contextual binding                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-151` | open    | Maintenance mode                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-169` | open    | Tinker (REPL)                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-180` | partial | Multiple drivers                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-181` | open    | Rich values                                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-184` | open    | Redis driver                                                                               | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-189` | open    | Paddle support                                                                             | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-198` | open    | Cloud providers                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-207` | open    | Additional providers                                                                       | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-208` | open    | OAuth1 providers                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-209` | open    | Stateless auth                                                                             | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-233` | open    | Assertions                                                                                 | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-234` | open    | Page objects                                                                               | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-235` | open    | Component helpers                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-241` | open    | Failed job detail                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-242` | open    | Exception tracking                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-243` | open    | Cache/DB query tracking                                                                    | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-244` | open    | Mail/notification tracking                                                                 | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-246` | open    | Request timeline                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-247` | open    | Outgoing HTTP requests                                                                     | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-248` | open    | SQL query monitoring                                                                       | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-249` | open    | Slow query detection                                                                       | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-251` | open    | Scheduled task monitoring                                                                  | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-252` | open    | Command/Artisan tracking                                                                   | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-253` | open    | Mail monitoring                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-254` | open    | Notification monitoring                                                                    | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-255` | open    | Cache hit/miss tracking                                                                    | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-256` | open    | Exception tracking                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-262` | open    | Alerts / notifications                                                                     | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-265` | open    | Multi-region data                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-266` | open    | Per-user impact                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-267` | open    | Team collaboration                                                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-270` | partial | `@tsir/mail`                                                                               | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-274` | partial | `@tsir/pulse`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-276` | open    | `@tsir/vault`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-277` | open    | `@tsir/cache`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-278` | open    | `@tsir/storage`                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-279` | open    | `@tsir/scout`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-280` | open    | `@tsir/socialize`                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-281` | open    | `@tsir/media`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-282` | open    | `@tsir/events`                                                                             | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-283` | open    | `@tsir/schedule`                                                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-284` | open    | `@tsir/notify`                                                                             | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-285` | open    | `@tsir/cashier`                                                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-286` | open    | `@tsir/forge`                                                                              | [`27-feature-parity.md`](./27-feature-parity.md)                     |
+| `PARITY-287` | open    | `@tsir/broadcast`                                                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-011` | open    | `@tsir/router`: named routes, API resource routes                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-012` | open    | `@tsir/database`: pessimistic locking, pagination                                          | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-013` | open    | `@tsir/mail`: markdown mail                                                                | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-014` | open    | `@tsir/flags` (pennant): rich values, Redis driver                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-015` | open    | `@tsir/oauth` (socialize): additional providers                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-016` | open    | `@tsir/browser` (nightwatch): assertions, page objects                                     | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-017` | open    | `@tsir/console`: REPL (`@tsir/repl`)                                                       | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-018` | open    | `@tsir/pulse`→`observability`: metrics exporters                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-019` | open    | `@tsir/seed`: factories                                                                    | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `PARITY-020` | open    | `@tsir/validate`: unique/exists rules                                                      | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `DOCS-001`   | open    | Prose for `@tsir/broadcast` (34 exports)                                                   | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-002`   | open    | Prose for `@tsir/media` (28 exports, 8 codes)                                              | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-003`   | open    | Prose for `@tsir/pennant` (28 exports, 6 codes)                                            | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
@@ -229,9 +286,6 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `DOCS-010`   | open    | A guide for the data layer, written after `DX-004`/`DX-006`                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-011`   | open    | Docs-in-PR catches renamed config, commands and error codes                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-012`   | open    | A guide for capability resolution, written after `DX-012`                                  | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-013`   | open    | Give the parity ledger's 245 feature rows ids                                              | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-014`   | open    | Retire the `✅` notation in 28 rows                                                         | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-015`   | open    | `plans/tasks/STATUS.md` is generated and gated                                             | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-016`   | open    | An acceptance note in every open task                                                      | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-017`   | open    | Read the frontpage as a stranger and as an agent                                           | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `AUTH-13`    | open    | SPA cookie auth (Sanctum) — `XSRF-TOKEN` + stateful cookie                                 | [`auth.md`](./auth.md)                                               |
@@ -252,7 +306,7 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `TEL-8`      | open    | DB query tracking — slow queries, errors                                                   | [`telemetry.md`](./telemetry.md)                                     |
 | `TEL-9`      | open    | Mail/notification tracking — sent/failed deliveries                                        | [`telemetry.md`](./telemetry.md)                                     |
 
-## Rows with no task id (251)
+## Rows with no task id (6)
 
 These rows carry a status but no id, so nothing can cite them: not a commit message, not a
 `TODO`, not another task. They are counted here so the ledger is not smaller than it looks.
@@ -261,4 +315,3 @@ Giving them ids is `DOCS-013`.
 | File                                                         | Rows |
 | ------------------------------------------------------------ | ---- |
 | [`27-feature-parity-audit.md`](./27-feature-parity-audit.md) | 6    |
-| [`27-feature-parity.md`](./27-feature-parity.md)             | 245  |
