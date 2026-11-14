@@ -51,6 +51,16 @@ export function highlight(code: string): string {
   return result + escapeHtml(code.slice(cursor));
 }
 
+/**
+ * The packages whose prose supplies the hero samples, in the order the page shows them.
+ *
+ * One list, exported, because two places depend on it agreeing: `renderFrontpage` builds the
+ * samples from these names, and `build.test.ts` asserts the page contains exactly these and no
+ * others. Before this constant existed, changing `renderFrontpage` to three different packages left
+ * the test green — it read the same three names from its own copy of the list.
+ */
+export const HERO_EXAMPLE_PACKAGES: readonly string[] = ['http', 'validate', 'database'];
+
 export function exampleOf(prose: string): string {
   const section = prose.split('## Example')[1]?.split('\n## ')[0] ?? '';
   const code = /```ts\n([\s\S]*?)```/u.exec(section)?.[1];
@@ -126,11 +136,14 @@ export async function renderFrontpage(root = ROOT): Promise<string> {
   const [template, styles, ...examples] = await Promise.all([
     readFile(join(app, 'template.html'), 'utf8'),
     readFile(cssPath, 'utf8'),
-    ...['http', 'validate', 'database'].map(async (name) =>
+    ...HERO_EXAMPLE_PACKAGES.map(async (name) =>
       exampleOf(await readFile(join(root, `src/docs/packages/prose/${name}.md`), 'utf8')),
     ),
   ]);
   const [http, validate, database] = examples;
+  if (HERO_EXAMPLE_PACKAGES.length !== 3) {
+    throw new Error('The hero grid holds three samples; HERO_EXAMPLE_PACKAGES must name three.');
+  }
   const filters = groups
     .map(
       (group) =>

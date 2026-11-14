@@ -4,7 +4,7 @@
 > Every document a task in this ledger cites, and every done task that cites none — read from
 > the acceptance notes, not from a list somebody keeps by hand.
 
-**23 document(s) cited by 15 task(s).**
+**20 document(s) cited by 14 task(s).**
 
 ## Documents
 
@@ -24,15 +24,12 @@
 | `src/docs/packages/index.md` | `DOCS-010` |
 | `src/docs/packages/prose/broadcast.md` | `DOCS-001` |
 | `src/docs/packages/prose/cashier.md` | `DOCS-006` |
-| `src/docs/packages/prose/database.md` | `DOCS-021` |
 | `src/docs/packages/prose/forge.md` | `DOCS-005` |
-| `src/docs/packages/prose/http.md` | `DOCS-021` |
 | `src/docs/packages/prose/media.md` | `DOCS-002` |
 | `src/docs/packages/prose/nightwatch.md` | `DOCS-007` |
 | `src/docs/packages/prose/pennant.md` | `DOCS-003` |
 | `src/docs/packages/prose/socialize.md` | `DOCS-004` |
 | `src/docs/packages/prose/tui.md` | `DOCS-007` |
-| `src/docs/packages/prose/validate.md` | `DOCS-021` |
 
 ## Done tasks that cite no document
 
@@ -44,6 +41,7 @@ acceptance note names no page is the one place a claim of "documented" can hide.
 - `DOCS-013` Give the parity ledger's 245 feature rows ids
 - `DOCS-016` An acceptance note in every open task
 - `DOCS-018` A checklist per ledger, generated and gated
+- `DOCS-021` The three code samples are gated
 
 ## Pages an open task says it will write
 
