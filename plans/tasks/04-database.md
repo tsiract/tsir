@@ -202,3 +202,12 @@ Notes on the items not yet `[x]`:
 - [x] `db:seed` refuses production without declaration.
       `SED_PRODUCTION_REFUSED` before the first insert; console test covers
       `APP_ENV=production` with and without `--reference-data`.
+
+---
+
+## Data-layer DX (`DX-*`) — prioritised ahead of this file
+
+The zero-boilerplate work — bound Drizzle, `defineModel`, one capability-resolution rule, and query
+monitoring — is tracked in [`17-dx-data-layer.md`](./17-dx-data-layer.md) and **runs before the
+remaining `[ ]` rows here**. It changes the API this file describes, so implementing a `DB-*` row
+first would mean writing it twice. See [`05-database.md`](../modules/05-database.md) § 3.3–3.8.

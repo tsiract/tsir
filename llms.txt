@@ -78,6 +78,7 @@ Every design decision is recorded before it is built and cited from the code by 
 - [ADR-0029](plans/decisions/0029-frontpage-daisyui.md): The public site needs a clearer product hierarchy, a complete ecosystem directory and consistent light/dark themes.
 - [ADR-0030](plans/decisions/0030-hybrid-cloud-and-workload-substrates.md): ADR-0016 settled one question: the database defaults to D1, and Postgres is selectable.
 - [ADR-0031](plans/decisions/0031-terminal-ui.md): Status: Accepted · 2026-11-07 Tsir's commands had three unrelated interfaces.
+- [ADR-0032](plans/decisions/0032-zero-boilerplate-data-layer.md): @tsir/database is correct and expensive to use.
 
 ## Packages
 

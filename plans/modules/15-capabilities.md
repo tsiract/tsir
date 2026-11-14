@@ -893,6 +893,27 @@ credentials in production should be reviewed by someone other than its author fi
 | Q47 | ~~Worker fan-out on Lambda: one worker process per connection, or one process draining `--connection` from argv?~~ **Answered 2026-10-29: one process per connection, chosen by `--connection`** — a worker is bound to a connection, not to "the queue" (`QUEUE-13`), because that is what lets `heavy` have its own concurrency and its own trigger per target; a single process draining everything would merge two failure domains and make the per-connection triggers unusable on Bun                             | —            |
 | Q48 | Dynamic stores for tenancy (`cache.store(tenant)`) — allowed through `defineStore`, or application-owned? Mirrors `05-database.md` Q44                                                                                                                                                                                                                                                                                                                                                                                  | Post-Phase 7 |
 
+## 10.1 Amended 2026-11-14 — one resolution rule, and it is `DX-011`/`DX-012`
+
+Every capability in this document resolves its driver from `tsir.js`. It does so in eleven
+bootstraps, each with its own shape, and each application repeats the selection at the call site.
+
+[ADR-0032](../decisions/0032-zero-boilerplate-data-layer.md) sets one rule for all of them:
+
+> A default is resolved from `tsir.js`; the type states the choice; a driver that cannot honour the
+> choice refuses at boot, naming the config key.
+
+`cacheFor('sessions')` is `dbFor('analytics')` with a different noun, and a capability with nothing
+configured refuses at construction rather than falling back to `memory`. That last clause is already
+this document's acceptance bar for `mail` and `notify` (§ 4.4); `DX-011` makes it the same code path
+for all eleven instead of the same intention in eleven places.
+
+This does not change any driver contract, the conformance kit (§ 5), or the closed-set rule. It
+changes who calls `resolve`, and it is tracked as
+[`tasks/17-dx-data-layer.md`](../tasks/17-dx-data-layer.md) `DX-011`/`DX-012` — prioritised ahead of
+the remaining driver work, because a new driver behind a four-line wiring ritual is a capability
+nobody adopts.
+
 ---
 
 ## 11. Task index

@@ -1,0 +1,108 @@
+# Tasks — Data layer & capability DX (Phase 0, ahead of every other phase)
+
+> The zero-boilerplate work described by
+> [ADR-0032](../decisions/0032-zero-boilerplate-data-layer.md). **These tasks are prioritised ahead
+> of every pending feature**: a capability is not finished while using it costs four lines of wiring
+> at each call site, and eleven capabilities currently do.
+>
+> **Plan:** [`05-database.md`](../modules/05-database.md) § 3.3–3.8 ·
+> [`15-capabilities.md`](../modules/15-capabilities.md) § 12 · **Priority:** P0.
+
+**Status: open.** Nothing in this file is implemented. `DX-000` is the baseline measurement and runs
+first, because every later task is judged by the number it produces.
+
+---
+
+## 1. Why this outranks the remaining parity work
+
+The standing acceptance bar is that every capability resolves to a real provider and refuses at boot
+when it cannot. That is satisfied — 182 of 256 features verified. What is not satisfied is the other
+half of the same sentence: **the easiest DX of all time.** Today the cheapest way to query a table is
+to inject a Drizzle instance, re-derive the row type, and write the same `where(eq(table.id, id))`
+that every other module also writes. The framework knows the default connection from `tsir.js` and
+still makes the caller name it.
+
+That cost is paid on every call site of every application, which is more often than any missing
+driver in `pulse` is paid. It also compounds: each capability invents its own bootstrap shape, so
+learning the fifth one teaches nothing about the sixth.
+
+---
+
+## 2. Tasks
+
+### 2.1 Baseline and the bound client
+
+| ID       | Task                                                                               | Status | Depends  | Acceptance                                                                                                                                                                                                                                                               |
+| -------- | ---------------------------------------------------------------------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `DX-000` | Count the boilerplate, and make the count a gate                                   | `[ ]`  | —        | A tool reports, per module: `drizzle` constructor parameters, `drizzleToken`/`dbToken` provider entries, `as` casts on query results, and lines of query code per table. The number is committed and `make check` fails if it rises.                                     |
+| `DX-001` | `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other | `[ ]`  | ADR-0032 | `createDatabaseBootstrap` returns `db` and `dbFor`; every Drizzle method works on `db` unchanged; `dbFor('nope')` is a **compile** error; the instance is memoised per connection (two calls return the same object) and `INF-010`'s duplicate-alias proof still passes. |
+| `DX-002` | Drizzle instances exist for every declared connection, built on first use          | `[ ]`  | `DX-001` | A two-connection config yields two distinct instances; neither is constructed until first used; a query before the binding arrives fails with the deferred-driver hint, not `undefined is not an object`.                                                                |
+| `DX-003` | `createAppServices` (alias `createDatabaseBootstrap`) wires every capability       | `[ ]`  | `DX-001` | One call returns `{ db, dbFor, cache, queue, mail, storage, broadcast, search, logger, flags, lock }`, each from `tsir.js`; the old export name still works and is documented as an alias.                                                                               |
+
+### 2.2 Models
+
+| ID       | Task                                                                       | Status | Depends  | Acceptance                                                                                                                                                                                                                                                                                                                                    |
+| -------- | -------------------------------------------------------------------------- | ------ | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX-004` | `defineModel(table, options)` — typed reads                                | `[ ]`  | `DX-001` | `find`, `findOrFail`, `where`, `first`, `count`, `exists`. `where` takes a **column record** (`{ email }`), not a string; an unknown key is a compile error. `$type` and `$insert` are exported aliases of the inferred types. A missing row throws `DB_MODEL_NOT_FOUND` with the table and id.                                               |
+| `DX-005` | Model writes: `create`, `update`, `delete`, `upsert`                       | `[ ]`  | `DX-004` | `create` fills `createdAt`/`updatedAt` when `timestamps: true`; `update` sets `updatedAt` and returns the row; `delete` returns rows-changed. Insert types reject generated columns (`id`, timestamps) at compile time. A model column that does not exist is a **compile** error, and `dx-model.types.ts` proves it with `@ts-expect-error`. |
+| `DX-006` | Relations: `hasMany`/`belongsTo`/`hasOne`, declared, and typed by `with()` | `[ ]`  | `DX-004` | A relation returns its declared type; `Users.with('posts')` types the result as `User & { posts: Post[] }`; asking for an undeclared relation is a compile error. No lazy loading: a relation that was not requested is not on the object at all.                                                                                             |
+| `DX-007` | `softDeletes`: declared, not assumed                                       | `[ ]`  | `DX-005` | `softDeletes: true` requires a `deletedAt` column and fails to compile without one; reads exclude soft-deleted rows by default, `withTrashed()`/`onlyTrashed()` are explicit, `restore`/`forceDelete` are separate calls.                                                                                                                     |
+| `DX-008` | The model is engine-neutral: one definition, both dialects                 | `[ ]`  | `DX-004` | A model declared over a `sqliteTable` runs unchanged against the generated `pgTable`; the resolved connection's engine picks the table. Proved by rendering the same `find` through both proxies and comparing statements, the `INF-010` proof.                                                                                               |
+
+### 2.3 Schema duplication
+
+| ID       | Task                                         | Status | Depends  | Acceptance                                                                                                                                                                                                                |
+| -------- | -------------------------------------------- | ------ | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX-009` | `tsir schema:duplicate --to postgres`        | `[ ]`  | `DX-008` | Generates a `pgTable` module from a `sqliteTable` module; refuses to overwrite an existing file (`CLI-009`'s rule); `--check` fails when the generated module drifts from its source, and the check runs in `make check`. |
+| `DX-010` | Column-parity test generated with the schema | `[ ]`  | `DX-009` | The generated module asserts the same column names, nullability and types per column as its source; adding a column to one and not the other fails `bun test` before it fails a migration.                                |
+
+### 2.4 One resolution rule for every capability
+
+| ID       | Task                                                         | Status | Depends            | Acceptance                                                                                                                                                                                                                                                      |
+| -------- | ------------------------------------------------------------ | ------ | ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX-011` | `resolveCapability(name)` — the default comes from `tsir.js` | `[ ]`  | `DX-003`           | Every capability takes its default from config; a caller does not pass `driver` to get the configured one. A capability with no configured driver **refuses at construction** with a code naming the config key — never falls back to `memory`.                 |
+| `DX-012` | `capabilityFor(name)` — a named store/connection/disk, typed | `[ ]`  | `DX-011`           | `cacheFor('sessions')`, `queueFor('jobs')`, `diskFor('uploads')`, `mailerFor('support')`: the name is checked against the config at compile time; a name that is not configured is a compile error, and a driver that cannot honour the choice refuses at boot. |
+| `DX-013` | Admin app migrated to the new surface                        | `[ ]`  | `DX-006`, `DX-012` | `admin.product.com` uses `db`/`dbFor` and at least three models; no module constructs Drizzle, and `DX-000`'s count drops by the measured amount. Every service keeps its behaviour: `bun test` unchanged.                                                      |
+
+### 2.5 Query monitoring (the admin app)
+
+| ID       | Task                                                                  | Status | Depends            | Acceptance                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------- | --------------------------------------------------------------------- | ------ | ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX-014` | Query timings reach the admin app, not only a logger                  | `[ ]`  | —                  | **Measured gap (2026-11-14):** `createConnectionsFromConfig` never passes `log`, so `admin.product.com` records **no** query timing at all — `logging`, `slowQueryMs` and `log` exist on `DatabaseOptions` and nothing wires them. Fix: the config factory passes a sink, and the sink writes a query row through `@tsir/telemetry`, so the admin app can query it. `@tsir/database` emits `{ sql (scrubbed), durationMs, rows, ok, connection }` for every statement including Drizzle-generated ones — one measurement point, so a hand-written `db.query` and a Drizzle select are indistinguishable. |
+| `DX-015` | Slow queries logged, with a threshold from config                     | `[ ]`  | `DX-014`           | `slowQueryMs` from `database.connections.<name>` decides what is logged; a slow statement is logged at `warn` even when `logging: 'off'` would silence routine statements; the threshold is reported by `tsir doctor`.                                                                                                                                                                                                                                                                                                                                                                                   |
+| `DX-016` | Query redaction that knows what is sensitive, not just what is quoted | `[ ]`  | `DX-014`           | Parameters are never logged (already true). Additionally: literal values in `INSERT`/`UPDATE`/`WHERE` are replaced, and a **column-name** signal overrides: `email`, `password*`, `*_hash`, `secret*`, `token*`, `authorization`, `cookie`, `phone`, `ssn`, `card*` are redacted even when they hold a non-quoted value or are the _result_ of a function. A table of cases in `redaction.test.ts` is the spec.                                                                                                                                                                                          |
+| `DX-017` | A query-monitor page in the admin app                                 | `[ ]`  | `DX-015`, `DX-016` | `admin.product.com` lists slow queries and failures: statement (redacted), duration, rows, connection, when. The page reads the telemetry store, not a log file. A query whose text still contains an email or token is a test failure, not a review note.                                                                                                                                                                                                                                                                                                                                               |
+| `DX-018` | N+1 detection for a request                                           | `[ ]`  | `DX-014`           | A request that runs the same statement shape more than N times is reported once, with the count and the call site. Off by default; on in development and test, where it is cheap.                                                                                                                                                                                                                                                                                                                                                                                                                        |
+
+### 2.6 Proof
+
+| ID       | Task                                                | Status | Depends          | Acceptance                                                                                                                                                                                                                  |
+| -------- | --------------------------------------------------- | ------ | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DX-019` | `dx-baseline.test.ts` — the DX contract, executable | `[ ]`  | all of the above | A test declares a table, a model and two connections, then runs the documented example from the guide unmodified. If the example needs a cast, an `as`, or a manually built Drizzle, the test fails and the docs are wrong. |
+
+---
+
+## 3. Sequencing
+
+`DX-000` → `DX-001`/`DX-002` → `DX-004`…`DX-008` (models) → `DX-009`/`DX-010` (schema duplication) →
+`DX-011`/`DX-012` (capabilities) → `DX-013` (admin app) → `DX-014`…`DX-018` (monitoring) → `DX-019`.
+
+`DX-014`…`DX-018` do not depend on the model work and may run in parallel with it; they are listed
+after it because they touch the same package.
+
+Every task is independently mergeable. `DX-013` is the one that proves the others were worth it: if
+the admin app still constructs a Drizzle instance afterwards, a task is not done.
+
+---
+
+## 4. Failure modes this ledger exists to prevent
+
+| Failure                                                                    | Which task catches it                                                       |
+| -------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| Models that compile `user.anything` and are `undefined` at runtime         | `DX-004`, `DX-005` — the row is the inferred type, never an index signature |
+| A `where('emial', …)` that becomes a query matching every row              | `DX-004` — the field is a key of the table's columns                        |
+| Lazy-loading a relation in a loop (the N+1 that Eloquent encourages)       | `DX-006` — a relation must be requested; `DX-018` counts the repeats        |
+| A second Drizzle instance with the same table, producing duplicate aliases | `DX-001` — memoised per connection, proved by the `INF-010` test            |
+| A capability silently falling back to `memory` when unconfigured           | `DX-011` — refuses at construction, naming the config key                   |
+| An email address in a slow-query log                                       | `DX-016` — column-name signal, not only quoted-literal scrubbing            |
+| `as` casts accumulating to silence the row type                            | `DX-000` — counted, and the count is a gate                                 |

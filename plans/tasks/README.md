@@ -20,6 +20,16 @@ The files below are ordered by **execution sequence**. Each phase depends on the
 before it; do not start a later phase while an earlier one still has open `[ ]` or `[~]`
 items that block it. The dependency arrows note the hard gates.
 
+### Phase 0 — Data-layer DX (runs first; see § 4)
+
+| File                                           | Covers                                                                     | Task range |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| [`17-dx-data-layer.md`](./17-dx-data-layer.md) | Bound Drizzle, typed models, one capability-resolution rule, query monitor | `DX-*`     |
+
+This phase outranks the others by decision: a task here removes cost paid at every call site of
+every application, which is a larger number than any remaining parity gap. The last section of this
+file, **Phase 0 — DX first**, explains why.
+
 ### Phase 1–2 — Foundation & core
 
 | File                                     | Covers                                                 | Task range                               |
@@ -228,3 +238,24 @@ outstanding — `DPL-013`–`DPL-018` (built and tested, cloud acceptance unprov
 emitted, exporter missing), `CFG-002` (`Bun.env` banned, `process.env` not), `TST-010`/`TST-014`/`TST-015`
 (harness built, matrix incomplete), `CLI-018` (generator built, Windows run unverified). If you find a
 `[~]` whose remaining work is not written down, that is a documentation bug: fix the row first.
+
+---
+
+## 4. Phase 0 — DX first
+
+`17-dx-data-layer.md` is tracked before Phase 1 because it changes the shape of every application
+rather than adding a capability to the framework. Two measured facts decided the order:
+
+- 182 of 256 parity features are verified, and the remaining 74 are concentrated in packages few
+  applications reach for first (`pulse` 4/23, `oauth` 5/8, `browser` 3/6).
+- Every one of those 256 is reached through the same wiring: a constructor parameter, a provider
+  entry, and a hand-built Drizzle instance. That is paid on every call site, in every module, in
+  every application.
+
+The rule this phase enforces, stated once: **a default comes from `tsir.js`, the type states the
+choice, and a driver that cannot honour the choice refuses at boot.** It applies to the database
+first because that is where the boilerplate is worst, and to every other capability afterwards for
+the same reason.
+
+`DX-013` (the admin app migrated) is the acceptance test for the whole phase: if the application
+still constructs a Drizzle instance when the tasks are marked done, the phase is not done.
