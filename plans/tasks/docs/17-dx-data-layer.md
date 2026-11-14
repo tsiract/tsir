@@ -5,3 +5,10 @@
 > the acceptance notes, not from a list somebody keeps by hand.
 
 **0 document(s) cited by 0 task(s).**
+
+## Done tasks that cite no document
+
+Not failures: a task can be pure code. They are listed because a task marked done whose
+acceptance note names no page is the one place a claim of "documented" can hide.
+
+- `DX-000` Count the boilerplate, and make the count a gate

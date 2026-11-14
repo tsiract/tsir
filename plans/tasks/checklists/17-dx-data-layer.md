@@ -5,14 +5,13 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**0/20 (0%)** — 0 done, 0 partial, 20 open, 0 blocked.
+**1/20 (5%)** — 1 done, 0 partial, 19 open, 0 blocked.
 
 Documentation this ledger added: [`docs/17-dx-data-layer.md`](../docs/17-dx-data-layer.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (20)
+## Open (19)
 
-- [ ] `DX-000` Count the boilerplate, and make the count a gate — `17-dx-data-layer.md:37`
 - [ ] `DX-001` `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other — `17-dx-data-layer.md:38`
 - [ ] `DX-002` Drizzle instances exist for every declared connection, built on first use — `17-dx-data-layer.md:39`
 - [ ] `DX-003` `createAppServices` (alias `createDatabaseBootstrap`) wires every capability — `17-dx-data-layer.md:40`
@@ -32,3 +31,7 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [ ] `DX-017` A query-monitor page in the admin app — `17-dx-data-layer.md:74`
 - [ ] `DX-018` N+1 detection for a request — `17-dx-data-layer.md:75`
 - [ ] `DX-019` `dx-baseline.test.ts` — the DX contract, executable — `17-dx-data-layer.md:81`
+
+## Done (1)
+
+- [x] `DX-000` Count the boilerplate, and make the count a gate — `17-dx-data-layer.md:37`

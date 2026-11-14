@@ -8,11 +8,11 @@
 
 | State     | Count   | Meaning                             |
 | --------- | ------- | ----------------------------------- |
-| done      | 752     | acceptance met, evidence linked     |
+| done      | 753     | acceptance met, evidence linked     |
 | partial   | 22      | a branch or a half landed           |
-| open      | 162     | not started                         |
+| open      | 161     | not started                         |
 | blocked   | 0       | waiting on a named task or decision |
-| **total** | **936** | **752/936 (80%) done**              |
+| **total** | **936** | **753/936 (80%) done**              |
 
 ## By file
 
@@ -27,7 +27,7 @@
 | [`07-capabilities.md`](./07-capabilities.md)                         | 29   | 0       | 0    | 0       | 29/29 (100%)  |
 | [`07-deploy.md`](./07-deploy.md)                                     | 28   | 4       | 1    | 0       | 28/33 (85%)   |
 | [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) | 5    | 0       | 17   | 0       | 5/22 (23%)    |
-| [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       | 0    | 0       | 20   | 0       | 0/20 (0%)     |
+| [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       | 1    | 0       | 19   | 0       | 1/20 (5%)     |
 | [`20-dx.md`](./20-dx.md)                                             | 48   | 1       | 0    | 0       | 48/49 (98%)   |
 | [`21-frontpage.md`](./21-frontpage.md)                               | 14   | 0       | 3    | 0       | 14/17 (82%)   |
 | [`22-testing.md`](./22-testing.md)                                   | 15   | 3       | 2    | 0       | 15/20 (75%)   |
@@ -72,7 +72,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `DOC-*`    | 14   | 17    |
 | `DOCS-*`   | 20   | 22    |
 | `DPL-*`    | 28   | 33    |
-| `DX-*`     | 0    | 20    |
+| `DX-*`     | 1    | 20    |
 | `DXS-*`    | 15   | 15    |
 | `ERR-*`    | 6    | 6     |
 | `EVT-*`    | 7    | 7     |
@@ -103,7 +103,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `VLD-*`    | 10   | 10    |
 | `VLT-*`    | 26   | 29    |
 
-## Open work (184 tasks)
+## Open work (183 tasks)
 
 Every row is a task in a ledger file. A task not listed here is done or does not exist.
 
@@ -148,7 +148,6 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `INF-020`    | open    | Native DLQ and exponential backoff policy in `@tsir/queue` (`Q64`)                         | [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) |
 | `INF-021`    | open    | A tokenless substrate probe: publish → `@OnSns` handler, on every push                     | [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) |
 | `INF-022`    | open    | The same probe in a real Node runtime, behind a licence decision                           | [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) |
-| `DX-000`     | open    | Count the boilerplate, and make the count a gate                                           | [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       |
 | `DX-001`     | open    | `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other         | [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       |
 | `DX-002`     | open    | Drizzle instances exist for every declared connection, built on first use                  | [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       |
 | `DX-003`     | open    | `createAppServices` (alias `createDatabaseBootstrap`) wires every capability               | [`17-dx-data-layer.md`](./17-dx-data-layer.md)                       |
