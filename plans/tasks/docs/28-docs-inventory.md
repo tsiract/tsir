@@ -44,6 +44,7 @@ acceptance note names no page is the one place a claim of "documented" can hide.
 - `DOCS-016` An acceptance note in every open task
 - `DOCS-018` A checklist per ledger, generated and gated
 - `DOCS-021` The three code samples are gated
+- `DOCS-022` The package count cannot drift
 
 ## Pages an open task says it will write
 
