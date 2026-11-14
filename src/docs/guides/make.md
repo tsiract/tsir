@@ -19,7 +19,8 @@ make verify      # every gate plus the test suite — the one to trust
 tests that need those therefore are not in it, so **`make check` can be green while `bun test` is
 red**. `make verify` is `check` + `test`, and it is what to run before pushing.
 
-`make dist` compiles the 24 framework packages, ships runnable examples and static apps, and installs
+`make dist` compiles every directory in `src/framework/` (34 today — read the count from `ls
+src/framework` rather than from this page), ships runnable examples and static apps, and installs
 the generated distribution dependencies in ignored `dist/`. The source checkout must already have
 its own workspace dependencies installed; building may need npm registry access. Run
 `./dist/tsir --help` after the build, or read `dist/README.md` for its layout. Rebuilding removes
@@ -49,3 +50,22 @@ runtime records; stop the dev server first.
 Use `make help` and inspect the Makefile for all targets and flags. Paths and platform tools may
 vary. macOS/Linux CI checks the build on both operating systems; it is not a guarantee for every
 local setup, external service, Docker version or shell customization.
+
+The table above is prose, and prose about targets goes stale the moment one is renamed — which is
+the failure `check-make` was written for. `parseMakefile` is the same parser the gate uses, so you
+can ask the Makefile what it actually defines rather than trusting this page:
+
+```ts verify
+import { parseMakefile } from '../../src/tools/check-make.ts';
+
+const parsed = parseMakefile(await Bun.file('Makefile').text());
+const names = [...parsed.phony].sort();
+
+console.log('phony targets:', names.length);
+console.log('defines `verify`:', names.includes('verify'));
+console.log('defines `check`:', names.includes('check'));
+```
+
+If `defines \`check\``prints`false`, this page is describing a Makefile that no longer exists.
+`parseMakefile`is pure — it reads text, not the process — which is why the gate can unit-test the
+parser against broken Makefiles instead of running`make` to find out.

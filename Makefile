@@ -68,7 +68,7 @@ NAME            ?=
 KIND            ?=
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory docs-inventory-check help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
         make-check compile-cli verify-templates emulator-check driver-defaults production-wiring llms llms-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
@@ -123,6 +123,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake tasks\033[0m           regenerate the task index — every task and its state (DOCS-015)\n'
 	@printf '  \033[36mmake tasks-check\033[0m     the ledger matches STATUS.md and every open task has acceptance (DOCS-015)\n'
 	@printf '  \033[36mmake docs-inventory\033[0m  what documentation is missing, unexecuted or uncitable\n'
+	@printf '  \033[36mmake docs-inventory-check\033[0m  every guide is linked, has a body and runs an example (DOCS-009)\n'
 	@printf '  \033[36mmake coercion\033[0m        reject implicit coercion in framework source (VLD-007)\n'
 	@printf '  \033[36mmake crypto\033[0m          cipher inventory and prohibited-practice scan (SEC-005)\n'
 	@printf '  \033[36mmake flakes\033[0m          fail when a quarantined test is past its limit (TST-018)\n'
@@ -194,7 +195,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
+check: typecheck lint boundaries docs-pr docs-inventory-check modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 # `check` deliberately excludes the test suite: it has to pass without a database, a network or a
@@ -241,9 +242,10 @@ modules: ## Enforce application-module boundaries (MOD-003)
 	@printf '  \033[2m→ bun src/tools/check-modules.ts\033[0m\n'
 	@$(BUN) src/tools/check-modules.ts
 
-frontpage: ## Check the built artifact and honest package claims (DOC-004, DOC-005)
+frontpage: ## Check the built artifact and honest package claims (DOC-004, DOC-005, DOCS-008)
 	@$(BUN) src/apps/frontpage/build.ts --check
 	@$(BUN) src/tools/check-frontpage.ts
+	@$(BUN) src/tools/frontpage-claims.ts
 
 frontpage-build: ## Compile DaisyUI Nord/Abyss and inline all frontpage assets
 	@$(BUN) src/apps/frontpage/build.ts
@@ -372,16 +374,19 @@ plans: ## The plan set is internally consistent: indexed, linked, statuses agree
 	@printf '  \033[2m→ bun src/tools/check-plans.ts\033[0m\n'
 	@$(BUN) src/tools/check-plans.ts
 
-tasks: ## Regenerate the task index: every task, its state, and what is left (DOCS-015)
+tasks: ## Regenerate the task index and per-ledger checklists (DOCS-015, DOCS-018)
 	@printf '  \033[2m→ bun src/tools/task-status.ts --write\033[0m\n'
 	@$(BUN) src/tools/task-status.ts --write
 
-tasks-check: ## The task index matches the ledgers, and every open task has acceptance (DOCS-015)
+tasks-check: ## The index and checklists match the ledgers, and every open task has acceptance (DOCS-015, DOCS-018)
 	@printf '  \033[2m→ bun src/tools/task-status.ts --check\033[0m\n'
 	@$(BUN) src/tools/task-status.ts --check
 
 docs-inventory: ## What documentation is missing, unexecuted or uncitable
 	@$(BUN) src/tools/doc-inventory.ts
+
+docs-inventory-check: ## Every guide links, has a body and runs an example (DOCS-009)
+	@$(BUN) src/tools/doc-inventory.ts --check
 
 docs-packages: ## Every framework package has a current reference page (DOC-010)
 	@$(BUN) src/tools/package-pages.ts

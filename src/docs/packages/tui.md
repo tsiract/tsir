@@ -28,12 +28,44 @@ This package raises no error codes of its own.
 
 ## Example
 
-_Pending: a worked example for this package is not written yet._
+`Reporter` builds a report and prints it. It has no renderer dependency, so a command that prints
+facts never loads a native binary, and its output is the same whether a terminal is attached or the
+result is piped into `grep`.
+
+```ts
+import { Reporter, createPalette } from '@tsir/tui';
+
+// `color: false` is what a pipe gets; the glyphs and the layout stay identical.
+const report = new Reporter(createPalette({ color: false }));
+
+report
+  .section('tsir doctor')
+  .check({ status: 'ok', label: 'typescript', detail: '5.9.3, strict' })
+  .check({ status: 'warn', label: 'node', detail: '22.0.0 is below the tested floor' })
+  .check({ status: 'fail', label: 'database', detail: 'DB has no binding' })
+  .check({ status: 'skip', label: 'cloud', detail: 'no credentials in this environment' });
+
+console.log(report.toString());
+```
 
 ## Failure modes
 
-_Pending: the conditions behind each code above for this package is not written yet._
+The reporting entrypoint throws nothing of its own: a report is a string builder, and writing it to a
+stream can fail only the way any write can. The interactive entrypoint (`@tsir/tui/ui`) is where
+refusal lives, and it refuses in one specific way worth stating here.
+
+`requireInteractive()` fails when a command needs a prompt and has no terminal — in a script, a CI
+job, or a pipe. The message is not "no TTY": it names the flags that would have answered the question,
+so the same command can run unattended. A wizard that waited for a keypress that can never arrive
+would be a hang, and a hang in CI is worse than an error message.
 
 ## Security notes
 
-_Pending: the security notes for this package is not written yet._
+Nothing here reads a secret, and that is deliberate. A report is written to a terminal _and_ to a log
+file _and_ to a CI transcript, all of which outlive the process, so the reporter prints what the
+command decided to print. The redaction rule lives one layer down, in `@tsir/pulse`, where the values
+are known; a reporter that tried to redact would have to guess from a formatted string.
+
+The interactive surface restores the terminal on every exit path, including a crash, because a
+command that leaves the cursor hidden and the screen in raw mode makes the next shell session
+unusable — and that failure is attributed to the terminal, not to the command that caused it.

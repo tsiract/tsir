@@ -12,7 +12,7 @@
 4. **Blocked tasks say why.** `[!]` requires a one-line reason and a link to the blocking task or decision.
 5. **Plan-first.** A task that contradicts a plan amends the plan in the same PR.
 
-### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-016`)
+### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-016`, `DOCS-018`)
 
 These are checked by `make tasks-check`, which is part of `make check`, so a doc-only pull request
 cannot quietly break them.
@@ -23,9 +23,25 @@ cannot quietly break them.
 | **Every row has an id.** A `PREFIX-NNN` in the first cell.     | A status with no id is counted under "Rows with no task id" in `STATUS.md`. |
 | **Every open task has acceptance text.**                       | A `[ ]`/`[~]`/`[!]` row with an empty last cell fails the gate.             |
 | **`STATUS.md` matches the ledgers.**                           | A stale generated page fails; run `make tasks`.                             |
+| **Every ledger's checklist matches the ledger.**               | A stale `checklists/<ledger>.md` fails; run `make tasks`.                   |
 
 `STATUS.md` is the index to read. It is generated, it lists every open task by id, and it is the
 reason a number in this repository is a measurement rather than a memory.
+
+`checklists/` is the same data sliced per file, for whoever is working inside one ledger. Each page
+is `- [ ] `ID`title —`file:line``, grouped **half done → blocked → open → done**, so the unfinished
+work is at the top and every line can be pasted into a note or jumped to in the ledger. Start with
+[`checklists/`](./checklists/) rather than reading thirty-four tables.
+
+```sh
+bun src/tools/task-status.ts            # every ledger as a checklist, on stdout
+bun src/tools/task-status.ts --write    # STATUS.md + checklists/  (make tasks)
+bun src/tools/task-status.ts --check    # fail when either is stale (make tasks-check)
+```
+
+**Which ledger is unfinished.** The checklist page's own header carries the ratio, so
+`grep -h '^\*\*' plans/tasks/checklists/*.md` answers "what is left" without loading a single task
+row.
 
 ### 1.2 Where a new task goes
 
@@ -64,9 +80,11 @@ file, **Phase 0 — DX first**, explains why.
 | ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------- |
 | [`28-docs-inventory.md`](./28-docs-inventory.md) | Missing prose, runnable examples, the frontpage's claims, ids for the parity rows | `DOCS-*`   |
 | [`STATUS.md`](./STATUS.md)                       | **Generated** — every task, its state, and what is left                           | —          |
+| [`checklists/`](./checklists/)                   | **Generated** — one page per ledger, unfinished work first                        | —          |
 
 `STATUS.md` is written by `make tasks` and checked by `make check`. It is the answer to "what is
 missing, what is partial, what is done" without reading thirty-nine files; do not edit it by hand.
+`checklists/` is written by the same command and checked by the same gate.
 
 ### Phase 1–2 — Foundation & core
 

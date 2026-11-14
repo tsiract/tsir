@@ -174,6 +174,36 @@ export function buildInventory(root: string = ROOT): Inventory {
   };
 }
 
+/**
+ * Failures the inventory can prove, in the shape the other gates use.
+ *
+ * Both are the same failure: a page that exists, is linked, and is empty where it matters. Neither
+ * is visible in a count — "9 guides, 24 examples" reads as healthy when one guide has none — so
+ * each rule names the file it is about.
+ */
+export function inventoryProblems(inventory: Inventory): readonly string[] {
+  const problems: string[] = [];
+  for (const guide of inventory.guides) {
+    if (guide.examples === 0) {
+      problems.push(
+        `${guide.file}: no \`\`\`ts verify block, so nothing on the page is executed — add one that prints`,
+      );
+    }
+    if (guide.emptySections > 0) {
+      problems.push(
+        `${guide.file}: ${String(guide.emptySections)} heading(s) with no body — a stub nobody finished`,
+      );
+    }
+    if (!guide.linked) {
+      problems.push(`${guide.file}: not linked from src/docs/index.md, so no reader arrives`);
+    }
+  }
+  for (const orphan of inventory.orphans) {
+    problems.push(`src/docs/packages/prose/${orphan}.md: no package by that name`);
+  }
+  return problems;
+}
+
 export function render(inventory: Inventory): string {
   const { packages, guides, totals, orphans } = inventory;
   const lines = [
@@ -228,7 +258,14 @@ export function render(inventory: Inventory): string {
 
 if (import.meta.main) {
   const inventory = buildInventory();
-  if (process.argv.includes('--json'))
+  if (process.argv.includes('--json')) {
     process.stdout.write(`${JSON.stringify(inventory, null, 2)}\n`);
-  else process.stdout.write(render(inventory));
+  } else {
+    process.stdout.write(render(inventory));
+    const problems = inventoryProblems(inventory);
+    if (problems.length > 0 && process.argv.includes('--check')) {
+      process.stdout.write(`\n${problems.map((p) => `  ✗ ${p}`).join('\n')}\n`);
+      process.exit(1);
+    }
+  }
 }

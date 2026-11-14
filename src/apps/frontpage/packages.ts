@@ -190,7 +190,7 @@ export const packages: readonly PackageCard[] = [
     status: 'implemented',
     icon: 'bolt',
     description:
-      'Named stores with memory, database and Cloudflare KV drivers and declared capabilities.',
+      'Named stores with memory, database, Redis and Cloudflare KV drivers and declared capabilities.',
   },
   {
     name: 'queue',
@@ -227,7 +227,7 @@ export const packages: readonly PackageCard[] = [
     status: 'implemented',
     icon: 'mail',
     description:
-      'Typed messages and templates with transport capabilities and app-supplied provider clients.',
+      'Typed messages and templates with Resend, Postmark, SendGrid, SES and SMTP transports.',
   },
   {
     name: 'notify',
@@ -246,7 +246,7 @@ export const packages: readonly PackageCard[] = [
     status: 'implemented',
     icon: 'folder',
     description:
-      'Explicit storage disks, bounded file operations and drivers for local and object storage.',
+      'Explicit storage disks, bounded file operations and local or S3-compatible object storage.',
   },
   {
     name: 'link',
@@ -318,8 +318,10 @@ export const packages: readonly PackageCard[] = [
     phase: 8,
     status: 'partial',
     icon: 'broadcast',
-    description: 'In-process pub/sub, WebSockets and presence channels.',
-    caveat: 'Memory broadcaster and WebSocket handler ship; Redis backend still open.',
+    description:
+      'Pub/sub with memory, Redis and Pusher drivers, a Cloudflare Durable Object, WebSockets and presence channels.',
+    caveat:
+      'All four drivers are tested against stubs; a real Redis, Pusher or Durable Object integration run is still open.',
   },
   {
     name: 'pennant',
@@ -338,7 +340,8 @@ export const packages: readonly PackageCard[] = [
     phase: 8,
     status: 'partial',
     icon: 'search',
-    description: 'Index and search via memory, SQLite and Postgres engines.',
+    description:
+      'Index and search via memory, SQLite and Postgres, or the hosted Typesense, Meilisearch and Algolia engines.',
     caveat: 'Memory and SQLite drivers tested; Postgres full-text needs coverage.',
   },
   {

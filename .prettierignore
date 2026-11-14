@@ -17,6 +17,7 @@ src/apps/admin.product.com/public/app.js.map
 # Generated from the ledgers by `make tasks`. Its column widths are the generator's, and prettier
 # wraps a long cell rather than widening the column, so formatting it would fight the generator.
 plans/tasks/STATUS.md
+plans/tasks/checklists/
 
 # Existing generator outputs retain their generators' formatting.
 src/examples/http/src/routes.gen.ts

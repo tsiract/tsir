@@ -8,11 +8,11 @@
 
 | State     | Count   | Meaning                             |
 | --------- | ------- | ----------------------------------- |
-| done      | 735     | acceptance met, evidence linked     |
+| done      | 745     | acceptance met, evidence linked     |
 | partial   | 22      | a branch or a half landed           |
-| open      | 174     | not started                         |
+| open      | 165     | not started                         |
 | blocked   | 0       | waiting on a named task or decision |
-| **total** | **931** | **735/931 (79%) done**              |
+| **total** | **932** | **745/932 (80%) done**              |
 
 ## By file
 
@@ -36,7 +36,7 @@
 | [`25-modularity.md`](./25-modularity.md)                             | 7    | 0       | 1    | 0       | 7/8 (88%)     |
 | [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             | 0    | 0       | 12   | 0       | 0/12 (0%)     |
 | [`27-feature-parity.md`](./27-feature-parity.md)                     | 176  | 11      | 62   | 0       | 176/249 (71%) |
-| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 3    | 0       | 14   | 0       | 3/17 (18%)    |
+| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 13   | 0       | 5    | 0       | 13/18 (72%)   |
 | [`auth.md`](./auth.md)                                               | 12   | 0       | 3    | 0       | 12/15 (80%)   |
 | [`billing.md`](./billing.md)                                         | 4    | 0       | 1    | 0       | 4/5 (80%)     |
 | [`browser.md`](./browser.md)                                         | 3    | 0       | 3    | 0       | 3/6 (50%)     |
@@ -70,7 +70,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `CTN-*`    | 14   | 14    |
 | `DB-*`     | 22   | 28    |
 | `DOC-*`    | 14   | 17    |
-| `DOCS-*`   | 3    | 17    |
+| `DOCS-*`   | 13   | 18    |
 | `DPL-*`    | 28   | 33    |
 | `DX-*`     | 0    | 20    |
 | `DXS-*`    | 15   | 15    |
@@ -103,7 +103,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `VLD-*`    | 10   | 10    |
 | `VLT-*`    | 26   | 29    |
 
-## Open work (196 tasks)
+## Open work (187 tasks)
 
 Every row is a task in a ledger file. A task not listed here is done or does not exist.
 
@@ -274,15 +274,6 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `PARITY-014` | open    | `@tsir/flags` (pennant): rich values, Redis driver                                         | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-015` | open    | `@tsir/oauth` (socialize): additional providers                                            | [`27-feature-parity.md`](./27-feature-parity.md)                     |
 | `PARITY-018` | open    | `@tsir/pulse`→`observability`: metrics exporters                                           | [`27-feature-parity.md`](./27-feature-parity.md)                     |
-| `DOCS-001`   | open    | Prose for `@tsir/broadcast` (34 exports)                                                   | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-002`   | open    | Prose for `@tsir/media` (28 exports, 8 codes)                                              | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-003`   | open    | Prose for `@tsir/pennant` (28 exports, 6 codes)                                            | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-004`   | open    | Prose for `@tsir/socialize` (17 exports, 5 codes)                                          | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-005`   | open    | Prose for `@tsir/forge` (21 exports, 1 code)                                               | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-006`   | open    | Prose for `@tsir/cashier` (15 exports, 5 codes)                                            | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-007`   | open    | Prose for `@tsir/nightwatch` (7 exports) and `@tsir/tui`                                   | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-008`   | open    | The frontpage's claims are checked against the code                                        | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-009`   | open    | A runnable example in every guide                                                          | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-010`   | open    | A guide for the data layer, written after `DX-004`/`DX-006`                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-011`   | open    | Docs-in-PR catches renamed config, commands and error codes                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-012`   | open    | A guide for capability resolution, written after `DX-012`                                  | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |

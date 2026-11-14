@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { emptySectionsIn, countExamples } from './doc-inventory.ts';
-import { buildReport, render, tasksIn } from './task-status.ts';
+import { buildReport, checklistsToWrite, render, renderChecklist, tasksIn } from './task-status.ts';
 
 /**
  * The ledger tools, tested on fixtures rather than on the repository.
@@ -132,6 +132,61 @@ describe('the status page is generated, not written', () => {
       // The open list is the point of the page: an id and where it lives.
       expect(page).toContain('`A-002`');
       expect(page).not.toContain('`A-001` |');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('every ledger has a checklist an agent can read (DOCS-018)', () => {
+  test('each task appears once, in its own state section, with a line to jump to', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsir-checklists-'));
+    try {
+      writeFileSync(
+        join(dir, 'a.md'),
+        table(
+          '| ID | Title | Status | Acceptance |',
+          '| --- | --- | --- | --- |',
+          '| `A-001` | done one | `[x]` | a test |',
+          '| `A-002` | half one | `[~]` | a branch |',
+          '| `A-003` | open one | `[ ]` | a test to write |',
+          '',
+        ),
+      );
+      const report = buildReport(dir);
+      // `file` is repository-relative, so the key comes from the report rather than the fixture.
+      const key = report.files[0]?.file ?? '';
+      const page = renderChecklist(report, key);
+      expect(page).toContain('## Half done (1)');
+      // The fixture's fourth line is the third table row: a header, a rule, then the tasks.
+      expect(page).toContain('- [~] `A-002` half one — `a.md:4`');
+      expect(page).toContain('- [ ] `A-003` open one — `a.md:5`');
+      expect(page).toContain('- [x] `A-001` done one — `a.md:3`');
+      expect(page).toContain('## Done (1)');
+      // One line per task, and no task in two sections: a checklist that repeats a row is a
+      // checklist a reader has to reconcile.
+      expect(page.match(/`A-00\d`/gu)).toHaveLength(3);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the page names the ledger it belongs to and links back to it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsir-checklists-'));
+    try {
+      writeFileSync(
+        join(dir, 'b.md'),
+        table(
+          '| ID | Title | Status | Acceptance |',
+          '| --- | --- | --- | --- |',
+          '| `B-001` | x | `[ ]` | y |',
+          '',
+        ),
+      );
+      const pages = checklistsToWrite(buildReport(dir));
+      expect(pages).toHaveLength(1);
+      expect(pages[0]?.path.endsWith(join('checklists', 'b.md'))).toBe(true);
+      expect(pages[0]?.page).toContain('[`b.md`](../b.md)');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

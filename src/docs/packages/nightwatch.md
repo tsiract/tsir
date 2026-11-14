@@ -24,12 +24,50 @@ This package raises no error codes of its own.
 
 ## Example
 
-_Pending: a worked example for this package is not written yet._
+A browser test needs two things: a page object and a backend that can produce one. The backend is an
+interface with two methods, so `playwrightBackend` supplies a real browser and `inMemoryBackend`
+supplies a stub — which is what lets the harness itself be tested without launching Chromium.
+
+```ts
+import { inMemoryBackend } from '@tsir/nightwatch';
+
+const backend = inMemoryBackend();
+const page = await backend.newPage();
+
+await page.goto('https://example.com/login');
+await page.fill('#email', 'person@example.com');
+await page.click('button[type=submit]');
+
+console.log('exists:', await page.exists('#email'));
+console.log('text:', await page.text('#email'));
+console.log('screenshot bytes:', (await page.screenshot()).length);
+
+await page.close();
+await backend.close();
+```
 
 ## Failure modes
 
-_Pending: the conditions behind each code above for this package is not written yet._
+This package throws nothing of its own, and the surface says so rather than leaving the section empty.
+A selector that matches nothing is `exists() === false` and `text() === ''` — the shape Playwright
+already gives — because an assertion library that throws on a missing element cannot tell "not there
+yet" from "never there", and the caller is the one that knows which of those a test is waiting for.
+
+`playwrightBackend` refuses at construction when `playwright` cannot be resolved, with an install
+instruction rather than a stack trace from a dynamic import. It does not fall back to the in-memory
+backend: a test that passes against a stub and was meant to run against a browser is a green build
+that proves nothing.
 
 ## Security notes
 
-_Pending: the security notes for this package is not written yet._
+`inMemoryBackend` exists so the harness can be tested without a browser, and it must never be the
+backend a real suite runs against — it answers `exists()` with `true` for every selector, so it cannot
+fail a locator assertion. The bootstrap takes the backend explicitly for that reason: there is no
+environment variable that quietly selects the stub.
+
+`playwrightBackend` launches a browser process, which is a native binary a Worker cannot run. Browser
+suites therefore belong to the `bun` target and to CI, not to a deployed unit — the same constraint
+`sharp`, `ffmpeg` and `localProvider` have.
+
+Browser tests drive a real application, so they see real credentials if a fixture puts them in a form.
+Point a suite at a seeded, disposable database, never at the one an operator uses.
