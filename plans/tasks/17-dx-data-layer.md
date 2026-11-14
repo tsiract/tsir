@@ -6,7 +6,7 @@
 > at each call site, and eleven capabilities currently do.
 >
 > **Plan:** [`05-database.md`](../modules/05-database.md) § 3.3–3.8 ·
-> [`15-capabilities.md`](../modules/15-capabilities.md) § 12 · **Priority:** P0.
+> [`15-capabilities.md`](../modules/15-capabilities.md) § 10.1 · **Priority:** P0.
 
 **Status: open.** Nothing in this file is implemented. `DX-000` is the baseline measurement and runs
 first, because every later task is judged by the number it produces.
