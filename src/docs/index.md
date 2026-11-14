@@ -17,7 +17,7 @@ Three commands get you a running app. This is the whole fast path:
 tsir new hello          # create a project (outside the distribution directory)
 cd hello
 bun install --ignore-scripts
-tsir dev                # http://127.0.0.1:3000 → {"message":"Welcome to Tsir"}
+tsir dev                # http://127.0.0.1:3000 → {"message":"Welcome to hello app!"}
 ```
 
 Then [installation](./installation.md) explains where the `tsir` command comes from, what a

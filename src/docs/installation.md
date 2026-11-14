@@ -87,7 +87,7 @@ bun install --ignore-scripts
 tsir dev
 ```
 
-`tsir dev` boots the app and serves the exported fetch handler at `http://127.0.0.1:3000`. Visit that address to see `{"message":"Welcome to Tsir"}`.
+`tsir dev` boots the app and serves the exported fetch handler at `http://127.0.0.1:3000`. Visit that address to see `{"message":"Welcome to hello app!"}` — the starter greets with your application's own name, so a different project name gives a different message.
 Stop it with Ctrl+C. Change the bind address or port with `tsir dev --host 127.0.0.1 --port 3001`;
 use `--host 0.0.0.0` only when you intend to expose the server to your network. There is no
 built-in file watcher: restart the command after changing code.
