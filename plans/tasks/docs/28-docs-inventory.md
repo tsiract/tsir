@@ -4,30 +4,35 @@
 > Every document a task in this ledger cites, and every done task that cites none — read from
 > the acceptance notes, not from a list somebody keeps by hand.
 
-**18 document(s) cited by 13 task(s).**
+**23 document(s) cited by 15 task(s).**
 
 ## Documents
 
 | Document | Cited by |
 | --- | --- |
+| `AGENTS.md` | `DOCS-017` |
 | `llms.txt` | `DOCS-010`, `DOCS-015` |
 | `plans/architecture/16-modularity.md` | `DOCS-019` |
+| `plans/reviews/2026-11-14-frontpage-two-reads.md` | `DOCS-017` |
 | `plans/roadmap/00-foundation.md` | `DOCS-019` |
 | `plans/tasks/01-foundation.md` | `DOCS-014` |
 | `plans/tasks/21-frontpage.md` | `DOCS-014` |
 | `plans/tasks/STATUS.md` | `DOCS-015` |
-| `src/apps/frontpage/public/index.html` | `DOCS-017` |
 | `src/docs/guides/make.md` | `DOCS-009` |
 | `src/docs/guides/providers.md` | `DOCS-009` |
+| `src/docs/installation.md` | `DOCS-020` |
 | `src/docs/packages/index.md` | `DOCS-010` |
 | `src/docs/packages/prose/broadcast.md` | `DOCS-001` |
 | `src/docs/packages/prose/cashier.md` | `DOCS-006` |
+| `src/docs/packages/prose/database.md` | `DOCS-021` |
 | `src/docs/packages/prose/forge.md` | `DOCS-005` |
+| `src/docs/packages/prose/http.md` | `DOCS-021` |
 | `src/docs/packages/prose/media.md` | `DOCS-002` |
 | `src/docs/packages/prose/nightwatch.md` | `DOCS-007` |
 | `src/docs/packages/prose/pennant.md` | `DOCS-003` |
 | `src/docs/packages/prose/socialize.md` | `DOCS-004` |
 | `src/docs/packages/prose/tui.md` | `DOCS-007` |
+| `src/docs/packages/prose/validate.md` | `DOCS-021` |
 
 ## Done tasks that cite no document
 
@@ -47,5 +52,7 @@ acceptance note names no page is the one place a claim of "documented" can hide.
 
 ## Citations that resolve to nothing
 
+- `DOCS-017` cites `docs/installation.html`, which does not exist
+- `DOCS-017` cites `docs/guides/controllers.html`, which does not exist
 - `DOCS-019` cites `prose/x.md`, which does not exist
 - `DOCS-019` cites `guides/x.md`, which does not exist
