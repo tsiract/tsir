@@ -15,7 +15,7 @@
 <p align="center">
 
 [![License: MIT](https://img.shields.io/badge/license-MIT-1f6feb.svg)](./LICENSE) [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-3178c6.svg?logo=typescript&logoColor=white)](https://www.typescriptlang.org/tsconfig#strict) [![Runtime: Bun](https://img.shields.io/badge/runtime-Bun%20%E2%89%A51.2-fbf0df.svg?logo=bun&logoColor=black)](https://bun.sh)<br/>
-[![Tests](https://img.shields.io/badge/tests-3396%20passing-3fb950.svg)](./Makefile) [![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-2%20%28%2B3%20adapters%29-8b949e.svg)](./src/docs/dependencies.md) [![Deploy targets](https://img.shields.io/badge/deploy-Workers%20%2B%20Lambda-f0883e.svg?logo=cloudflareworkers&logoColor=white)](./src/framework/deploy)<br/>
+[![Tests](https://img.shields.io/badge/tests-3398%20passing-3fb950.svg)](./Makefile) [![Runtime dependencies](https://img.shields.io/badge/runtime%20deps-2%20%28%2B3%20adapters%29-8b949e.svg)](./src/docs/dependencies.md) [![Deploy targets](https://img.shields.io/badge/deploy-Workers%20%2B%20Lambda-f0883e.svg?logo=cloudflareworkers&logoColor=white)](./src/framework/deploy)<br/>
 [![Tree-shaking: verified](https://img.shields.io/badge/tree%20shaking-verified-3fb950.svg?logo=esbuild&logoColor=white)](./src/docs/dependencies.md) [![Startup focus: zero cost](https://img.shields.io/badge/startup%20focus-zero%20cost-a371f7.svg)](#why-tsir) [![Status: pre-alpha](https://img.shields.io/badge/status-P8%20%C2%B7%20pre--alpha-d29922.svg)](./status.json)<br/>
 
 </p>

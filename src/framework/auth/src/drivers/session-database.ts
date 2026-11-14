@@ -79,9 +79,17 @@ export function databaseSessionStore(
   const table = options.table ?? 'tsir_sessions';
   const question = sql.capabilities.placeholder === 'question';
 
-  const placeholders = (count: number): string =>
+  /**
+   * `?` for D1/SQLite, `$1`, `$2`, … for Postgres — starting at `start + 1`.
+   *
+   * The offset is not decoration. A statement with placeholders before the one being built —
+   * `UPDATE t SET a = $1 WHERE id = $2` — needs the second to be `$2`. Passing `0` twice emitted
+   * `SET a = $1 WHERE id = $1`, which Postgres reads as one parameter compared to itself: the update
+   * matched no rows and the caller saw "nothing changed" instead of an error.
+   */
+  const placeholders = (count: number, start = 0): string =>
     Array.from({ length: count }, (_unused, index) =>
-      question ? '?' : `$${String(index + 1)}`,
+      question ? '?' : `$${String(start + index + 1)}`,
     ).join(', ');
 
   return {
@@ -129,7 +137,7 @@ export function databaseSessionStore(
 
     async touch(id, lastSeenAt) {
       await sql.query({
-        sql: `UPDATE ${table} SET last_seen_at = ${placeholders(1)} WHERE id = ${placeholders(1)}`,
+        sql: `UPDATE ${table} SET last_seen_at = ${placeholders(1)} WHERE id = ${placeholders(1, 1)}`,
         params: [lastSeenAt, id],
       });
     },
