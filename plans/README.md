@@ -338,9 +338,9 @@ edited, so a future reader does not re-do the work:
 | `operations/11-dx.md`, `12-testing.md`, `14-security.md`                                                                                                                        | Accurate                                                                                   |
 | `decisions/0001`–`0029`                                                                                                                                                         | Untouched by design — accepted ADRs are immutable; `0030` and `0031` are the only new ones |
 | `reviews/2026-10-28-vault-design-review.md`, `2026-10-29-capabilities-review.md`                                                                                                | Historical gate reviews; still the record of those gates                                   |
-| `tasks/01-foundation.md`, `06-link.md`, `07-capabilities.md`, `08-dx.md`, `events.md`, `mail.md`, `notify.md`, `policy.md`, `pulse.md`, `queue.md`, `schedule.md`, `storage.md` | Statuses verified against source; all correct                                              |
-| `tasks/14-laravel-decoupling.md`                                                                                                                                                | Planning-only by design and honestly marked; gated on Phase 8                              |
+| `tasks/01-foundation.md`, `06-link.md`, `07-capabilities.md`, `20-dx.md`, `events.md`, `mail.md`, `notify.md`, `policy.md`, `pulse.md`, `queue.md`, `schedule.md`, `storage.md` | Statuses verified against source; all correct                                              |
+| `tasks/26-laravel-decoupling.md`                                                                                                                                                | Planning-only by design and honestly marked; gated on Phase 8                              |
 
 The one document that was **wrong about the implementation in the other direction** — claiming less
-than the code does — is `tasks/15-feature-parity-audit.md` (storage), corrected in place on 2026-11-08
+than the code does — is `tasks/27-feature-parity-audit.md` (storage), corrected in place on 2026-11-08
 with the reasoning preserved rather than deleted.

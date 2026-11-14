@@ -272,7 +272,7 @@ No task runner beyond `make` (developer entry) and `tsir` (framework operations)
 - **Support window:** latest minor + previous minor receive security fixes.
 - **Deprecation:** starts at `1.0`. Before that, remove the thing and say so in the changelog.
 - **Publish gate:** `bun test`, `make check`, bundle-size budget, and docs build must all pass on the release commit.
-- **Name/trademark check** (`DOC-004` in `tasks/09-frontpage.md`) is required before the first public npm publish of `@tsir/*` and before promoting the "Tsir" name externally.
+- **Name/trademark check** (`DOC-004` in `tasks/21-frontpage.md`) is required before the first public npm publish of `@tsir/*` and before promoting the "Tsir" name externally.
 
 ---
 

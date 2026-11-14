@@ -5,7 +5,7 @@
 > takes `{ request }`, which is structural, so a queue worker can authenticate the same way.
 >
 > **Plan:** [`14-security.md § 2–4`](../operations/14-security.md) · [`04-http.md § 8`](../modules/04-http.md) ·
-> **Related:** [`policy.md`](./policy.md) (what the principal may do), [`12-security.md`](./12-security.md)
+> **Related:** [`policy.md`](./policy.md) (what the principal may do), [`24-security.md`](./24-security.md)
 > (`SEC-2xx`), [`03-http.md`](./03-http.md) (401/403).
 
 **Status: in progress.** Core auth (passwords, sessions, tokens, API keys, guards) is complete

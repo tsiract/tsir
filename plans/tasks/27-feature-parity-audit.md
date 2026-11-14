@@ -1,7 +1,7 @@
 # Feature Parity Audit — Source Verification
 
 **Audit date:** 2026-11-07 · **Corrected:** 2026-11-08 (storage false negatives, aggregate baseline)
-**Source:** `plans/tasks/15-feature-parity.md`
+**Source:** `plans/tasks/27-feature-parity.md`
 **Scope:** All 30 `@tsir/*` packages
 **Method:** Deep-read of source files in `src/framework/<name>/src/` for every `[x]` and `[ ]` claim, plus admin app UI coverage cross-check.
 
@@ -9,7 +9,7 @@
 
 **Baseline note (2026-11-08):** this audit originally measured the parity doc at 131/241 verified.
 The doc's own recount is 183/277 including the later schedule and broadcast closures, so the two
-documents disagreed about the same table. The recount in `15-feature-parity.md § 7.2` is the current
+documents disagreed about the same table. The recount in `27-feature-parity.md § 7.2` is the current
 authority; the discrepancy percentages below are still valid in **direction** (the doc under-reported
 six features), but the absolute numbers came from an older snapshot.
 
@@ -635,7 +635,7 @@ the honest direction of a discrepancy is not always "the doc under-reports".
 
 ## Files Examined
 
-- Parity doc: `plans/tasks/15-feature-parity.md`
+- Parity doc: `plans/tasks/27-feature-parity.md`
 - All 30 package `index.ts` exports
 - Deep reads of: auth/password.ts, session.ts, keys.ts, guards.ts; policy/registry.ts; vault/cipher.ts; cache/store.ts, port.ts; database/database.ts; queue/queue.ts, job.ts, port.ts, worker.ts; schedule/cron.ts; mail/message.ts, port.ts, transports/{smtp,resend,postmark,ses}.ts; notify/channel.ts; storage/port.ts, disk.ts, drivers/adapters/local.ts; validate/index.ts; pulse/{metrics,tracing,limits,health}.ts; config/secrets.ts, presets.ts; container/container.ts, provider.ts; http/pipeline.ts; router/decorators.ts; console/commands/bootstrap.ts; deploy/sam.ts, wrangler.ts; events/{bus,outbox,publish}.ts; migrate/index.ts; seed/{index,seeder}.ts; pennant/{pennant,stores}.ts; cashier/{stripe,webhooks,types}.ts; forge/forge.ts; socialize/{google,socialize,state}.ts; scout/{scout,drivers}.ts; broadcast/{broadcaster,websocket,echo}.ts; nightwatch/nightwatch.ts; telemetry/{request-logger,queue-monitor}.ts; media/media.ts
 - Admin app: `client/src/pages/`, `modules/`

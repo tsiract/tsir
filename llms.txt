@@ -42,6 +42,8 @@ and `make check` fails when it is stale.
 - [Engineering plans](plans/README.md): the internal design and sequencing record — read it when you need the reasoning behind a decision, not to use the framework
 - [Task index: capabilities](plans/tasks/07-capabilities.md): every capability task and whether it has shipped — the honest backlog
 - [Task index](plans/tasks/README.md): all work items, grouped by phase
+- [Task status: what is done, partial, blocked — read this first](plans/tasks/STATUS.md): generated from the ledgers by `make tasks`; every open task by id
+- [Documentation gaps](plans/tasks/28-docs-inventory.md): which packages have no prose, which guides have no runnable example — measured, not asserted
 
 ## Decisions
 

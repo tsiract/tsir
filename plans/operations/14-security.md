@@ -160,4 +160,4 @@ nobody notices the process stopped. The ways this document stops being true:
 
 ## 10. Task index
 
-[`tasks/12-security.md`](../tasks/12-security.md) — `SEC-001` … `SEC-018`.
+[`tasks/24-security.md`](../tasks/24-security.md) — `SEC-001` … `SEC-018`.

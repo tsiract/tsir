@@ -6,10 +6,10 @@
 >
 > **Status:** planning & research only. No package implementations are modified.
 > All implementation tasks are `[ ]` pending. Feature mappings use the
-> post-rebrand package names (see [`14-laravel-decoupling.md`](./14-laravel-decoupling.md));
+> post-rebrand package names (see [`26-laravel-decoupling.md`](./26-laravel-decoupling.md));
 > where rebranding has not yet executed, the current name is noted in parentheses.
 >
-> **Audit:** [`15-feature-parity-audit.md`](./15-feature-parity-audit.md) is the
+> **Audit:** [`27-feature-parity-audit.md`](./27-feature-parity-audit.md) is the
 > source-verification record for this document. It found that this parity doc
 > **under-reports** implementation status for six packages (cache, scout, cashier,
 > mail, queue, deploy) — several `[ ]`/`[~]` rows are actually `[x]`/`[~]` in
@@ -382,7 +382,7 @@ Counterpart: LAR-FS.
 > implemented by every shipped driver (`s3.ts`, `memory.ts`, `drivers/adapters/local.ts`), with
 > `copy`/`move` cases in `conformance.ts`. The audit read `disk.ts` and stopped there; the rows above
 > were already `[x]` and were right. The audit is corrected at
-> [`15-feature-parity-audit.md`](./15-feature-parity-audit.md) § storage.
+> [`27-feature-parity-audit.md`](./27-feature-parity-audit.md) § storage.
 
 ### 6.14 `@tsir/validate` — Laravel Validation
 

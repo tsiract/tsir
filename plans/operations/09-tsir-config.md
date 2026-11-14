@@ -372,4 +372,4 @@ production manifest, so bootstrap deliberately does not write it), config-format
 
 ## 10. Task index
 
-[`tasks/08-dx.md`](../tasks/08-dx.md) — `CFG-101` … `CFG-120` (config-file specific; core config tasks are `CFG-001`…`CFG-016` in `tasks/02-core.md`).
+[`tasks/20-dx.md`](../tasks/20-dx.md) — `CFG-101` … `CFG-120` (config-file specific; core config tasks are `CFG-001`…`CFG-016` in `tasks/02-core.md`).

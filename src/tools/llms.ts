@@ -198,6 +198,8 @@ function build(): string {
     `- [Engineering plans](${PLANS}/README.md): the internal design and sequencing record — read it when you need the reasoning behind a decision, not to use the framework`,
     `- [Task index: capabilities](${PLANS}/tasks/07-capabilities.md): every capability task and whether it has shipped — the honest backlog`,
     `- [Task index](${PLANS}/tasks/README.md): all work items, grouped by phase`,
+    `- [Task status: what is done, partial, blocked — read this first](${PLANS}/tasks/STATUS.md): generated from the ledgers by \`make tasks\`; every open task by id`,
+    `- [Documentation gaps](${PLANS}/tasks/28-docs-inventory.md): which packages have no prose, which guides have no runnable example — measured, not asserted`,
   ];
   lines.push(...plan.filter((line): line is string => line !== undefined));
   lines.push('');

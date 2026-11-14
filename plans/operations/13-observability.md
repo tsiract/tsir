@@ -401,5 +401,5 @@ through an optional observer and go nowhere until an application supplies a sink
 
 ## 10. Task index
 
-[`tasks/11-observability.md`](../tasks/11-observability.md) — `OBS-001` … `OBS-030`; the as-built
+[`tasks/23-observability.md`](../tasks/23-observability.md) — `OBS-001` … `OBS-030`; the as-built
 status of each is in [`tasks/pulse.md`](../tasks/pulse.md).

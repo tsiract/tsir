@@ -144,6 +144,6 @@ something we are prepared to support in public.
 
 ## 8. Task index
 
-The work is tracked in [`../tasks/08-dx.md`](../tasks/08-dx.md) (`DXS-*`, `CLI-*`) and, for the
+The work is tracked in [`../tasks/20-dx.md`](../tasks/20-dx.md) (`DXS-*`, `CLI-*`) and, for the
 TUI half, [ADR-0031](../decisions/0031-terminal-ui.md) with `make tui-check` as its gate. Nothing
 in this document has its own ledger: it is the contract those tasks are checked against.

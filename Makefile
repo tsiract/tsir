@@ -68,7 +68,7 @@ NAME            ?=
 KIND            ?=
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
         make-check compile-cli verify-templates emulator-check driver-defaults production-wiring llms llms-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
@@ -120,6 +120,9 @@ help: ## Show available targets
 	@printf '  \033[36mmake error-codes\033[0m     codes are registered, append-only and documented (ERR-002, ERR-004)\n'
 	@printf '  \033[36mmake plan-refs\033[0m       no path into the internal design plans leaks (DOC-016)\n'
 	@printf '  \033[36mmake plans\033[0m           the plan set is indexed, linked and complete (DOC-017)\n'
+	@printf '  \033[36mmake tasks\033[0m           regenerate the task index — every task and its state (DOCS-015)\n'
+	@printf '  \033[36mmake tasks-check\033[0m     the ledger matches STATUS.md and every open task has acceptance (DOCS-015)\n'
+	@printf '  \033[36mmake docs-inventory\033[0m  what documentation is missing, unexecuted or uncitable\n'
 	@printf '  \033[36mmake coercion\033[0m        reject implicit coercion in framework source (VLD-007)\n'
 	@printf '  \033[36mmake crypto\033[0m          cipher inventory and prohibited-practice scan (SEC-005)\n'
 	@printf '  \033[36mmake flakes\033[0m          fail when a quarantined test is past its limit (TST-018)\n'
@@ -191,7 +194,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
+check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 # `check` deliberately excludes the test suite: it has to pass without a database, a network or a
@@ -368,6 +371,17 @@ plan-refs: ## Internal design plans stay internal: no path into them leaks (DOC-
 plans: ## The plan set is internally consistent: indexed, linked, statuses agree (DOC-017)
 	@printf '  \033[2m→ bun src/tools/check-plans.ts\033[0m\n'
 	@$(BUN) src/tools/check-plans.ts
+
+tasks: ## Regenerate the task index: every task, its state, and what is left (DOCS-015)
+	@printf '  \033[2m→ bun src/tools/task-status.ts --write\033[0m\n'
+	@$(BUN) src/tools/task-status.ts --write
+
+tasks-check: ## The task index matches the ledgers, and every open task has acceptance (DOCS-015)
+	@printf '  \033[2m→ bun src/tools/task-status.ts --check\033[0m\n'
+	@$(BUN) src/tools/task-status.ts --check
+
+docs-inventory: ## What documentation is missing, unexecuted or uncitable
+	@$(BUN) src/tools/doc-inventory.ts
 
 docs-packages: ## Every framework package has a current reference page (DOC-010)
 	@$(BUN) src/tools/package-pages.ts

@@ -91,9 +91,13 @@ walk(ROOT, files);
  * Keeping the exemption to a literal list is the point: a new exception is a review decision.
  */
 const EXEMPT = new Set(
-  ['src/tools/check-plan-refs.ts', 'src/tools/check-plans.ts'].map((path) =>
-    relative(ROOT, join(ROOT, path)),
-  ),
+  [
+    'src/tools/check-plan-refs.ts',
+    'src/tools/check-plans.ts',
+    // The ledger's own reader and index: they parse the task tables and write the generated page,
+    // so both have to spell the path. Kept to this list — a fourth entry is a review decision.
+    'src/tools/task-status.ts',
+  ].map((path) => relative(ROOT, join(ROOT, path))),
 );
 const hits: Hit[] = [];
 

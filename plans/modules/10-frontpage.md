@@ -163,7 +163,7 @@ file. Three rules follow:
 
 ## 11. Task index
 
-[`tasks/09-frontpage.md`](../tasks/09-frontpage.md) — `DOC-001` … `DOC-014`.
+[`tasks/21-frontpage.md`](../tasks/21-frontpage.md) — `DOC-001` … `DOC-014`.
 
 ## 12. Application-first entry point
 

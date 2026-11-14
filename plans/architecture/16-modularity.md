@@ -226,7 +226,7 @@ boundary and must not be described as one.
 
 ## 10. Task index
 
-See [`tasks/13-modularity.md`](../tasks/13-modularity.md). Order:
+See [`tasks/25-modularity.md`](../tasks/25-modularity.md). Order:
 
 1. `MOD-001` — this document, and the vocabulary in `00-foundation.md`.
 2. `MOD-002` — module-owned route registries + `collectRouteEntries()` (closes

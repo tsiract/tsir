@@ -31,7 +31,7 @@ bun run ract help
 bun ./ract help
 ```
 
-Both commands must exit 0. Record the result as `C8:` in `07-deploy-cloud-checks.md`, then change CLI-018 from `[~]` to `[x]` in `08-dx.md`. Linux is already verified, so only this run remains.
+Both commands must exit 0. Record the result as `C8:` in `07-deploy-cloud-checks.md`, then change CLI-018 from `[~]` to `[x]` in `20-dx.md`. Linux is already verified, so only this run remains.
 
 ## 3. Decisions for the maintainer
 

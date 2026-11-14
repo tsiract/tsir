@@ -42,9 +42,9 @@ not share a ledger. This is the authoritative map from stream to ledger to state
 
 | Stream                                                | Ledger                                                                                                                                                                 | State                                                                                            |
 | ----------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
-| Production readiness (bench, security, docs, release) | [`12-security.md`](../tasks/12-security.md), [`10-testing.md`](../tasks/10-testing.md), [`09-frontpage.md`](../tasks/09-frontpage.md), [`08-dx.md`](../tasks/08-dx.md) | Partial — `SEC-006`/`SEC-007`/`SEC-015`/`SEC-017`/`SEC-018` open; docs and release mostly landed |
+| Production readiness (bench, security, docs, release) | [`24-security.md`](../tasks/24-security.md), [`22-testing.md`](../tasks/22-testing.md), [`21-frontpage.md`](../tasks/21-frontpage.md), [`20-dx.md`](../tasks/20-dx.md) | Partial — `SEC-006`/`SEC-007`/`SEC-015`/`SEC-017`/`SEC-018` open; docs and release mostly landed |
 | Capability completeness (Phase 7 leftovers)           | [`07-capabilities.md`](../tasks/07-capabilities.md) + per-module files                                                                                                 | Closed except `TEL-*` and the Phase-7 modules' own open rows                                     |
-| Feature parity (originally Phase 10)                  | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                                                                                                                | Active — 177/255 verified, under construction rather than planning-only                          |
+| Feature parity (originally Phase 10)                  | [`27-feature-parity.md`](../tasks/27-feature-parity.md)                                                                                                                | Active — 177/255 verified, under construction rather than planning-only                          |
 | **Infrastructure hardening**                          | [`16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md)                                                                                            | **Not started — gates Phase 8** (`P0` = `INF-001`–`INF-005`)                                     |
 
 Two consequences worth stating plainly, because the phase map above does not show them:
@@ -351,7 +351,7 @@ Caveats that stay open: brute-force protection is not in `@tsir/auth` (CAP-P7 F3
 4. Existing functionality preserved — full `make check` passes.
 5. Final repository-wide search for Laravel terms conducted; remaining references individually reviewed.
 
-Full task ledger: [`plans/tasks/14-laravel-decoupling.md`](../tasks/14-laravel-decoupling.md). This phase is **planning-only** until Phase 8 closes.
+Full task ledger: [`plans/tasks/26-laravel-decoupling.md`](../tasks/26-laravel-decoupling.md). This phase is **planning-only** until Phase 8 closes.
 
 ---
 
@@ -369,7 +369,7 @@ Full task ledger: [`plans/tasks/14-laravel-decoupling.md`](../tasks/14-laravel-d
 4. Aggregate verified parity ≥ 80% (excluding deliberately-different rows).
 5. This document is the single source of truth for parity.
 
-Full task ledger: [`plans/tasks/15-feature-parity.md`](../tasks/15-feature-parity.md). This phase is **planning-only** until Phase 9 closes.
+Full task ledger: [`plans/tasks/27-feature-parity.md`](../tasks/27-feature-parity.md). This phase is **planning-only** until Phase 9 closes.
 
 ---
 
@@ -424,8 +424,8 @@ A module is **not** done because the happy path works. It is done when all of th
 | 3     | `04-database.md`                                                                                                                       |
 | 4     | `05-vault.md`                                                                                                                          |
 | 5     | `06-link.md`                                                                                                                           |
-| 6     | `07-deploy.md`, `09-frontpage.md`                                                                                                      |
+| 6     | `07-deploy.md`, `21-frontpage.md`                                                                                                      |
 | 7     | `07-capabilities.md`, `queue.md`, `events.md`, `schedule.md`, `storage.md`, `mail.md`, `notify.md`, `policy.md`, `auth.md`, `pulse.md` |
-| 8     | `08-dx.md`, `11-observability.md`, `12-security.md`                                                                                    |
-| 9     | [`14-laravel-decoupling.md`](../tasks/14-laravel-decoupling.md)                                                                        |
-| 10    | [`15-feature-parity.md`](../tasks/15-feature-parity.md)                                                                                |
+| 8     | `20-dx.md`, `23-observability.md`, `24-security.md`                                                                                    |
+| 9     | [`26-laravel-decoupling.md`](../tasks/26-laravel-decoupling.md)                                                                        |
+| 10    | [`27-feature-parity.md`](../tasks/27-feature-parity.md)                                                                                |

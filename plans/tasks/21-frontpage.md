@@ -10,11 +10,11 @@
 
 | ID        | Title                                                              | Status | Depends | Acceptance criteria (summary)                          |
 | --------- | ------------------------------------------------------------------ | ------ | ------- | ------------------------------------------------------ |
-| `DOC-001` | Frontpage HTML (single file, inline CSS/SVG, no external requests) | ✅     | —       | Loads offline; zero network requests                   |
-| `DOC-002` | Ecosystem grid with `data-status` badges                           | ✅     | DOC-001 | Every proposed module has a card                       |
-| `DOC-003` | Token injection by dev server                                      | ✅     | FND-005 | Version/runtime/env/port shown live                    |
-| `DOC-004` | `data-status` ↔ repository consistency test                        | ✅     | DOC-002 | Mismatch fails CI                                      |
-| `DOC-005` | Banned-claims grep ("fastest", "most secure", …)                   | ✅     | DOC-002 | CI fails on superlatives without evidence link         |
+| `DOC-001` | Frontpage HTML (single file, inline CSS/SVG, no external requests) | `[x]`  | —       | Loads offline; zero network requests                   |
+| `DOC-002` | Ecosystem grid with `data-status` badges                           | `[x]`  | DOC-001 | Every proposed module has a card                       |
+| `DOC-003` | Token injection by dev server                                      | `[x]`  | FND-005 | Version/runtime/env/port shown live                    |
+| `DOC-004` | `data-status` ↔ repository consistency test                        | `[x]`  | DOC-002 | Mismatch fails CI                                      |
+| `DOC-005` | Banned-claims grep ("fastest", "most secure", …)                   | `[x]`  | DOC-002 | CI fails on superlatives without evidence link         |
 | `DOC-006` | Accessibility pass (axe, keyboard, contrast)                       | `[x]`  | DOC-001 | Nord/Abyss axe checks and keyboard smoke tests pass    |
 | `DOC-007` | Offline/no-JS verification test                                    | `[x]`  | DOC-001 | No external assets; all cards/code readable without JS |
 | `DOC-008` | `tsir welcome:route` generator (optional in-app page)              | `[ ]`  | CLI-009 | Opt-in route serves same page                          |

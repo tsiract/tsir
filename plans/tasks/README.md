@@ -12,6 +12,34 @@
 4. **Blocked tasks say why.** `[!]` requires a one-line reason and a link to the blocking task or decision.
 5. **Plan-first.** A task that contradicts a plan amends the plan in the same PR.
 
+### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-016`)
+
+These are checked by `make tasks-check`, which is part of `make check`, so a doc-only pull request
+cannot quietly break them.
+
+| Rule                                                           | What fails, and where                                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **One notation.** `[x]`, `[~]`, `[ ]`, `[!]`. `✅` is retired. | A new `✅` in a status cell names the file and line.                        |
+| **Every row has an id.** A `PREFIX-NNN` in the first cell.     | A status with no id is counted under "Rows with no task id" in `STATUS.md`. |
+| **Every open task has acceptance text.**                       | A `[ ]`/`[~]`/`[!]` row with an empty last cell fails the gate.             |
+| **`STATUS.md` matches the ledgers.**                           | A stale generated page fails; run `make tasks`.                             |
+
+`STATUS.md` is the index to read. It is generated, it lists every open task by id, and it is the
+reason a number in this repository is a measurement rather than a memory.
+
+### 1.2 Where a new task goes
+
+| The work is…                                     | Put it in                                     | Prefix   |
+| ------------------------------------------------ | --------------------------------------------- | -------- |
+| A package's own feature or fix                   | that package's file                           | its own  |
+| Cross-package, host/engine/substrate             | `16-infrastructure-hardening.md`              | `INF-*`  |
+| Removes boilerplate or changes an app-facing API | `17-dx-data-layer.md`                         | `DX-*`   |
+| Documentation, examples, the frontpage           | `28-docs-inventory.md`                        | `DOCS-*` |
+| A stale sentence in an existing plan             | that plan, amended in the same PR as the code | —        |
+
+A task that does not fit one of these rows is a sign the plan is wrong, not that the ledger needs a
+ninth category.
+
 ---
 
 ## 2. Index
@@ -29,6 +57,16 @@ items that block it. The dependency arrows note the hard gates.
 This phase outranks the others by decision: a task here removes cost paid at every call site of
 every application, which is a larger number than any remaining parity gap. The last section of this
 file, **Phase 0 — DX first**, explains why.
+
+### Phase 0 — Ledger and docs truthfulness
+
+| File                                             | Covers                                                                            | Task range |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------- |
+| [`28-docs-inventory.md`](./28-docs-inventory.md) | Missing prose, runnable examples, the frontpage's claims, ids for the parity rows | `DOCS-*`   |
+| [`STATUS.md`](./STATUS.md)                       | **Generated** — every task, its state, and what is left                           | —          |
+
+`STATUS.md` is written by `make tasks` and checked by `make check`. It is the answer to "what is
+missing, what is partial, what is done" without reading thirty-nine files; do not edit it by hand.
 
 ### Phase 1–2 — Foundation & core
 
@@ -79,26 +117,26 @@ record of the module map and the scope guard. Read `07-capabilities.md` instead.
 
 | File                                           | Covers                                         | Task range                  |
 | ---------------------------------------------- | ---------------------------------------------- | --------------------------- |
-| [`08-dx.md`](./08-dx.md)                       | CLI, generators, Makefile evolution, bootstrap | `CLI-*`, `DXS-*`, `CFG-1xx` |
-| [`09-frontpage.md`](./09-frontpage.md)         | Frontpage, docs site, naming checks            | `DOC-*`                     |
-| [`10-testing.md`](./10-testing.md)             | Test harness, matrices, concurrency            | `TST-*`                     |
-| [`11-observability.md`](./11-observability.md) | Logging, metrics, tracing, health              | `OBS-*`                     |
-| [`12-security.md`](./12-security.md)           | Threat model, review, secrets                  | `SEC-*`                     |
-| [`13-modularity.md`](./13-modularity.md)       | Module ownership, boundaries, DX               | `MOD-*`                     |
+| [`20-dx.md`](./20-dx.md)                       | CLI, generators, Makefile evolution, bootstrap | `CLI-*`, `DXS-*`, `CFG-1xx` |
+| [`21-frontpage.md`](./21-frontpage.md)         | Frontpage, docs site, naming checks            | `DOC-*`                     |
+| [`22-testing.md`](./22-testing.md)             | Test harness, matrices, concurrency            | `TST-*`                     |
+| [`23-observability.md`](./23-observability.md) | Logging, metrics, tracing, health              | `OBS-*`                     |
+| [`24-security.md`](./24-security.md)           | Threat model, review, secrets                  | `SEC-*`                     |
+| [`25-modularity.md`](./25-modularity.md)       | Module ownership, boundaries, DX               | `MOD-*`                     |
 
 ### Phase 9 — Rebranding (depends on Phase 8 closing)
 
 | File                                                     | Covers                                          | Task range |
 | -------------------------------------------------------- | ----------------------------------------------- | ---------- |
-| [`14-laravel-decoupling.md`](./14-laravel-decoupling.md) | Laravel-ecosystem package & terminology renames | `RBR-*`    |
+| [`26-laravel-decoupling.md`](./26-laravel-decoupling.md) | Laravel-ecosystem package & terminology renames | `RBR-*`    |
 
 ### Phase 10 — Feature parity (depends on Phase 9 rebranding)
 
 | File                                             | Covers                                   | Task range |
 | ------------------------------------------------ | ---------------------------------------- | ---------- |
-| [`15-feature-parity.md`](./15-feature-parity.md) | 1:1 feature mapping vs Laravel ecosystem | `PARITY-*` |
+| [`27-feature-parity.md`](./27-feature-parity.md) | 1:1 feature mapping vs Laravel ecosystem | `PARITY-*` |
 
-The per-module Phase 10 files track the post-rebrand packages (see `14-laravel-decoupling.md`
+The per-module Phase 10 files track the post-rebrand packages (see `26-laravel-decoupling.md`
 for the rename map):
 
 | File                             | Covers (← legacy name)                                               | Task range |
@@ -110,7 +148,7 @@ for the rename map):
 | [`oauth.md`](./oauth.md)         | Social login providers, OAuth 1.0a, stateless auth (← socialize)     | `OAUTH-*`  |
 | [`browser.md`](./browser.md)     | Browser automation, assertions, page objects (← nightwatch)          | `BROW-*`   |
 
-[`15-feature-parity-audit.md`](./15-feature-parity-audit.md) is the source-verification audit
+[`27-feature-parity-audit.md`](./27-feature-parity-audit.md) is the source-verification audit
 for the parity doc. It found the parity doc **under-reports** implementation status for six
 packages (cache tags/increment/remember, scout in-memory engine, cashier subscriptions/invoices,
 mail attachments, queue delayed/unique jobs, deploy custom domains). The audit is the evidence
