@@ -89,6 +89,26 @@ is the model).
   before writing new ones; the house style is a short paragraph on the trap, not a restatement of
   the line under it.
 
+### Regenerating what the gates compare
+
+Several artefacts are generated from the tree, and `make check` fails when one is stale. Fixing them
+one at a time costs a full `make check` per round (about five minutes), and they invalidate each
+other: the package pages embed the API surface, and the README badge counts the tests. When you touch
+public exports, docs, or tests, run this once, in this order:
+
+```bash
+bun src/tools/package-pages.ts --write   # package pages, from package.json + surface + prose
+bun src/tools/llms.ts                    # llms.txt, the AI index
+bun src/tools/api-surface.ts --write     # api-surface.json, from the exports
+bun src/tools/package-pages.ts --write   # again: the pages embed the surface
+bun src/tools/llms.ts                    # again: page titles feed the index
+make readme                             # the test-count badge, measured
+make format                              # prettier --write; `make format-check` verifies only
+```
+
+`make check` does not run the test suite, so the badge `make readme` writes needs a `bun test` run
+first. `make verify` runs both in the right order.
+
 ## 5. Documentation map
 
 | You need                                          | Read                                                   |
@@ -122,7 +142,37 @@ validated and where. `String(x)` on a value that could be an object is usually a
 - The commit body is for the _why_. Several commits here explain what the first attempt got wrong
   and why it was observable; that is the house style and it is useful — keep it.
 
-## 8. When you are stuck
+## 8. Adding an error code
+
+Codes are a shared namespace, so a request to add one touches four places. Miss the third and
+`docs-packages` fails; miss the second and the code exists but nothing type-checks against it.
+
+1. Raise it as `new TsirError('PKG_THING_FAILED', '<what happened, from the caller's view>', { kind, hint, context })`.
+   The `hint` is an instruction, not a restatement — say what to do.
+2. Register it in the package's own code union, then `bun src/tools/check-error-codes.ts --write`.
+3. Mention it in `src/docs/packages/prose/<pkg>.md` under `## Failure modes` as a backticked code,
+   **and make the sentence true**: read the throwing function rather than trusting the code's name.
+   The prose is the only failure-mode documentation a package has.
+4. `bun src/tools/package-pages.ts --write` to regenerate its page.
+
+Do not invent a code for a condition another package already names — grep
+`src/docs/error-codes.json` first.
+
+## 9. Do not
+
+- Add a `memory` driver to mail, notify, or any capability the framework says refuses it in
+  production, and do not silence a production refusal to make a test pass.
+- Copy a path into the internal plans directory into any file outside it (`DOC-016`). Cite tasks by
+  id (`CAP-007`); `check-plan-refs` catches the literal and does not exempt new files.
+- Hand-edit a generated file: `llms.txt`, `src/docs/packages/*.md`, `src/docs/api-surface.json`,
+  `src/docs/error-codes.json`, or the README badge. Regenerate instead.
+- Import `@tsir/*` from `src/tools/` — that directory is outside the workspace. Use relative paths.
+- Widen a gate's allowlist or add an exemption to make a change pass. Fix the change, or fix the
+  gate and say in the commit why the gate was wrong.
+- Declare a capability "supported on Cloudflare/AWS" without a driver that actually runs there; a
+  missing driver is implemented, not documented around.
+
+## 10. When you are stuck
 
 - `make help` lists every target.
 - `bun src/tools/<gate>.ts` runs one gate with its own output.
