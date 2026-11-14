@@ -35,6 +35,7 @@ Not failures: a task can be pure code. They are listed because a task marked don
 acceptance note names no page is the one place a claim of "documented" can hide.
 
 - `DOCS-008` The frontpage's claims are checked against the code
+- `DOCS-011` Docs-in-PR catches renamed config, commands and error codes
 - `DOCS-013` Give the parity ledger's 245 feature rows ids
 - `DOCS-016` An acceptance note in every open task
 - `DOCS-018` A checklist per ledger, generated and gated

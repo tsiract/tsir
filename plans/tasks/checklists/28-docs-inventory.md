@@ -5,19 +5,18 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**15/19 (79%)** — 15 done, 0 partial, 4 open, 0 blocked.
+**16/19 (84%)** — 16 done, 0 partial, 3 open, 0 blocked.
 
 Documentation this ledger added: [`docs/28-docs-inventory.md`](../docs/28-docs-inventory.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (4)
+## Open (3)
 
 - [ ] `DOCS-010` A guide for the data layer, written after `DX-004`/`DX-006` — `28-docs-inventory.md:91`
-- [ ] `DOCS-011` Docs-in-PR catches renamed config, commands and error codes — `28-docs-inventory.md:92`
 - [ ] `DOCS-012` A guide for capability resolution, written after `DX-012` — `28-docs-inventory.md:93`
 - [ ] `DOCS-017` Read the frontpage as a stranger and as an agent — `28-docs-inventory.md:103`
 
-## Done (15)
+## Done (16)
 
 - [x] `DOCS-001` Prose for `@tsir/broadcast` (34 exports) — `28-docs-inventory.md:77`
 - [x] `DOCS-002` Prose for `@tsir/media` (28 exports, 8 codes) — `28-docs-inventory.md:78`
@@ -28,6 +27,7 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [x] `DOCS-007` Prose for `@tsir/nightwatch` (7 exports) and `@tsir/tui` — `28-docs-inventory.md:83`
 - [x] `DOCS-008` The frontpage's claims are checked against the code — `28-docs-inventory.md:84`
 - [x] `DOCS-009` A runnable example in every guide — `28-docs-inventory.md:90`
+- [x] `DOCS-011` Docs-in-PR catches renamed config, commands and error codes — `28-docs-inventory.md:92`
 - [x] `DOCS-013` Give the parity ledger's 245 feature rows ids — `28-docs-inventory.md:99`
 - [x] `DOCS-014` Retire the `✅` notation in 28 rows — `28-docs-inventory.md:100`
 - [x] `DOCS-015` `plans/tasks/STATUS.md` is generated and gated — `28-docs-inventory.md:101`

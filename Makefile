@@ -68,7 +68,7 @@ NAME            ?=
 KIND            ?=
 
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory docs-inventory-check docs-index docs-index-check help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory docs-inventory-check docs-index docs-index-check contracts contracts-write help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
         coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
         make-check compile-cli verify-templates emulator-check driver-defaults production-wiring llms llms-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
@@ -97,7 +97,7 @@ help: ## Show available targets
 	@printf '  \033[36mmake test-watch\033[0m      rerun the tests on change\n'
 	@printf '  \033[36mmake test-integration\033[0m database-backed tests (skips cleanly without DATABASE_URL)\n'
 	@printf '  \033[36mmake coverage\033[0m        per-package coverage gate (line ≥ 90 %%, funcs ≥ 85 %%)\n'
-	@printf '  \033[36mmake docs-pr\033[0m         a framework change has a changeset; a surface change has docs (DXS-012)\n'
+	@printf '  \033[36mmake docs-pr\033[0m         a framework change has a changeset; a surface or contract change has docs (DXS-012, DOCS-011)\n'
 	@printf '\n  \033[1mbuild\033[0m\n'
 	@printf '  \033[36mmake build\033[0m           compile the framework packages into %s/ (core build)\n' "$(BUILD_DIR)"
 	@printf '  \033[36mmake dist\033[0m            configure (wizard) and build the distribution into dist/\n'
@@ -124,6 +124,8 @@ help: ## Show available targets
 	@printf '  \033[36mmake tasks-check\033[0m     the ledger matches STATUS.md and every open task has acceptance (DOCS-015)\n'
 	@printf '  \033[36mmake docs-inventory\033[0m  what documentation is missing, unexecuted or uncitable\n'
 	@printf '  \033[36mmake docs-inventory-check\033[0m  every guide is linked, has a body and runs an example (DOCS-009)\n'
+	@printf '  \033[36mmake contracts\033[0m        no tsir.js key, command or error code disappeared undocumented (DOCS-011)\n'
+	@printf '  \033[36mmake contracts-write\033[0m  accept a deliberate rename by re-recording the snapshot\n'
 	@printf '  \033[36mmake docs-index\033[0m      what documentation each task added, per ledger (DOCS-019)\n'
 	@printf '  \033[36mmake docs-index-check\033[0m  citations resolve and the indexes are current (DOCS-019)\n'
 	@printf '  \033[36mmake coercion\033[0m        reject implicit coercion in framework source (VLD-007)\n'
@@ -197,7 +199,7 @@ doctor: ## Diagnose the local environment
 
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr docs-inventory-check docs-index-check modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
+check: typecheck lint boundaries docs-pr contracts docs-inventory-check docs-index-check modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
 # `check` deliberately excludes the test suite: it has to pass without a database, a network or a
@@ -207,7 +209,7 @@ check: typecheck lint boundaries docs-pr docs-inventory-check docs-index-check m
 verify: check test ## Every gate plus the whole test suite — this is "is my branch sane"
 	@printf '  \033[32m✓\033[0m verify complete\n'
 
-docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
+docs-pr: ## A framework change has a changeset; a surface or contract change has docs (DXS-012, DOCS-011)
 	@$(BUN) src/tools/check-docs-in-pr.ts
 
 coercion: ## Reject implicit coercion in framework source (VLD-007)
@@ -379,6 +381,14 @@ plans: ## The plan set is internally consistent: indexed, linked, statuses agree
 tasks: ## Regenerate the task index and per-ledger checklists (DOCS-015, DOCS-018)
 	@printf '  \033[2m→ bun src/tools/task-status.ts --write\033[0m\n'
 	@$(BUN) src/tools/task-status.ts --write
+
+contracts: ## Names people type: tsir.js keys, CLI commands, error codes (DOCS-011)
+	@printf '  \033[2m→ bun src/tools/check-contracts.ts\033[0m\n'
+	@$(BUN) src/tools/check-contracts.ts
+
+contracts-write: ## Accept a deliberate rename by re-recording the contract snapshot
+	@printf '  \033[2m→ bun src/tools/check-contracts.ts --write\033[0m\n'
+	@$(BUN) src/tools/check-contracts.ts --write
 
 docs-index: ## Regenerate what documentation each task added, per ledger (DOCS-019)
 	@printf '  \033[2m→ bun src/tools/doc-ledger.ts --write\033[0m\n'
