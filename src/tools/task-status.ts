@@ -122,9 +122,18 @@ export function tasksIn(
     }
 
     // Depends is the cell between the status and the acceptance note, when it looks like ids.
-    const depends = /(?:—|—|-|`[A-Z]|[A-Z])/u.test(cells[statusIndex + 1] ?? '')
-      ? (cells[statusIndex + 1] ?? '')
-      : '';
+    //
+    // The old test was "contains `—`, `-`, or a capital letter", which every sentence contains, so
+    // a row whose Depends cell was an em dash lost the dash and started its acceptance note one
+    // column late — the sentence survived, its first cell did not. The rule is now the one the
+    // ledgers actually write: a dash, or a `PREFIX-NNN` id, possibly several separated by commas.
+    const dependencyCell = (cells[statusIndex + 1] ?? '').trim();
+    const depends =
+      /^(?:—|–|-|`?[A-Z][A-Z0-9]{0,7}-\d{1,4}`?)(?:\s*,\s*`?[A-Z][A-Z0-9]{0,7}-\d{1,4}`?)*$/u.test(
+        dependencyCell,
+      )
+        ? dependencyCell.replaceAll('`', '')
+        : '';
     const acceptance = cells
       .slice(statusIndex + (depends === '' ? 1 : 2))
       .join(' | ')
@@ -445,6 +454,9 @@ export function renderChecklist(report: Report, file: string): string {
     '> in the ledger, so the row it describes is one jump away.',
     '',
     `**${bar(counts)}** — ${String(counts.done)} done, ${String(counts.partial)} partial, ${String(counts.open)} open, ${String(counts.blocked)} blocked.`,
+    '',
+    `Documentation this ledger added: [\`docs/${basename(file)}\`](../docs/${basename(file)}) —`,
+    'generated from the acceptance notes, with the documents nothing cites listed by name.',
     '',
   ];
 

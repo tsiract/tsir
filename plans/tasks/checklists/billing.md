@@ -7,6 +7,9 @@
 
 **4/5 (80%)** — 4 done, 0 partial, 1 open, 0 blocked.
 
+Documentation this ledger added: [`docs/billing.md`](../docs/billing.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (1)
 
 - [ ] `BILL-5` `paddleProvider` — Paddle Billing API — `billing.md:22`

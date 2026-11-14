@@ -7,6 +7,9 @@
 
 **15/20 (75%)** — 15 done, 3 partial, 2 open, 0 blocked.
 
+Documentation this ledger added: [`docs/22-testing.md`](../docs/22-testing.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (3)
 
 - [~] `TST-010` Binder → handler typing tests — `22-testing.md:27`

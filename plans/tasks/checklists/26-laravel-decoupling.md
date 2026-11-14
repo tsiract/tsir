@@ -7,6 +7,9 @@
 
 **0/12 (0%)** — 0 done, 0 partial, 12 open, 0 blocked.
 
+Documentation this ledger added: [`docs/26-laravel-decoupling.md`](../docs/26-laravel-decoupling.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (12)
 
 - [ ] `RBR-001` Confirm inventory & open decisions — `26-laravel-decoupling.md:324`

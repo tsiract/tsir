@@ -7,6 +7,9 @@
 
 **12/12 (100%)** — 12 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/notify.md`](../docs/notify.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (12)
 
 - [x] `NOTIFY-1` `Channel` port — payload in, `accepted` out, capabilities declared — `notify.md:20`

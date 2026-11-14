@@ -18,6 +18,7 @@ src/apps/admin.product.com/public/app.js.map
 # wraps a long cell rather than widening the column, so formatting it would fight the generator.
 plans/tasks/STATUS.md
 plans/tasks/checklists/
+plans/tasks/docs/
 
 # Existing generator outputs retain their generators' formatting.
 src/examples/http/src/routes.gen.ts

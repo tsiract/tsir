@@ -12,7 +12,7 @@
 4. **Blocked tasks say why.** `[!]` requires a one-line reason and a link to the blocking task or decision.
 5. **Plan-first.** A task that contradicts a plan amends the plan in the same PR.
 
-### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-016`, `DOCS-018`)
+### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-019`)
 
 These are checked by `make tasks-check`, which is part of `make check`, so a doc-only pull request
 cannot quietly break them.
@@ -24,6 +24,7 @@ cannot quietly break them.
 | **Every open task has acceptance text.**                       | A `[ ]`/`[~]`/`[!]` row with an empty last cell fails the gate.             |
 | **`STATUS.md` matches the ledgers.**                           | A stale generated page fails; run `make tasks`.                             |
 | **Every ledger's checklist matches the ledger.**               | A stale `checklists/<ledger>.md` fails; run `make tasks`.                   |
+| **A cited document resolves.** A done task naming a page.      | A dangling citation in `docs/` fails; see `make docs-index`.                |
 
 `STATUS.md` is the index to read. It is generated, it lists every open task by id, and it is the
 reason a number in this repository is a measurement rather than a memory.
@@ -37,6 +38,19 @@ work is at the top and every line can be pasted into a note or jumped to in the 
 bun src/tools/task-status.ts            # every ledger as a checklist, on stdout
 bun src/tools/task-status.ts --write    # STATUS.md + checklists/  (make tasks)
 bun src/tools/task-status.ts --check    # fail when either is stale (make tasks-check)
+```
+
+`docs/` answers the other half of the user's ask — **what documentation did this task add**. Each
+page lists the documents the ledger's acceptance notes cite, grouped by document with the task ids
+that cite it, then the done tasks that cite none (not failures: a task can be pure code, but a "done"
+row naming no page is where a claim of "documented" hides). Citations are read from the notes and
+resolved on disk, so a renamed page becomes a broken reference rather than a sentence that used to be
+true — an _open_ task naming a page it has not written yet is listed as planned, not broken.
+
+```sh
+bun src/tools/doc-ledger.ts            # every cited document, and who cites it
+bun src/tools/doc-ledger.ts --write    # plans/tasks/docs/  (make docs-index)
+bun src/tools/doc-ledger.ts --check    # citations resolve, indexes current (make docs-index-check)
 ```
 
 **Which ledger is unfinished.** The checklist page's own header carries the ratio, so

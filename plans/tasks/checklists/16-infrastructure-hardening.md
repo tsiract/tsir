@@ -7,6 +7,9 @@
 
 **5/22 (23%)** — 5 done, 0 partial, 17 open, 0 blocked.
 
+Documentation this ledger added: [`docs/16-infrastructure-hardening.md`](../docs/16-infrastructure-hardening.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (17)
 
 - [ ] `INF-003` Make `createConnectionsFromConfig` work for Postgres, and scope Hyperdrive per request — `16-infrastructure-hardening.md:39`

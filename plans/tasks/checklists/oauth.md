@@ -7,6 +7,9 @@
 
 **5/8 (63%)** — 5 done, 0 partial, 3 open, 0 blocked.
 
+Documentation this ledger added: [`docs/oauth.md`](../docs/oauth.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (3)
 
 - [ ] `OAUTH-6` Additional providers — Facebook, Twitter/X, Apple — `oauth.md:22`

@@ -7,6 +7,9 @@
 
 **176/249 (71%)** — 176 done, 11 partial, 62 open, 0 blocked.
 
+Documentation this ledger added: [`docs/27-feature-parity.md`](../docs/27-feature-parity.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (11)
 
 - [~] `PARITY-005` Token abilities/scopes — `27-feature-parity.md:190`

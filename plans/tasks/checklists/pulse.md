@@ -7,6 +7,9 @@
 
 **20/20 (100%)** — 20 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/pulse.md`](../docs/pulse.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (20)
 
 - [x] `PULSE-1` The record: `ts`, `level`, `event`, `v`, flat fields — `pulse.md:26`

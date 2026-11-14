@@ -7,6 +7,9 @@
 
 **9/10 (90%)** — 9 done, 0 partial, 1 open, 0 blocked.
 
+Documentation this ledger added: [`docs/policy.md`](../docs/policy.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (1)
 
 - [ ] `POL-10` Resource policies (`authorizeResource`) — `policy.md:27`

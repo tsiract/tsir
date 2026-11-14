@@ -7,6 +7,9 @@
 
 **5/6 (83%)** — 5 done, 0 partial, 1 open, 0 blocked.
 
+Documentation this ledger added: [`docs/servers.md`](../docs/servers.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (1)
 
 - [ ] `SRV-6` Cloud providers — Hetzner, DO, Vultr, Lightsail, Linode — `servers.md:23`

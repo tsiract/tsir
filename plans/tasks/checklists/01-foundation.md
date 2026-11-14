@@ -7,6 +7,9 @@
 
 **39/39 (100%)** — 39 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/01-foundation.md`](../docs/01-foundation.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (39)
 
 - [x] `FND-001` Root workspace `package.json` + `bunfig.toml` — `01-foundation.md:13`

@@ -7,6 +7,9 @@
 
 **3/6 (50%)** — 3 done, 0 partial, 3 open, 0 blocked.
 
+Documentation this ledger added: [`docs/browser.md`](../docs/browser.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (3)
 
 - [ ] `BROW-4` Assertions — `assertVisible`, `assertText`, `assertUrl`, etc. — `browser.md:20`

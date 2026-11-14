@@ -7,6 +7,9 @@
 
 **43/49 (88%)** — 43 done, 0 partial, 6 open, 0 blocked.
 
+Documentation this ledger added: [`docs/03-http.md`](../docs/03-http.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (6)
 
 - [ ] `RTR-013` Named routes (`->name`) + URL generation — `03-http.md:25`

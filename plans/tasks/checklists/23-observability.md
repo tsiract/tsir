@@ -7,6 +7,9 @@
 
 **24/30 (80%)** — 24 done, 1 partial, 5 open, 0 blocked.
 
+Documentation this ledger added: [`docs/23-observability.md`](../docs/23-observability.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (1)
 
 - [~] `OBS-024` `otlp-json` formatter + `otlp-http` driver — `23-observability.md:56`

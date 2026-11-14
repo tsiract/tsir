@@ -7,6 +7,9 @@
 
 **14/17 (82%)** — 14 done, 0 partial, 3 open, 0 blocked.
 
+Documentation this ledger added: [`docs/21-frontpage.md`](../docs/21-frontpage.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (3)
 
 - [ ] `DOC-008` `tsir welcome:route` generator (optional in-app page) — `21-frontpage.md:20`

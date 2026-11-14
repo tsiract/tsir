@@ -7,6 +7,9 @@
 
 **25/25 (100%)** — 25 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/06-link.md`](../docs/06-link.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (25)
 
 - [x] `LNK-001` `CallContext`, `CallResult`, `CallError` types — `06-link.md:13`

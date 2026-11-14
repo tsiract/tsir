@@ -7,6 +7,9 @@
 
 **7/7 (100%)** — 7 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/events.md`](../docs/events.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (7)
 
 - [x] `EVT-1` `defineEvent` — a dotted name and a payload type, validated at declaration — `events.md:19`

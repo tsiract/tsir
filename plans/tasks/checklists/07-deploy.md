@@ -7,6 +7,9 @@
 
 **28/33 (85%)** — 28 done, 4 partial, 1 open, 0 blocked.
 
+Documentation this ledger added: [`docs/07-deploy.md`](../docs/07-deploy.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (4)
 
 - [~] `DPL-013` `toLambdaHandler(app)` (API GW v2, Function URL, SQS, EventBridge) — `07-deploy.md:40`

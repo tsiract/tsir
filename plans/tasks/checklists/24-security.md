@@ -7,6 +7,9 @@
 
 **13/18 (72%)** — 13 done, 0 partial, 5 open, 0 blocked.
 
+Documentation this ledger added: [`docs/24-security.md`](../docs/24-security.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (5)
 
 - [ ] `SEC-006` Dependency budget review + `bun audit` in CI — `24-security.md:18`

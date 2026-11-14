@@ -7,6 +7,9 @@
 
 **12/15 (80%)** — 12 done, 0 partial, 3 open, 0 blocked.
 
+Documentation this ledger added: [`docs/auth.md`](../docs/auth.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (3)
 
 - [ ] `AUTH-13` SPA cookie auth (Sanctum) — `XSRF-TOKEN` + stateful cookie — `auth.md:31`

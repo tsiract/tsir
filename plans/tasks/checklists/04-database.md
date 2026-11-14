@@ -7,6 +7,9 @@
 
 **48/55 (87%)** — 48 done, 0 partial, 7 open, 0 blocked.
 
+Documentation this ledger added: [`docs/04-database.md`](../docs/04-database.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (7)
 
 - [ ] `DB-023` MySQL driver adapter (`@tsir/database/mysql`) — `04-database.md:75`

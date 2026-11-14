@@ -7,6 +7,9 @@
 
 **26/29 (90%)** — 26 done, 1 partial, 2 open, 0 blocked.
 
+Documentation this ledger added: [`docs/05-vault.md`](../docs/05-vault.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (1)
 
 - [~] `VLT-023` Rotation metrics + spans — `05-vault.md:45`

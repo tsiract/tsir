@@ -7,6 +7,9 @@
 
 **8/8 (100%)** — 8 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/search.md`](../docs/search.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (8)
 
 - [x] `SRCH-1` Engine port — `index`/`remove`/`search`, `SearchDocument`/result — `search.md:20`

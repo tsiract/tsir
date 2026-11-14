@@ -7,6 +7,9 @@
 
 **7/8 (88%)** — 7 done, 0 partial, 1 open, 0 blocked.
 
+Documentation this ledger added: [`docs/25-modularity.md`](../docs/25-modularity.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (1)
 
 - [ ] `MOD-008` Module graph in `tsir doctor` and boot diagnostics — `25-modularity.md:20`

@@ -7,6 +7,9 @@
 
 **0/20 (0%)** — 0 done, 0 partial, 20 open, 0 blocked.
 
+Documentation this ledger added: [`docs/17-dx-data-layer.md`](../docs/17-dx-data-layer.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (20)
 
 - [ ] `DX-000` Count the boilerplate, and make the count a gate — `17-dx-data-layer.md:37`

@@ -7,6 +7,9 @@
 
 **14/14 (100%)** — 14 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/schedule.md`](../docs/schedule.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (14)
 
 - [x] `SCHED-1` `parseCron` — five fields, macros, steps, ranges; canonical form — `schedule.md:20`

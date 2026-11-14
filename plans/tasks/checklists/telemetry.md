@@ -7,6 +7,9 @@
 
 **4/9 (44%)** — 4 done, 0 partial, 5 open, 0 blocked.
 
+Documentation this ledger added: [`docs/telemetry.md`](../docs/telemetry.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Open (5)
 
 - [ ] `TEL-5` Failed-job detail — full payload + error + stack trace — `telemetry.md:22`

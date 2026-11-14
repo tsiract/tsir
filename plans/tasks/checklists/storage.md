@@ -7,6 +7,9 @@
 
 **13/13 (100%)** — 13 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/storage.md`](../docs/storage.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (13)
 
 - [x] `STOR-1` Port: `put`/`get`/`head`/`exists`/`delete`/`list`/`url`/`temporaryUrl` — `storage.md:22`

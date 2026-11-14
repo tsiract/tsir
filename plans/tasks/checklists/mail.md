@@ -7,6 +7,9 @@
 
 **12/12 (100%)** — 12 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/mail.md`](../docs/mail.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (12)
 
 - [x] `MAIL-1` `parseAddress` — the header-injection lock — `mail.md:21`

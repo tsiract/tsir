@@ -7,6 +7,9 @@
 
 **29/29 (100%)** — 29 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/07-capabilities.md`](../docs/07-capabilities.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (29)
 
 - [x] `CAP-001` Store/connection registry per port (`cache.stores`, `queue.connections`, …, with `default`, typed names) — `07-capabilities.md:38`

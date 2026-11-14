@@ -57,7 +57,8 @@ function markdown(dir: string): string[] {
  * hand-written README would mean editing an index by hand every time a ledger is added — the
  * failure this repository keeps paying for.
  */
-const GENERATED = /^plans[\\/]tasks[\\/](?:STATUS\.md|checklists[\\/][^\\/]+\.md)$/u;
+const GENERATED =
+  /^plans[\\/]tasks[\\/](?:STATUS\.md|checklists[\\/][^\\/]+\.md|docs[\\/][^\\/]+\.md)$/u;
 
 const documents = markdown(PLANS).filter((path) => !GENERATED.test(rel(path)));
 const byName = new Set(documents);

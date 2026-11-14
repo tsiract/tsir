@@ -7,6 +7,9 @@
 
 **46/47 (98%)** — 46 done, 1 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/02-core.md`](../docs/02-core.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Half done (1)
 
 - [~] `CFG-002` Env source: `Bun.env`/`process.env` read in one place — `02-core.md:37`

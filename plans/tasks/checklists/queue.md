@@ -7,6 +7,9 @@
 
 **18/18 (100%)** — 18 done, 0 partial, 0 open, 0 blocked.
 
+Documentation this ledger added: [`docs/queue.md`](../docs/queue.md) —
+generated from the acceptance notes, with the documents nothing cites listed by name.
+
 ## Done (18)
 
 - [x] `QUEUE-1` Port: `push`/`reserve`/`complete`/`fail`/`dead`/`replay`/`discard` — `queue.md:20`
