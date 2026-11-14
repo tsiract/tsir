@@ -1714,17 +1714,23 @@
   "telemetry": [
     "JobCounts",
     "JobState",
+    "PostgresConnection",
     "QueueJobRow",
-    "RequestLog",
+    "QueueMonitor",
+    "QueueMonitorOptions",
+    "RequestLogDatabase",
     "RequestLogEntry",
+    "RequestLoggerOptions",
+    "SqliteConnection",
     "TelemetryBootstrap",
     "TelemetryBootstrapOptions",
+    "TelemetryEngine",
+    "TelemetryTables",
     "createQueueMonitor",
     "createRequestLogger",
     "createTelemetryBootstrap",
-    "queueDead",
-    "queueJobs",
-    "requestLogs"
+    "telemetryTableDdl",
+    "telemetryTables"
   ],
   "testing": [
     "CreateTestAppOptions",

@@ -17,19 +17,31 @@
 
 export {
   createRequestLogger,
-  requestLogs,
-  type RequestLog,
+  type RequestLogDatabase,
   type RequestLogEntry,
+  type RequestLoggerOptions,
 } from './request-logger.ts';
 
 export {
   createQueueMonitor,
-  queueJobs,
-  queueDead,
   type JobCounts,
   type JobState,
+  type PostgresConnection,
   type QueueJobRow,
+  type QueueMonitor,
+  type QueueMonitorOptions,
+  type SqliteConnection,
 } from './queue-monitor.ts';
+
+// The tables are no longer module constants: `sqliteTable(…)` handed to a Postgres connection emits
+// SQLite SQL, which is what made this package D1-and-SQLite-only while looking portable (`INF-010`).
+// One factory, so the choice is made where the engine is known.
+export {
+  telemetryTables,
+  telemetryTableDdl,
+  type TelemetryEngine,
+  type TelemetryTables,
+} from './tables.ts';
 
 export { createTelemetryBootstrap } from './bootstrap.ts';
 export type { TelemetryBootstrap, TelemetryBootstrapOptions } from './bootstrap.ts';

@@ -14,5 +14,8 @@ export type QueueMonitor = ReturnType<typeof createQueueMonitor>;
 export const queueMonitorToken = token<ReturnType<typeof createQueueMonitor>>('QueueMonitor');
 
 export function createAdminQueueMonitor(drizzle: DrizzleDb): ReturnType<typeof createQueueMonitor> {
-  return createQueueMonitor(drizzle);
+  // This app's `config/database.ts` declares the `d1` driver and nothing else, so the engine is not
+  // a decision it makes at runtime — but saying it is what keeps the tables and the queries on the
+  // same dialect if that config ever gains a second connection (`INF-010`).
+  return createQueueMonitor(drizzle, { engine: 'd1' });
 }
