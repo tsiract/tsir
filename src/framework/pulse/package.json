@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "pulse package",
+  "description": "Health, readiness and metrics endpoints for a running app: one probe surface that a platform can call and an operator can read.",
   "exports": {
     ".": {
       "types": "./src/index.ts",

@@ -92,6 +92,23 @@ export interface Page {
 const HREF = /href="([^"#][^"]*)"/gu;
 
 /**
+ * The clean URL a page is served at: `guides/x.md` → `guides/x/`, and any `index.md` → its own
+ * directory (`index.md` → `./`, `packages/index.md` → `packages/`). Both the emitted file path and
+ * every link point use this, so a nested index cannot end up at `packages/index/`.
+ */
+function urlOf(pagePath: string): string {
+  if (pagePath === 'index.md') return './';
+  if (pagePath.endsWith('/index.md')) return pagePath.slice(0, -'index.md'.length);
+  return `${pagePath.slice(0, -3)}/`;
+}
+
+/** The directory a page is served from, which relative links resolve against. */
+function dirOf(pagePath: string): string {
+  const dir = urlOf(pagePath).replace(/\/$/u, '');
+  return dir === '' ? '.' : dir;
+}
+
+/**
  * Rewrite `x.md` links to clean directory URLs (`x/`, not `x.html`) and report
  * every relative link that resolves to nothing. `pagePath` is the page's own
  * path inside `src/docs`, so a link is resolved from its folder.
@@ -105,7 +122,7 @@ export function rewriteLinks(
   // The page's output lives at `<path-without-.md>/index.html`, so links are
   // resolved from that directory to keep clean URLs at any folder depth.
   // `index.md` is the docs root (`.`), not `index/`.
-  const pageDir = pagePath === 'index.md' ? '.' : pagePath.replace(/\.md$/u, '');
+  const pageDir = dirOf(pagePath);
   const out = html.replace(HREF, (whole, rawHref: string) => {
     if (/^[a-z][a-z0-9+.-]*:/iu.test(rawHref) || rawHref.startsWith('/')) return whole;
     const [pathPart = '', fragment = ''] = rawHref.split('#', 2);
@@ -121,8 +138,9 @@ export function rewriteLinks(
     }
     let target: string;
     if (resolved.endsWith('.md')) {
-      // A link to another page becomes its clean directory URL.
-      target = `${resolved.slice(0, -3)}/`;
+      // A link to another page becomes its clean directory URL — including an index, which is its
+      // directory rather than a subdirectory named after it.
+      target = urlOf(resolved);
     } else {
       target = resolved;
     }
@@ -152,7 +170,9 @@ function escapeHtml(text: string): string {
 
 /** Pages grouped for navigation: hands-on guides, reference pages, and package references. */
 function groupOf(path: string): 'Getting started' | 'Guides' | 'Reference' | 'Packages' {
-  if (path === 'installation.md') return 'Getting started';
+  // `index.md` is the docs landing page and the first thing in the sidebar; installation is the
+  // first *step*, so it follows the page that tells you the steps exist.
+  if (path === 'index.md' || path === 'installation.md') return 'Getting started';
   if (path.startsWith('guides/')) return 'Guides';
   return path.startsWith('packages/') ? 'Packages' : 'Reference';
 }
@@ -161,7 +181,7 @@ export function renderPage(page: Page, all: readonly Page[], routerScript = ''):
   const current = page.path;
   // The page's output directory. `index.md` is the docs root (`./`); every
   // other page lives at `<path-without-.md>/index.html` for clean URLs.
-  const currentDir = current === 'index.md' ? '.' : current.replace(/\.md$/u, '');
+  const currentDir = dirOf(current);
   const groups = new Map<'Getting started' | 'Guides' | 'Reference' | 'Packages', Page[]>([
     ['Getting started', []],
     ['Guides', []],
@@ -193,7 +213,7 @@ export function renderPage(page: Page, all: readonly Page[], routerScript = ''):
     .map(([heading, pages]) => {
       const items = pages
         .map((p) => {
-          const targetDir = p.path.replace(/\.md$/u, '');
+          const targetDir = urlOf(p.path);
           const rel = posix.relative(currentDir, targetDir) || '.';
           const href = `${rel}/`;
           const aria =
@@ -309,18 +329,18 @@ export async function buildDocs(root = ROOT): Promise<number> {
   rmSync(out, { recursive: true, force: true });
   for (const page of pages) {
     // Directory-style output: `installation.md` → `installation/index.html`
-    // so the URL is `/docs/installation/` with no `.html` extension.
-    const target = join(out, page.path.replace(/\.md$/u, ''), 'index.html');
+    // so the URL is `/docs/installation/` with no `.html` extension. The landing
+    // page is the exception: it is the site root.
+    const target = join(out, urlOf(page.path), 'index.html');
     mkdirSync(dirname(target), { recursive: true });
     writeFileSync(target, renderPage(page, pages, routerScript));
   }
-  // The documentation landing page is the installation guide, not a repository setup page.
-  const installation = pages.find((page) => page.path === 'installation.md');
-  if (installation === undefined) throw new Error('Missing installation guide');
-  writeFileSync(
-    join(out, 'index.html'),
-    renderPage({ ...installation, path: 'index.md' }, pages, routerScript),
-  );
+  // The landing page is a page in the tree, not a copy of another page. It used to be the
+  // installation guide rendered twice — so the docs home and every "Documentation" link in the
+  // header showed the install instructions, and installation was the one page with no `# Title`
+  // of its own to link to.
+  const landing = pages.find((page) => page.path === 'index.md');
+  if (landing === undefined) throw new Error('Missing docs landing page (src/docs/index.md)');
   for (const file of COPIED_FILES) {
     copyFileSync(join(source, file), join(out, file));
   }

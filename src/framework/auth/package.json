@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "auth package",
+  "description": "Authentication: sessions and API keys as first-class records, password hashing, and guards that refuse rather than default to allowing.",
   "exports": {
     ".": {
       "types": "./src/index.ts",

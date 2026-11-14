@@ -34,6 +34,8 @@ export type Section = (typeof SECTIONS)[number];
 export interface PackageInfo {
   readonly dir: string;
   readonly name: string;
+  /** The manifest's own summary; empty when the package does not declare one. */
+  readonly description: string;
 }
 
 /** Every framework package: a directory under `src/framework` with its own `package.json`. */
@@ -43,9 +45,16 @@ export function listPackages(root: string = FRAMEWORK): PackageInfo[] {
     if (!dir.isDirectory()) continue;
     const manifest = join(root, dir.name, 'package.json');
     if (!existsSync(manifest)) continue;
-    const parsed = JSON.parse(readFileSync(manifest, 'utf8')) as { name?: unknown };
+    const parsed = JSON.parse(readFileSync(manifest, 'utf8')) as {
+      name?: unknown;
+      description?: unknown;
+    };
     if (typeof parsed.name !== 'string') continue;
-    out.push({ dir: dir.name, name: parsed.name });
+    out.push({
+      dir: dir.name,
+      name: parsed.name,
+      description: typeof parsed.description === 'string' ? parsed.description : '',
+    });
   }
   return out.sort((a, b) => a.name.localeCompare(b.name));
 }
@@ -155,6 +164,56 @@ export function renderPage(
   return lines.join('\n');
 }
 
+/**
+ * The package index: every page, grouped by the job it does.
+ *
+ * The grouping is by role rather than alphabet, because a reader looking for "how do I cache
+ * something" does not know the package is called `cache` yet — and the alphabet only answers a
+ * question you already know the answer to.
+ */
+export function renderIndex(packages: readonly PackageInfo[]): string {
+  const groups: Record<string, readonly string[]> = {
+    Foundations: ['core', 'container', 'config', 'console', 'tui'],
+    'HTTP and validation': ['http', 'router', 'validate', 'policy', 'link'],
+    Data: ['database', 'migrate', 'seed', 'vault'],
+    'Background work': ['queue', 'schedule', 'events', 'pulse', 'telemetry'],
+    Services: ['cache', 'storage', 'mail', 'notify', 'scout', 'broadcast', 'media'],
+    'Identity and commerce': ['auth', 'socialize', 'cashier', 'pennant'],
+    'Deployment and testing': ['deploy', 'testing', 'nightwatch', 'forge'],
+  };
+  const placed = new Set(Object.values(groups).flat());
+  const rest = packages.map((pkg) => pkg.dir).filter((dir) => !placed.has(dir));
+  const byDir = new Map(packages.map((pkg) => [pkg.dir, pkg]));
+  const list = (dirs: readonly string[]): string[] =>
+    dirs.flatMap((dir) => {
+      const pkg = byDir.get(dir);
+      // A name in a group that no longer exists is dropped, not rendered as a dead link: the
+      // groups are hand-maintained and a rename must not silently produce a broken page.
+      if (pkg === undefined) return [];
+      const summary = pkg.description === '' ? '' : `: ${pkg.description}`;
+      return [`- [\`${pkg.name}\`](./${dir}.md)${summary}`];
+    });
+
+  const lines = [
+    '# Package reference',
+    '',
+    'Every framework package, one page each: what it supports, what it refuses, and the failure modes',
+    'it has. A package page is generated from the package itself — its `package.json`, its exported',
+    'surface, and its prose — so it cannot describe a version that no longer exists.',
+    '',
+    'Looking for which driver a capability uses on your target? That is',
+    '[services, drivers, and defaults](../guides/drivers.md).',
+    '',
+  ];
+  for (const [heading, dirs] of Object.entries(groups)) {
+    const items = list(dirs);
+    if (items.length === 0) continue;
+    lines.push(`## ${heading}`, '', ...items, '');
+  }
+  if (rest.length > 0) lines.push('## Other', '', ...list(rest), '');
+  return `${lines.join('\n').trimEnd()}\n`;
+}
+
 function main(): number {
   const write = process.argv.includes('--write');
   const packages = listPackages();
@@ -183,6 +242,9 @@ function main(): number {
     }
     expected.set(`${pkg.dir}.md`, renderPage(pkg, surface, codes, prose));
   }
+
+  // An index, because thirty-four pages with no entry point are only reachable from the sidebar.
+  expected.set('index.md', renderIndex(packages));
 
   if (write) {
     mkdirSync(OUT_DIR, { recursive: true });

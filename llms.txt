@@ -9,6 +9,7 @@ and `make check` fails when it is stale.
 ## Start here
 
 - [AGENTS.md](AGENTS.md): Orientation for a coding agent (or a person arriving cold) working in this repository.
+- [Tsir documentation](src/docs/index.md): Tsir is a backend-only TypeScript framework for Bun, Cloudflare Workers and AWS Lambda: one codebase, all three targets, sized to…
 - [Installation](src/docs/installation.md): Tsir is a pre-alpha TypeScript backend framework.
 - [Contributing to Tsir](CONTRIBUTING.md): Thanks for helping build Tsir.
 - [README](README.md): the landing page — what Tsir is for, what is real today, and the four rules a change is reviewed against
@@ -81,7 +82,7 @@ Every design decision is recorded before it is built and cited from the code by 
 ## Packages
 
 - [`src/framework/`](src/framework/): 34 packages; 8 carry their own `README.md`, the rest are documented on their package page
-- [`src/docs/packages/`](src/docs/packages/): one page per package — what it supports, what it refuses, and its failure modes
+- [`src/docs/packages/index.md`](src/docs/packages/index.md): every package grouped by job, one line each — the place to find the package for a task before knowing its name
 
 ## Optional
 

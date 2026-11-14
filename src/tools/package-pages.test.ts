@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'bun:test';
-import { renderPage, uncoveredCodes } from './package-pages.ts';
+import { renderIndex, renderPage, uncoveredCodes } from './package-pages.ts';
 
-const pkg = { dir: 'queue', name: '@tsir/queue' };
+const pkg = { dir: 'queue', name: '@tsir/queue', description: '' };
 const surface = {
   queue: ['Queue', 'createQueue'],
   'queue:memory': ['memoryQueueDriver'],
@@ -38,9 +38,9 @@ describe('renderPage (DOC-010)', () => {
   test('owned codes are listed, and their absence is stated', () => {
     const page = renderPage(pkg, surface, codes);
     expect(page).toContain('- `QUEUE_DEAD`');
-    expect(renderPage({ dir: 'vault', name: '@tsir/vault' }, { vault: ['x'] }, codes)).toContain(
-      'raises no error codes',
-    );
+    expect(
+      renderPage({ dir: 'vault', name: '@tsir/vault', description: '' }, { vault: ['x'] }, codes),
+    ).toContain('raises no error codes');
   });
 
   test('the sections nobody has written yet are marked pending, not left blank', () => {
@@ -79,5 +79,35 @@ describe('uncoveredCodes (every owned code is explained)', () => {
 
   test('ignores codes owned by other packages', () => {
     expect(uncoveredCodes('cache', codes, prose)).toEqual(['CAP_X']);
+  });
+});
+
+describe('package index', () => {
+  test('every package appears exactly once, with its manifest description', () => {
+    const pages = [
+      { dir: 'queue', name: '@tsir/queue', description: 'Named job connections.' },
+      { dir: 'cache', name: '@tsir/cache', description: 'Named cache stores.' },
+      { dir: 'made-up', name: '@tsir/made-up', description: '' },
+    ];
+    const out = renderIndex(pages);
+    for (const name of ['@tsir/queue', '@tsir/cache', '@tsir/made-up']) {
+      expect(out.split(name)).toHaveLength(2); // once, and only once
+    }
+    expect(out).toContain('Named job connections.');
+  });
+
+  test('a group without members is dropped rather than printed empty', () => {
+    // The index is hand-grouped by job, so a group can empty out when a package is renamed.
+    // A heading with nothing under it reads as a broken page.
+    const out = renderIndex([{ dir: 'core', name: '@tsir/core', description: '' }]);
+    expect(out).toContain('## Foundations');
+    expect(out).not.toContain('## Services');
+    expect(out).not.toContain('## Other');
+  });
+
+  test('a package matching no group still appears, rather than vanishing', () => {
+    const out = renderIndex([{ dir: 'unexpected', name: '@tsir/unexpected', description: '' }]);
+    expect(out).toContain('## Other');
+    expect(out).toContain('@tsir/unexpected');
   });
 });

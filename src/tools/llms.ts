@@ -154,6 +154,7 @@ function build(): string {
   lines.push('');
   const start = [
     entry('AGENTS.md'),
+    entry('src/docs/index.md'),
     entry('src/docs/installation.md'),
     entry('CONTRIBUTING.md'),
     // The README's title is a centred `<h1>` and its first paragraph is a bold tagline; both are
@@ -228,7 +229,7 @@ function build(): string {
       : `- [\`src/framework/\`](src/framework/): ${packageDirs.length} packages; ${withReadme.length} carry their own \`README.md\`, the rest are documented on their package page`,
   );
   lines.push(
-    '- [`src/docs/packages/`](src/docs/packages/): one page per package — what it supports, what it refuses, and its failure modes',
+    '- [`src/docs/packages/index.md`](src/docs/packages/index.md): every package grouped by job, one line each — the place to find the package for a task before knowing its name',
   );
   lines.push('');
 
