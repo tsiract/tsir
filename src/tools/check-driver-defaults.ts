@@ -22,6 +22,8 @@
 // Relative `src/` imports, not `@tsir/*`: `src/tools` is outside the workspace, so a package
 // specifier does not resolve here. The gate reads the packages it checks, which is exactly what
 // a framework script is allowed to do and an application is not.
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { BROADCAST_DRIVERS } from '../framework/broadcast/src/broadcaster.ts';
 import { CACHE_DRIVERS } from '../framework/cache/src/config.ts';
 import { MEDIA_DRIVERS } from '../framework/media/src/config.ts';
@@ -61,6 +63,8 @@ export interface Problem {
   readonly driver: string;
   readonly reason: string;
 }
+
+const ROOT = join(import.meta.dir, '..', '..');
 
 const TARGETS: readonly DeployTarget[] = ['bun', 'cloudflare', 'lambda'];
 
@@ -104,10 +108,73 @@ export function problems(): readonly Problem[] {
   return found;
 }
 
+/** Guide row label → the `DRIVER_DEFAULTS` key it documents. */
+const GUIDE_ROWS: Readonly<Record<string, string>> = {
+  Cache: 'cache',
+  Queue: 'queue',
+  Mail: 'mail',
+  Storage: 'storage',
+  Notifications: 'notifications',
+  Broadcast: 'broadcast',
+  Search: 'search',
+  Media: 'media',
+  Sessions: 'sessions',
+  Database: 'database',
+  'Feature flags': 'featureFlags',
+  'Scheduler lock': 'scheduleLock',
+};
+
+/**
+ * The guide's "Default: Cloudflare → AWS → bun" column, checked against the table it documents.
+ *
+ * `DRIVER_DEFAULTS` is the source of truth and
+ * [`drivers.md`](../docs/guides/drivers.md) paraphrases it by hand in a table that reaches production
+ * readers. It had already drifted: two rows named `memory` where every target says `database`, and
+ * the scheduler lock still advertised "none yet" after `CAP-006` shipped the registry. Nothing
+ * compared the two, so nothing noticed.
+ *
+ * Only this one column is compared. The other columns describe capabilities prose cannot derive —
+ * what a driver needs, when it refuses to boot — and a gate that guessed at those would be worse
+ * than the drift.
+ */
+export function guideDrift(markdown: string): readonly string[] {
+  const drift: string[] = [];
+  for (const [label, capability] of Object.entries(GUIDE_ROWS)) {
+    const line = markdown.split('\n').find((l) => l.startsWith('|') && l.includes(`**${label}**`));
+    if (line === undefined) {
+      drift.push(`no row for \`${label}\``);
+      continue;
+    }
+    const documented = (line.split('|')[3] ?? '').replace(/[`\s]/gu, '');
+    // The guide's column order is "Cloudflare → AWS → bun", not `TARGETS`' order.
+    const actual = (['cloudflare', 'lambda', 'bun'] as const)
+      .map(
+        (target) =>
+          (DRIVER_DEFAULTS[target] as Readonly<Record<string, { driver: string }>>)[capability]
+            ?.driver,
+      )
+      .join('→');
+    // `storage` documents "s3 + R2 endpoint" for the Cloudflare target: R2 is S3 with a different
+    // endpoint, so the driver is `s3` and the annotation is a fact about the service, not a driver.
+    if (documented.replace(/\+R2endpoint/u, '') !== actual) {
+      drift.push(`\`${label}\`: guide says \`${documented}\`, DRIVER_DEFAULTS says \`${actual}\``);
+    }
+  }
+  return drift;
+}
+
 function main(): void {
   const found = problems();
+  const guide = guideDrift(readFileSync(join(ROOT, 'src/docs/guides/drivers.md'), 'utf8'));
 
-  if (found.length === 0) {
+  if (guide.length > 0) {
+    process.stderr.write(`\ndriver guide drift (${String(guide.length)})\n\n`);
+    for (const line of guide) process.stderr.write(`  ✗ ${line}\n`);
+    process.stderr.write('\nThe table documents `DRIVER_DEFAULTS`; update `drivers.md`.\n\n');
+    process.exitCode = 1;
+  }
+
+  if (found.length === 0 && guide.length === 0) {
     const rows = TARGETS.reduce(
       (total, target) => total + Object.keys(DRIVER_DEFAULTS[target]).length,
       0,
@@ -118,13 +185,17 @@ function main(): void {
     return;
   }
 
-  process.stderr.write(`\ndriver default problems (${String(found.length)})\n\n`);
-  for (const problem of found) {
-    process.stderr.write(`  ✗ ${problem.target} · ${problem.capability} → ${problem.driver}\n`);
-    process.stderr.write(`      ${problem.reason}\n`);
+  // Only when there are problems: this footer used to print on the success path too, so a green
+  // gate finished by naming a file it had no complaint about, which reads like a warning.
+  if (found.length > 0) {
+    process.stderr.write(`\ndriver default problems (${String(found.length)})\n\n`);
+    for (const problem of found) {
+      process.stderr.write(`  ✗ ${problem.target} · ${problem.capability} → ${problem.driver}\n`);
+      process.stderr.write(`      ${problem.reason}\n`);
+    }
+    process.stderr.write('\nSee `src/framework/core/src/driver-defaults.ts`.\n\n');
+    process.exitCode = 1;
   }
-  process.stderr.write('\nSee `src/framework/core/src/driver-defaults.ts`.\n\n');
-  process.exitCode = 1;
 }
 
 if (import.meta.main) main();
