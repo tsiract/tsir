@@ -36,6 +36,7 @@ acceptance note names no page is the one place a claim of "documented" can hide.
 
 - `DOCS-008` The frontpage's claims are checked against the code
 - `DOCS-013` Give the parity ledger's 245 feature rows ids
+- `DOCS-016` An acceptance note in every open task
 - `DOCS-018` A checklist per ledger, generated and gated
 
 ## Pages an open task says it will write

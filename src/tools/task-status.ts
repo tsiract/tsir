@@ -88,14 +88,37 @@ export function tasksIn(
   unidentified: { file: string; line: number; state: TaskState; text: string }[] = [],
 ): readonly Task[] {
   const found: Task[] = [];
+  /**
+   * The column that holds an implementation note, from the table's own header.
+   *
+   * `27-feature-parity.md` says where its acceptance lives: the header cell `@tsir implementation`
+   * and the `Evidence` beside it. The old rule took "the last non-dash cell before the status",
+   * which on a row like `| Notification preferences | — | — | — | [ ] |` is the *feature name* — so
+   * an unimplemented feature counted as documented, and `DOCS-016`'s gate would have passed by
+   * accident. Reading the header makes the question answerable: is the implementation cell filled?
+   */
+  let implementationIndex: number | undefined;
   source.split('\n').forEach((text, index) => {
-    if (!text.startsWith('|')) return;
+    if (!text.startsWith('|')) {
+      // A header binds its own table; the next table's header may put the column elsewhere.
+      implementationIndex = undefined;
+      return;
+    }
     const cells = text
       .replace(/^\|/u, '')
       .replace(/\|$/u, '')
       .split('|')
       .map((cell) => cell.trim());
     if (cells.length < 3) return;
+
+    if (cells[0] === 'Id' || cells[0] === 'ID') {
+      const named = cells.findIndex((cell) => /implementation/iu.test(cell));
+      // A table with no implementation column has its acceptance *after* the status — the admin
+      // coverage tables name the page and the capability, then say whether it is covered. `-1`
+      // means "there is nothing before the status to read", not "look somewhere else".
+      implementationIndex = named === -1 ? -1 : named;
+      return;
+    }
 
     // The id is wherever it is: `01-foundation.md` has it in column 1, `07-deploy-cloud-checks.md`
     // has a `#` cell before it. Searching the whole row is the only rule that fits every file —
@@ -139,15 +162,29 @@ export function tasksIn(
       .join(' | ')
       .trim();
 
-    // A `PARITY-*` row is a different shape and says so honestly: the cells *before* the status —
-    // the @tsir implementation and its evidence — are the acceptance note. An empty one (`—`) is a
-    // finding about the feature, not a defect in the row: it means nobody has implemented it.
-    const parityNote = id.startsWith('PARITY-')
-      ? cells
-          .slice(0, statusIndex)
-          .reverse()
-          .find((cell) => cell !== '' && cell !== '—')
-      : undefined;
+    // A `PARITY-*` row puts its acceptance *before* the status, and the table says where:
+    //
+    //   · `27-feature-parity.md § 6` has an `@tsir implementation` column — read that cell, and an
+    //     em dash there means nobody has built it;
+    //   · the admin-coverage table at the end has no such column, and its capability column is the
+    //     note;
+    //   · either way, the *feature name* is never the acceptance. The old rule was "the last cell
+    //     before the status that is not a dash", which on `| Notification preferences | — | — | — |`
+    //     is the title — so an unimplemented feature counted as documented, and `DOCS-016`'s gate
+    //     would have passed by accident.
+    const before = cells.slice(1, statusIndex).map((cell) => cell.trim());
+    const filled = (cell: string | undefined): boolean =>
+      cell !== undefined && !['', '—', '-'].includes(cell);
+    const named =
+      implementationIndex !== undefined && implementationIndex >= 0
+        ? cells[implementationIndex]
+        : undefined;
+    const parityNote = !id.startsWith('PARITY-')
+      ? undefined
+      : ([
+          filled(named) ? named : undefined,
+          [...before].reverse().find((cell) => filled(cell)),
+        ].find((cell) => filled(cell) && cell !== cells[1]) ?? '');
 
     const idIndex = cells.findIndex((cell) => ID.exec(cell)?.[1] === id);
 

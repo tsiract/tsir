@@ -138,6 +138,37 @@ describe('the status page is generated, not written', () => {
   });
 });
 
+describe('a parity row is read through its header (DOCS-016)', () => {
+  test('the feature name is never mistaken for an acceptance note', () => {
+    // The failure this pins: `| Notification preferences | — | — | — | [ ] |` looked documented
+    // because "the last cell before the status that is not a dash" was the title itself.
+    const source = table(
+      '| Id | Feature | Laravel feature | @tsir implementation | Evidence | Status |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| `PARITY-001` | Notification preferences | — | — | — | `[ ]` |',
+      '| `PARITY-002` | Signed URLs | `URL::signed` | `signUrl` | `url.ts` | `[x]` |',
+      '',
+    );
+    const tasks = tasksIn('parity.md', source);
+    expect(tasks.map((task) => task.acceptance)).toEqual(['', '`signUrl`']);
+    expect(tasks.map((task) => task.title)).toEqual(['Notification preferences', 'Signed URLs']);
+  });
+
+  test('a table with no implementation column reads its capability column instead', () => {
+    const source = table(
+      '| Id | @tsir package | Admin UI page(s) | UI capability | Status |',
+      '| --- | --- | --- | --- | --- |',
+      '| `PARITY-100` | `@tsir/mail` | EmailTemplates | Edit email templates | `[~]` |',
+      '| `PARITY-101` | `@tsir/vault` | — | No UI | `[ ]` |',
+      '',
+    );
+    expect(tasksIn('parity.md', source).map((task) => task.acceptance)).toEqual([
+      'Edit email templates',
+      'No UI',
+    ]);
+  });
+});
+
 describe('every ledger has a checklist an agent can read (DOCS-018)', () => {
   test('each task appears once, in its own state section, with a line to jump to', () => {
     const dir = mkdtempSync(join(tmpdir(), 'tsir-checklists-'));

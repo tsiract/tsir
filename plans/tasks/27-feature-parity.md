@@ -181,46 +181,46 @@ were verified accessible on 2026-11-07.
 
 Counterpart: LAR-AUTH, LAR-AUTH-HASHING, LAR-AUTH-SESSIONS, LPK-SANCTUM.
 
-| Id           | Feature                   | Laravel feature                    | @tsir implementation                                                                | Evidence                        | Status                |
-| ------------ | ------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------- | --------------------- |
-| `PARITY-001` | Password hashing          | bcrypt/argon2id, configurable cost | `password.ts`: PBKDF2-SHA256 default, argon2id on Bun, self-describing hashes       | `password.test.ts`              | `[x]`                 |
-| `PARITY-002` | Password verification     | `Hash::check`                      | `verifyPassword` with rehash on cost change                                         | `password.test.ts`              | `[x]`                 |
-| `PARITY-003` | Cookie sessions           | `Session` facade, stores           | `session.ts`: cookie sessions, DB/memory stores, idle + absolute lifetime, rotation | `session.test.ts`               | `[x]`                 |
-| `PARITY-004` | API tokens                | Sanctum `personal_access_tokens`   | `token.ts`: bearer tokens, API keys (`keys.ts`)                                     | `token.test.ts`, `keys.test.ts` | `[x]`                 |
-| `PARITY-005` | Token abilities/scopes    | Sanctum token abilities            | `keys.ts`: `databaseApiKeyStore` with abilities                                     | `keys.test.ts`                  | `[~]`                 |
-| `PARITY-006` | Guards                    | Auth guards                        | `guards.ts`: session, bearer, apiKey, compose                                       | `guards.test.ts`                | `[x]`                 |
-| `PARITY-007` | SPA cookie auth (Sanctum) | Sanctum SPA authentication         | —                                                                                   | —                               | `[ ]`                 |
-| `PARITY-008` | CSRF protection           | CSRF middleware                    | — (planned: admin CSRF)                                                             | —                               | `[ ]`                 |
-| `PARITY-009` | Email verification        | `MustVerifyEmail`                  | —                                                                                   | —                               | `[ ]`                 |
-| `PARITY-010` | Password reset            | `Password::broker`                 | admin `password-reset.service.ts` (app-level, not framework)                        | —                               | `[~]`                 |
-| `PARITY-011` | Rate limiting (auth)      | `RateLimiter`                      | `@tsir/pulse` `createRateLimiter`                                                   | `limits.ts`                     | `[x]` (cross-package) |
+| Id           | Feature                   | Laravel feature                    | @tsir implementation                                                                                                                       | Evidence                        | Status                |
+| ------------ | ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------- | --------------------- |
+| `PARITY-001` | Password hashing          | bcrypt/argon2id, configurable cost | `password.ts`: PBKDF2-SHA256 default, argon2id on Bun, self-describing hashes                                                              | `password.test.ts`              | `[x]`                 |
+| `PARITY-002` | Password verification     | `Hash::check`                      | `verifyPassword` with rehash on cost change                                                                                                | `password.test.ts`              | `[x]`                 |
+| `PARITY-003` | Cookie sessions           | `Session` facade, stores           | `session.ts`: cookie sessions, DB/memory stores, idle + absolute lifetime, rotation                                                        | `session.test.ts`               | `[x]`                 |
+| `PARITY-004` | API tokens                | Sanctum `personal_access_tokens`   | `token.ts`: bearer tokens, API keys (`keys.ts`)                                                                                            | `token.test.ts`, `keys.test.ts` | `[x]`                 |
+| `PARITY-005` | Token abilities/scopes    | Sanctum token abilities            | `keys.ts`: `databaseApiKeyStore` with abilities                                                                                            | `keys.test.ts`                  | `[~]`                 |
+| `PARITY-006` | Guards                    | Auth guards                        | `guards.ts`: session, bearer, apiKey, compose                                                                                              | `guards.test.ts`                | `[x]`                 |
+| `PARITY-007` | SPA cookie auth (Sanctum) | Sanctum SPA authentication         | Done: a test authenticates a browser request from a first-party session cookie, and a cross-site request without the CSRF token is refused | —                               | `[ ]`                 |
+| `PARITY-008` | CSRF protection           | CSRF middleware                    | — (planned: admin CSRF)                                                                                                                    | —                               | `[ ]`                 |
+| `PARITY-009` | Email verification        | `MustVerifyEmail`                  | Done: a signed verification link marks the address verified, and a guarded route refuses an unverified user                                | —                               | `[ ]`                 |
+| `PARITY-010` | Password reset            | `Password::broker`                 | admin `password-reset.service.ts` (app-level, not framework)                                                                               | —                               | `[~]`                 |
+| `PARITY-011` | Rate limiting (auth)      | `RateLimiter`                      | `@tsir/pulse` `createRateLimiter`                                                                                                          | `limits.ts`                     | `[x]` (cross-package) |
 
 ### 6.2 `@tsir/policy` — Laravel Authorization
 
 Counterpart: LAR-AUTHZ.
 
-| Id           | Feature               | Laravel feature        | @tsir implementation            | Evidence       | Status                                           |
-| ------------ | --------------------- | ---------------------- | ------------------------------- | -------------- | ------------------------------------------------ |
-| `PARITY-012` | Gates                 | `Gate::define`         | `defineGate`                    | `policy` tests | `[x]`                                            |
-| `PARITY-013` | Policies              | Policy classes         | `definePolicy`, ownership rules | `policy` tests | `[x]`                                            |
-| `PARITY-014` | Roles                 | — (Spatie, not core)   | Roles with `implies`            | `policy` tests | `[x]` (extra)                                    |
-| `PARITY-015` | Permissions           | — (Spatie, not core)   | Permissions                     | `policy` tests | `[x]` (extra)                                    |
-| `PARITY-016` | HTTP integration      | `authorize` middleware | `toHttpPolicies`                | `policy` tests | `[x]`                                            |
-| `PARITY-017` | Resource policies     | `authorizeResource`    | —                               | —              | `[ ]`                                            |
-| `PARITY-018` | Policy auto-discovery | Auto-discovery         | — (explicit registration)       | —              | `[D]` deliberate: explicit registration is safer |
+| Id           | Feature               | Laravel feature        | @tsir implementation                                                                                          | Evidence       | Status                                           |
+| ------------ | --------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------- | -------------- | ------------------------------------------------ |
+| `PARITY-012` | Gates                 | `Gate::define`         | `defineGate`                                                                                                  | `policy` tests | `[x]`                                            |
+| `PARITY-013` | Policies              | Policy classes         | `definePolicy`, ownership rules                                                                               | `policy` tests | `[x]`                                            |
+| `PARITY-014` | Roles                 | — (Spatie, not core)   | Roles with `implies`                                                                                          | `policy` tests | `[x]` (extra)                                    |
+| `PARITY-015` | Permissions           | — (Spatie, not core)   | Permissions                                                                                                   | `policy` tests | `[x]` (extra)                                    |
+| `PARITY-016` | HTTP integration      | `authorize` middleware | `toHttpPolicies`                                                                                              | `policy` tests | `[x]`                                            |
+| `PARITY-017` | Resource policies     | `authorizeResource`    | Done: one call registers CRUD policies for a controller resource and each verb consults its own policy method | —              | `[ ]`                                            |
+| `PARITY-018` | Policy auto-discovery | Auto-discovery         | — (explicit registration)                                                                                     | —              | `[D]` deliberate: explicit registration is safer |
 
 ### 6.3 `@tsir/vault` — Laravel Encryption
 
 Counterpart: LAR-ENC.
 
-| Id           | Feature              | Laravel feature                    | @tsir implementation                                                                   | Evidence                          | Status        |
-| ------------ | -------------------- | ---------------------------------- | -------------------------------------------------------------------------------------- | --------------------------------- | ------------- |
-| `PARITY-019` | Symmetric encryption | `Crypt::encrypt` (AES-256-CBC/GCM) | AES-256-GCM via WebCrypto, self-describing envelope                                    | `cipher.ts`, `vault.test.ts`      | `[x]`         |
-| `PARITY-020` | Key rotation         | `APP_KEY` rotation                 | Keyring state machine (`staged`/`active`/`decrypt-only`/`retired`), resumable rotation | `rotation.ts`, `rotation.test.ts` | `[x]`         |
-| `PARITY-021` | Encrypted DB columns | `encrypted` cast                   | `createVaultCodec` for Drizzle columns, AAD bound to table+column                      | `codec.ts`                        | `[x]`         |
-| `PARITY-022` | Blind indexing       | —                                  | `blind.ts` for searchable encryption                                                   | `blind`                           | `[x]` (extra) |
-| `PARITY-023` | Signed URLs          | `URL::signed`                      | —                                                                                      | —                                 | `[ ]`         |
-| `PARITY-024` | Encrypted cookies    | `encrypt` cookie flag              | —                                                                                      | —                                 | `[ ]`         |
+| Id           | Feature              | Laravel feature                    | @tsir implementation                                                                                                         | Evidence                          | Status        |
+| ------------ | -------------------- | ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- | --------------------------------- | ------------- |
+| `PARITY-019` | Symmetric encryption | `Crypt::encrypt` (AES-256-CBC/GCM) | AES-256-GCM via WebCrypto, self-describing envelope                                                                          | `cipher.ts`, `vault.test.ts`      | `[x]`         |
+| `PARITY-020` | Key rotation         | `APP_KEY` rotation                 | Keyring state machine (`staged`/`active`/`decrypt-only`/`retired`), resumable rotation                                       | `rotation.ts`, `rotation.test.ts` | `[x]`         |
+| `PARITY-021` | Encrypted DB columns | `encrypted` cast                   | `createVaultCodec` for Drizzle columns, AAD bound to table+column                                                            | `codec.ts`                        | `[x]`         |
+| `PARITY-022` | Blind indexing       | —                                  | `blind.ts` for searchable encryption                                                                                         | `blind`                           | `[x]` (extra) |
+| `PARITY-023` | Signed URLs          | `URL::signed`                      | Done: a URL signed by the framework validates, and one with a tampered query string is refused                               | —                                 | `[ ]`         |
+| `PARITY-024` | Encrypted cookies    | `encrypt` cookie flag              | Done: a cookie written by the framework round-trips through decryption, and a tampered value is discarded rather than parsed | —                                 | `[ ]`         |
 
 ### 6.4 `@tsir/cache` — Laravel Cache
 
@@ -273,14 +273,14 @@ Counterpart: LAR-MIGRATIONS.
 
 Counterpart: LAR-SEEDERS.
 
-| Id           | Feature            | Laravel feature      | @tsir implementation                          | Evidence    | Status        |
-| ------------ | ------------------ | -------------------- | --------------------------------------------- | ----------- | ------------- |
-| `PARITY-051` | Seeder classes     | `Seeder` class       | `defineSeeder`, `defineSeeders`               | `seeder.ts` | `[x]`         |
-| `PARITY-052` | Ordering           | `$this->call([...])` | `SeederOrder`                                 | `runner.ts` | `[x]`         |
-| `PARITY-053` | Environment gating | production check     | `SeedEnvironment`, `assertEnvironmentAllowed` | `runner.ts` | `[x]`         |
-| `PARITY-054` | Idempotency        | (manual)             | `assertIdempotent`                            | `runner.ts` | `[x]` (extra) |
-| `PARITY-055` | Determinism        | (manual)             | fixed clock + seeded RNG                      | `runner.ts` | `[x]` (extra) |
-| `PARITY-056` | Factories          | `Factory`            | —                                             | —           | `[ ]`         |
+| Id           | Feature            | Laravel feature      | @tsir implementation                                                                                    | Evidence    | Status        |
+| ------------ | ------------------ | -------------------- | ------------------------------------------------------------------------------------------------------- | ----------- | ------------- |
+| `PARITY-051` | Seeder classes     | `Seeder` class       | `defineSeeder`, `defineSeeders`                                                                         | `seeder.ts` | `[x]`         |
+| `PARITY-052` | Ordering           | `$this->call([...])` | `SeederOrder`                                                                                           | `runner.ts` | `[x]`         |
+| `PARITY-053` | Environment gating | production check     | `SeedEnvironment`, `assertEnvironmentAllowed`                                                           | `runner.ts` | `[x]`         |
+| `PARITY-054` | Idempotency        | (manual)             | `assertIdempotent`                                                                                      | `runner.ts` | `[x]` (extra) |
+| `PARITY-055` | Determinism        | (manual)             | fixed clock + seeded RNG                                                                                | `runner.ts` | `[x]` (extra) |
+| `PARITY-056` | Factories          | `Factory`            | Done: a factory declares a model with deterministic fakes, and create/make return rows a seeder inserts | —           | `[ ]`         |
 
 ### 6.8 `@tsir/events` — Laravel Events
 
@@ -300,20 +300,20 @@ Counterpart: LAR-EVENTS.
 
 Counterpart: LAR-QUEUE.
 
-| Id           | Feature               | Laravel feature          | @tsir implementation                                                                  | Evidence              | Status        |
-| ------------ | --------------------- | ------------------------ | ------------------------------------------------------------------------------------- | --------------------- | ------------- |
-| `PARITY-064` | Job definitions       | `Job` class              | `defineJob`, `createJobRegistry`                                                      | `job.ts`              | `[x]`         |
-| `PARITY-065` | Multiple connections  | `Queue::connection('x')` | `createQueues`, named connections                                                     | `config.ts`           | `[x]`         |
-| `PARITY-066` | Retries with backoff  | `backoff`, `tries`       | `retryDelayMs`, exponential backoff, DLQ                                              | `backoff.ts`          | `[x]`         |
-| `PARITY-067` | Dead-letter queue     | failed jobs table        | `queueDead` table                                                                     | `queue.ts`            | `[x]`         |
-| `PARITY-068` | Idempotency keys      | —                        | idempotency keys                                                                      | `queue.ts`            | `[x]` (extra) |
-| `PARITY-069` | Graceful worker drain | `--timeout`, SIGTERM     | worker drain on SIGTERM                                                               | `worker.ts`           | `[x]`         |
-| `PARITY-070` | Rate limiting         | `RateLimited`            | `@tsir/pulse` rate limiter (cross-package)                                            | —                     | `[x]`         |
-| `PARITY-071` | Job batching          | `Bus::batch`             | —                                                                                     | —                     | `[ ]`         |
-| `PARITY-072` | Job chains            | `Bus::chain`             | —                                                                                     | —                     | `[ ]`         |
-| `PARITY-073` | Delayed jobs          | `delay()`                | `dispatchLater` with `delayMs` (backend-dependent: driver must declare `delay: true`) | `queue.ts`, `port.ts` | `[~]`         |
-| `PARITY-074` | Unique jobs           | `ShouldBeUnique`         | `idempotencyKey` (backend-dependent: driver must declare `idempotency: true`)         | `port.ts`             | `[~]`         |
-| `PARITY-075` | Failed job retry      | `queue:retry`            | `queue:retry`, replay, discard                                                        | `queue.ts`            | `[x]`         |
+| Id           | Feature               | Laravel feature          | @tsir implementation                                                                                       | Evidence              | Status        |
+| ------------ | --------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------- | --------------------- | ------------- |
+| `PARITY-064` | Job definitions       | `Job` class              | `defineJob`, `createJobRegistry`                                                                           | `job.ts`              | `[x]`         |
+| `PARITY-065` | Multiple connections  | `Queue::connection('x')` | `createQueues`, named connections                                                                          | `config.ts`           | `[x]`         |
+| `PARITY-066` | Retries with backoff  | `backoff`, `tries`       | `retryDelayMs`, exponential backoff, DLQ                                                                   | `backoff.ts`          | `[x]`         |
+| `PARITY-067` | Dead-letter queue     | failed jobs table        | `queueDead` table                                                                                          | `queue.ts`            | `[x]`         |
+| `PARITY-068` | Idempotency keys      | —                        | idempotency keys                                                                                           | `queue.ts`            | `[x]` (extra) |
+| `PARITY-069` | Graceful worker drain | `--timeout`, SIGTERM     | worker drain on SIGTERM                                                                                    | `worker.ts`           | `[x]`         |
+| `PARITY-070` | Rate limiting         | `RateLimited`            | `@tsir/pulse` rate limiter (cross-package)                                                                 | —                     | `[x]`         |
+| `PARITY-071` | Job batching          | `Bus::batch`             | Done: a batch dispatches N jobs, reports progress, and a failure marks the batch failed and stops the rest | —                     | `[ ]`         |
+| `PARITY-072` | Job chains            | `Bus::chain`             | Done: a chain runs its jobs in order and a failed link stops the remainder, with the chain recorded        | —                     | `[ ]`         |
+| `PARITY-073` | Delayed jobs          | `delay()`                | `dispatchLater` with `delayMs` (backend-dependent: driver must declare `delay: true`)                      | `queue.ts`, `port.ts` | `[~]`         |
+| `PARITY-074` | Unique jobs           | `ShouldBeUnique`         | `idempotencyKey` (backend-dependent: driver must declare `idempotency: true`)                              | `port.ts`             | `[~]`         |
+| `PARITY-075` | Failed job retry      | `queue:retry`            | `queue:retry`, replay, discard                                                                             | `queue.ts`            | `[x]`         |
 
 ### 6.10 `@tsir/schedule` — Laravel Task Scheduling
 
@@ -341,7 +341,7 @@ Counterpart: LAR-MAIL.
 | `PARITY-086` | HTML escaping       | Blade auto-escaping | `escapeHtml`, `html`, `raw`, explicit `SafeHtml`                                                                     | `escape.ts`                 | `[x]`  |
 | `PARITY-087` | MIME building       | SwiftMailer         | `buildMime`                                                                                                          | `mime.ts`                   | `[x]`  |
 | `PARITY-088` | Attachments         | `->attach()`        | `Attachment` type, all transports (smtp MIME, resend, postmark, ses) send attachments; `checkAttachments` validation | `message.ts`, `transports/` | `[x]`  |
-| `PARITY-089` | Markdown mail       | `Markdown` mailable | —                                                                                                                    | —                           | `[ ]`  |
+| `PARITY-089` | Markdown mail       | `Markdown` mailable | Done: a mailable renders a markdown template into HTML and text parts a transport can send                           | —                           | `[ ]`  |
 | `PARITY-090` | Queued mail         | `ShouldQueue`       | `@tsir/notify` or manual queue                                                                                       | —                           | `[~]`  |
 | `PARITY-091` | Log transport (dev) | `log` driver        | `logTransport` (refuses production)                                                                                  | `transports/log.ts`         | `[x]`  |
 | `PARITY-092` | Address parsing     | —                   | `parseAddress`, `formatAddress`                                                                                      | `address.ts`                | `[x]`  |
@@ -350,16 +350,16 @@ Counterpart: LAR-MAIL.
 
 Counterpart: LAR-NOTIFY.
 
-| Id           | Feature                  | Laravel feature     | @tsir implementation                     | Evidence               | Status        |
-| ------------ | ------------------------ | ------------------- | ---------------------------------------- | ---------------------- | ------------- |
-| `PARITY-093` | Notification channels    | `via()` method      | mail, SMS, database, chat, webhook, post | `channels/`            | `[x]`         |
-| `PARITY-094` | Notifiable model         | `Notifiable` trait  | recipient abstraction                    | `notification.ts`      | `[x]`         |
-| `PARITY-095` | Queued notifications     | `ShouldQueue`       | queued by default                        | `delivery.ts`          | `[x]`         |
-| `PARITY-096` | Database notifications   | `database` channel  | `database` channel                       | `channels/database.ts` | `[x]`         |
-| `PARITY-097` | Mail notifications       | `mail` channel      | `mail` channel                           | `channels/mail.ts`     | `[x]`         |
-| `PARITY-098` | Webhook signing          | —                   | `signBody`, `verifySignature`            | `signing.ts`           | `[x]` (extra) |
-| `PARITY-099` | Broadcast notifications  | `broadcast` channel | — (could use `@tsir/broadcast`)          | —                      | `[ ]`         |
-| `PARITY-100` | Notification preferences | —                   | —                                        | —                      | `[ ]`         |
+| Id           | Feature                  | Laravel feature     | @tsir implementation                                                                                               | Evidence               | Status        |
+| ------------ | ------------------------ | ------------------- | ------------------------------------------------------------------------------------------------------------------ | ---------------------- | ------------- |
+| `PARITY-093` | Notification channels    | `via()` method      | mail, SMS, database, chat, webhook, post                                                                           | `channels/`            | `[x]`         |
+| `PARITY-094` | Notifiable model         | `Notifiable` trait  | recipient abstraction                                                                                              | `notification.ts`      | `[x]`         |
+| `PARITY-095` | Queued notifications     | `ShouldQueue`       | queued by default                                                                                                  | `delivery.ts`          | `[x]`         |
+| `PARITY-096` | Database notifications   | `database` channel  | `database` channel                                                                                                 | `channels/database.ts` | `[x]`         |
+| `PARITY-097` | Mail notifications       | `mail` channel      | `mail` channel                                                                                                     | `channels/mail.ts`     | `[x]`         |
+| `PARITY-098` | Webhook signing          | —                   | `signBody`, `verifySignature`                                                                                      | `signing.ts`           | `[x]` (extra) |
+| `PARITY-099` | Broadcast notifications  | `broadcast` channel | — (could use `@tsir/broadcast`)                                                                                    | —                      | `[ ]`         |
+| `PARITY-100` | Notification preferences | —                   | Done: a recipient channel preference is stored and consulted before delivery, with an explicit via() still winning | —                      | `[ ]`         |
 
 ### 6.13 `@tsir/storage` — Laravel Filesystem
 
@@ -388,16 +388,16 @@ Counterpart: LAR-FS.
 
 Counterpart: LAR-VALIDATE.
 
-| Id           | Feature                | Laravel feature            | @tsir implementation              | Evidence           | Status |
-| ------------ | ---------------------- | -------------------------- | --------------------------------- | ------------------ | ------ |
-| `PARITY-110` | Request validation     | `$request->validate`       | Zod 4 schemas, router integration | `validate` package | `[x]`  |
-| `PARITY-111` | Rule library           | `required`, `email`, etc.  | Zod rules + Standard Schema       | `validate`         | `[x]`  |
-| `PARITY-112` | Custom rules           | `Rule` objects             | Zod refinements                   | —                  | `[x]`  |
-| `PARITY-113` | Error messages         | custom messages            | Zod issue normalization           | —                  | `[x]`  |
-| `PARITY-114` | Form requests          | `FormRequest`              | router body/params schemas        | —                  | `[x]`  |
-| `PARITY-115` | Unique rule            | `unique:table,column`      | — (requires DB)                   | —                  | `[ ]`  |
-| `PARITY-116` | Exists rule            | `exists:table,column`      | —                                 | —                  | `[ ]`  |
-| `PARITY-117` | Conditional validation | `sometimes`, `required_if` | Zod conditional schemas           | —                  | `[x]`  |
+| Id           | Feature                | Laravel feature            | @tsir implementation                                                                              | Evidence           | Status |
+| ------------ | ---------------------- | -------------------------- | ------------------------------------------------------------------------------------------------- | ------------------ | ------ |
+| `PARITY-110` | Request validation     | `$request->validate`       | Zod 4 schemas, router integration                                                                 | `validate` package | `[x]`  |
+| `PARITY-111` | Rule library           | `required`, `email`, etc.  | Zod rules + Standard Schema                                                                       | `validate`         | `[x]`  |
+| `PARITY-112` | Custom rules           | `Rule` objects             | Zod refinements                                                                                   | —                  | `[x]`  |
+| `PARITY-113` | Error messages         | custom messages            | Zod issue normalization                                                                           | —                  | `[x]`  |
+| `PARITY-114` | Form requests          | `FormRequest`              | router body/params schemas                                                                        | —                  | `[x]`  |
+| `PARITY-115` | Unique rule            | `unique:table,column`      | — (requires DB)                                                                                   | —                  | `[ ]`  |
+| `PARITY-116` | Exists rule            | `exists:table,column`      | Done: a rule asserts a value exists in a named table and column, failing with a field-level error | —                  | `[ ]`  |
+| `PARITY-117` | Conditional validation | `sometimes`, `required_if` | Zod conditional schemas                                                                           | —                  | `[x]`  |
 
 ### 6.15 `@tsir/pulse` → `@tsir/observability` — Laravel Logging + Pulse
 
@@ -437,33 +437,33 @@ Counterpart: LAR-CONFIG.
 
 Counterpart: LAR-CONTAINER.
 
-| Id           | Feature               | Laravel feature         | @tsir implementation           | Evidence       | Status                                      |
-| ------------ | --------------------- | ----------------------- | ------------------------------ | -------------- | ------------------------------------------- |
-| `PARITY-134` | DI container          | `Container`             | `Container` with tokens        | `container.ts` | `[x]`                                       |
-| `PARITY-135` | Constructor injection | auto-injection          | explicit constructor injection | `container.ts` | `[x]`                                       |
-| `PARITY-136` | Bindings              | `bind`, `singleton`     | providers                      | `provider.ts`  | `[x]`                                       |
-| `PARITY-137` | Scopes                | —                       | request scope                  | `container.ts` | `[x]`                                       |
-| `PARITY-138` | Facades               | `Facade`                | — (deliberately no facades)    | —              | `[D]` deliberate: no global service locator |
-| `PARITY-139` | Contextual binding    | `when(...)->needs(...)` | —                              | —              | `[ ]`                                       |
-| `PARITY-140` | Auto-wiring           | auto resolution         | — (explicit)                   | —              | `[D]` deliberate                            |
+| Id           | Feature               | Laravel feature         | @tsir implementation                                                                                   | Evidence       | Status                                      |
+| ------------ | --------------------- | ----------------------- | ------------------------------------------------------------------------------------------------------ | -------------- | ------------------------------------------- |
+| `PARITY-134` | DI container          | `Container`             | `Container` with tokens                                                                                | `container.ts` | `[x]`                                       |
+| `PARITY-135` | Constructor injection | auto-injection          | explicit constructor injection                                                                         | `container.ts` | `[x]`                                       |
+| `PARITY-136` | Bindings              | `bind`, `singleton`     | providers                                                                                              | `provider.ts`  | `[x]`                                       |
+| `PARITY-137` | Scopes                | —                       | request scope                                                                                          | `container.ts` | `[x]`                                       |
+| `PARITY-138` | Facades               | `Facade`                | — (deliberately no facades)                                                                            | —              | `[D]` deliberate: no global service locator |
+| `PARITY-139` | Contextual binding    | `when(...)->needs(...)` | Done: the container resolves a different implementation for one consumer without declaring a new token | —              | `[ ]`                                       |
+| `PARITY-140` | Auto-wiring           | auto resolution         | — (explicit)                                                                                           | —              | `[D]` deliberate                            |
 
 ### 6.18 `@tsir/http` — Laravel HTTP
 
 Counterpart: LAR-HTTP.
 
-| Id           | Feature              | Laravel feature           | @tsir implementation                                                     | Evidence                  | Status                |
-| ------------ | -------------------- | ------------------------- | ------------------------------------------------------------------------ | ------------------------- | --------------------- |
-| `PARITY-141` | Request object       | `Illuminate\Http\Request` | Web `Request`                                                            | `context.ts`              | `[x]`                 |
-| `PARITY-142` | Response helpers     | `response()`              | `ok`, `created`, `accepted`, `noContent`                                 | `http` package            | `[x]`                 |
-| `PARITY-143` | Problem details      | `abort(404)`              | RFC 9457 problems                                                        | `problems.ts`             | `[x]`                 |
-| `PARITY-144` | Middleware           | middleware                | pipeline                                                                 | `pipeline.ts`             | `[x]`                 |
-| `PARITY-145` | Request body parsing | `$request->all()`         | `body.ts`, multipart                                                     | `body.ts`, `multipart.ts` | `[x]`                 |
-| `PARITY-146` | File uploads         | `$request->file()`        | multipart handling                                                       | `multipart.ts`            | `[x]`                 |
-| `PARITY-147` | Cookies              | `Cookie` facade           | —                                                                        | —                         | `[ ]` — `HTP-023`     |
-| `PARITY-148` | Session middleware   | `StartSession`            | `@tsir/auth` session                                                     | —                         | `[x]` (cross-package) |
-| `PARITY-149` | CORS                 | CORS middleware           | CORS preflight handling                                                  | `http` tests              | `[x]`                 |
-| `PARITY-150` | Trust proxies        | `TrustProxies`            | unconditional `x-forwarded-for` read in `pipeline.ts` (not a trust list) | `pipeline.ts`             | `[ ]` — `HTP-024`     |
-| `PARITY-151` | Maintenance mode     | `CheckForMaintenanceMode` | —                                                                        | —                         | `[ ]`                 |
+| Id           | Feature              | Laravel feature           | @tsir implementation                                                                        | Evidence                  | Status                |
+| ------------ | -------------------- | ------------------------- | ------------------------------------------------------------------------------------------- | ------------------------- | --------------------- |
+| `PARITY-141` | Request object       | `Illuminate\Http\Request` | Web `Request`                                                                               | `context.ts`              | `[x]`                 |
+| `PARITY-142` | Response helpers     | `response()`              | `ok`, `created`, `accepted`, `noContent`                                                    | `http` package            | `[x]`                 |
+| `PARITY-143` | Problem details      | `abort(404)`              | RFC 9457 problems                                                                           | `problems.ts`             | `[x]`                 |
+| `PARITY-144` | Middleware           | middleware                | pipeline                                                                                    | `pipeline.ts`             | `[x]`                 |
+| `PARITY-145` | Request body parsing | `$request->all()`         | `body.ts`, multipart                                                                        | `body.ts`, `multipart.ts` | `[x]`                 |
+| `PARITY-146` | File uploads         | `$request->file()`        | multipart handling                                                                          | `multipart.ts`            | `[x]`                 |
+| `PARITY-147` | Cookies              | `Cookie` facade           | —                                                                                           | —                         | `[ ]` — `HTP-023`     |
+| `PARITY-148` | Session middleware   | `StartSession`            | `@tsir/auth` session                                                                        | —                         | `[x]` (cross-package) |
+| `PARITY-149` | CORS                 | CORS middleware           | CORS preflight handling                                                                     | `http` tests              | `[x]`                 |
+| `PARITY-150` | Trust proxies        | `TrustProxies`            | unconditional `x-forwarded-for` read in `pipeline.ts` (not a trust list)                    | `pipeline.ts`             | `[ ]` — `HTP-024`     |
+| `PARITY-151` | Maintenance mode     | `CheckForMaintenanceMode` | Done: a flag makes every route answer 503 with Retry-After while an allow-list still passes | —                         | `[ ]`                 |
 
 ### 6.19 `@tsir/router` — Laravel Routing
 
@@ -515,32 +515,32 @@ Counterpart: LPK-VAPOR. **Deliberately different: Workers + Lambda, not Vapor's 
 
 Counterpart: LPK-PENNANT.
 
-| Id           | Feature                  | Laravel feature                    | @tsir implementation              | Evidence     | Status |
-| ------------ | ------------------------ | ---------------------------------- | --------------------------------- | ------------ | ------ |
-| `PARITY-177` | Boolean flags            | `Feature::active('x')`             | boolean rules                     | `pennant.ts` | `[x]`  |
-| `PARITY-178` | Percentage rollout       | `Feature::for($user)->active('x')` | percentage via deterministic hash | `pennant.ts` | `[x]`  |
-| `PARITY-179` | User targeting           | scope                              | allowlist, conditional rules      | `pennant.ts` | `[x]`  |
-| `PARITY-180` | Multiple drivers         | database, array, redis             | memory, database stores           | `stores.ts`  | `[~]`  |
-| `PARITY-181` | Rich values              | `Feature::value('x')`              | —                                 | —            | `[ ]`  |
-| `PARITY-182` | Feature definition class | `Feature` class                    | rule functions                    | —            | `[x]`  |
-| `PARITY-183` | In-memory store          | `array`                            | `memoryStore`                     | `stores.ts`  | `[x]`  |
-| `PARITY-184` | Redis driver             | `redis`                            | —                                 | —            | `[ ]`  |
+| Id           | Feature                  | Laravel feature                    | @tsir implementation                                                                                                            | Evidence     | Status |
+| ------------ | ------------------------ | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- | ------------ | ------ |
+| `PARITY-177` | Boolean flags            | `Feature::active('x')`             | boolean rules                                                                                                                   | `pennant.ts` | `[x]`  |
+| `PARITY-178` | Percentage rollout       | `Feature::for($user)->active('x')` | percentage via deterministic hash                                                                                               | `pennant.ts` | `[x]`  |
+| `PARITY-179` | User targeting           | scope                              | allowlist, conditional rules                                                                                                    | `pennant.ts` | `[x]`  |
+| `PARITY-180` | Multiple drivers         | database, array, redis             | memory, database stores                                                                                                         | `stores.ts`  | `[~]`  |
+| `PARITY-181` | Rich values              | `Feature::value('x')`              | Done: a flag stores and returns a value beyond a boolean, with the type carried to the caller                                   | —            | `[ ]`  |
+| `PARITY-182` | Feature definition class | `Feature` class                    | rule functions                                                                                                                  | —            | `[x]`  |
+| `PARITY-183` | In-memory store          | `array`                            | `memoryStore`                                                                                                                   | `stores.ts`  | `[x]`  |
+| `PARITY-184` | Redis driver             | `redis`                            | Done: a flag store reads and writes through an app-supplied Redis client, and boot refuses the driver when the client is absent | —            | `[ ]`  |
 
 ### 6.23 `@tsir/billing` (← cashier) — Laravel Cashier
 
 Counterpart: LPK-CASHIER.
 
-| Id           | Feature              | Laravel feature     | @tsir implementation                                                      | Evidence                | Status |
-| ------------ | -------------------- | ------------------- | ------------------------------------------------------------------------- | ----------------------- | ------ |
-| `PARITY-185` | Customers            | `Billable` model    | `Customer` type, customer creation                                        | `stripe.ts`             | `[x]`  |
-| `PARITY-186` | Subscriptions        | `newSubscription`   | `createSubscription`, `cancelSubscription`, `getSubscription` (full REST) | `stripe.ts`, `types.ts` | `[x]`  |
-| `PARITY-187` | Invoices             | `invoice()`         | `listInvoices` (full REST)                                                | `stripe.ts`, `types.ts` | `[x]`  |
-| `PARITY-188` | Webhook verification | `WebhookController` | `constructWebhookEvent`, signature verification                           | `webhooks.ts`           | `[x]`  |
-| `PARITY-189` | Paddle support       | Cashier Paddle      | —                                                                         | —                       | `[ ]`  |
-| `PARITY-190` | Tax handling         | tax rates           | `createTaxRate`, `listTaxRates`                                           | `stripe.ts`, `types.ts` | `[x]`  |
-| `PARITY-191` | Coupons/promotions   | coupons             | `createCoupon`, `getCoupon`, `listCoupons`                                | `stripe.ts`, `types.ts` | `[x]`  |
-| `PARITY-192` | Payment methods      | `paymentMethods`    | `listPaymentMethods`, `attachPaymentMethod`, `detachPaymentMethod`        | `stripe.ts`, `types.ts` | `[x]`  |
-| `PARITY-193` | Checkout sessions    | `checkout`          | `createCheckoutSession`, `getCheckoutSession` (line items + inline price) | `stripe.ts`, `types.ts` | `[x]`  |
+| Id           | Feature              | Laravel feature     | @tsir implementation                                                                           | Evidence                | Status |
+| ------------ | -------------------- | ------------------- | ---------------------------------------------------------------------------------------------- | ----------------------- | ------ |
+| `PARITY-185` | Customers            | `Billable` model    | `Customer` type, customer creation                                                             | `stripe.ts`             | `[x]`  |
+| `PARITY-186` | Subscriptions        | `newSubscription`   | `createSubscription`, `cancelSubscription`, `getSubscription` (full REST)                      | `stripe.ts`, `types.ts` | `[x]`  |
+| `PARITY-187` | Invoices             | `invoice()`         | `listInvoices` (full REST)                                                                     | `stripe.ts`, `types.ts` | `[x]`  |
+| `PARITY-188` | Webhook verification | `WebhookController` | `constructWebhookEvent`, signature verification                                                | `webhooks.ts`           | `[x]`  |
+| `PARITY-189` | Paddle support       | Cashier Paddle      | Done: a second payment provider implements the cashier port and its webhook signature verifies | —                       | `[ ]`  |
+| `PARITY-190` | Tax handling         | tax rates           | `createTaxRate`, `listTaxRates`                                                                | `stripe.ts`, `types.ts` | `[x]`  |
+| `PARITY-191` | Coupons/promotions   | coupons             | `createCoupon`, `getCoupon`, `listCoupons`                                                     | `stripe.ts`, `types.ts` | `[x]`  |
+| `PARITY-192` | Payment methods      | `paymentMethods`    | `listPaymentMethods`, `attachPaymentMethod`, `detachPaymentMethod`                             | `stripe.ts`, `types.ts` | `[x]`  |
+| `PARITY-193` | Checkout sessions    | `checkout`          | `createCheckoutSession`, `getCheckoutSession` (line items + inline price)                      | `stripe.ts`, `types.ts` | `[x]`  |
 
 ### 6.24 `@tsir/servers` (← forge) — Laravel Forge
 
@@ -561,16 +561,16 @@ Counterpart: LPK-FORGE.
 
 Counterpart: LPK-SOCIALITE.
 
-| Id           | Feature                   | Laravel feature         | @tsir implementation            | Evidence              | Status |
-| ------------ | ------------------------- | ----------------------- | ------------------------------- | --------------------- | ------ |
-| `PARITY-202` | OAuth2 provider interface | `Socialite` driver      | `socialize`, provider interface | `socialize.ts`        | `[x]`  |
-| `PARITY-203` | Google provider           | Google driver           | `googleProvider`                | `providers/google.ts` | `[x]`  |
-| `PARITY-204` | GitHub provider           | GitHub driver           | `githubProvider`                | `providers/github.ts` | `[x]`  |
-| `PARITY-205` | CSRF state                | state param             | `generateState`, `verifyState`  | `state.ts`            | `[x]`  |
-| `PARITY-206` | User retrieval            | `user()`                | provider `user()`               | `providers/`          | `[x]`  |
-| `PARITY-207` | Additional providers      | Facebook, Twitter, etc. | —                               | —                     | `[ ]`  |
-| `PARITY-208` | OAuth1 providers          | Twitter (OAuth1)        | —                               | —                     | `[ ]`  |
-| `PARITY-209` | Stateless auth            | `stateless()`           | —                               | —                     | `[ ]`  |
+| Id           | Feature                   | Laravel feature         | @tsir implementation                                                                                        | Evidence              | Status |
+| ------------ | ------------------------- | ----------------------- | ----------------------------------------------------------------------------------------------------------- | --------------------- | ------ |
+| `PARITY-202` | OAuth2 provider interface | `Socialite` driver      | `socialize`, provider interface                                                                             | `socialize.ts`        | `[x]`  |
+| `PARITY-203` | Google provider           | Google driver           | `googleProvider`                                                                                            | `providers/google.ts` | `[x]`  |
+| `PARITY-204` | GitHub provider           | GitHub driver           | `githubProvider`                                                                                            | `providers/github.ts` | `[x]`  |
+| `PARITY-205` | CSRF state                | state param             | `generateState`, `verifyState`                                                                              | `state.ts`            | `[x]`  |
+| `PARITY-206` | User retrieval            | `user()`                | provider `user()`                                                                                           | `providers/`          | `[x]`  |
+| `PARITY-207` | Additional providers      | Facebook, Twitter, etc. | Done: an OAuth provider other than Google and GitHub resolves through the same registry with its own scopes | —                     | `[ ]`  |
+| `PARITY-208` | OAuth1 providers          | Twitter (OAuth1)        | Done: an OAuth1 request-token to access-token exchange completes and is selectable by provider name         | —                     | `[ ]`  |
+| `PARITY-209` | Stateless auth            | `stateless()`           | Done: a stateless flow skips the session state check while still verifying the signed state parameter       | —                     | `[ ]`  |
 
 ### 6.26 `@tsir/search` (← scout) — Laravel Scout
 
@@ -612,30 +612,30 @@ Counterpart: LPK-DUSK. **Note: Laravel Nightwatch is an APM; our package maps to
 
 > **CRITICAL NAMING CLARIFICATION:** Our `@tsir/nightwatch` is a **browser end-to-end testing harness** (a `page.goto()`, `page.click()`, `page.fill()`), functionally equivalent to **Laravel Dusk**, **not** Laravel Nightwatch. Laravel Nightwatch is an **APM** (application performance monitoring) with a hosted dashboard for requests, queries, jobs, exceptions, etc. The APM functionality is split across `@tsir/pulse` (observability primitives), `@tsir/telemetry` (request + queue monitoring), and the admin app's Dashboard/Requests/Queues UIs. See § 6.30 for the APM feature comparison.
 
-| Id           | Feature             | Laravel feature    | @tsir implementation                                            | Evidence        | Status |
-| ------------ | ------------------- | ------------------ | --------------------------------------------------------------- | --------------- | ------ |
-| `PARITY-230` | Browser abstraction | `Dusk` test API    | `Page` interface: `goto`, `click`, `fill`, `text`, `screenshot` | `nightwatch.ts` | `[x]`  |
-| `PARITY-231` | In-memory backend   | —                  | `inMemoryBackend`                                               | `nightwatch.ts` | `[x]`  |
-| `PARITY-232` | Playwright backend  | `Dusk` uses Chrome | `playwrightBackend`                                             | `nightwatch.ts` | `[x]`  |
-| `PARITY-233` | Assertions          | `assertSee`, etc.  | — (no built-in assertions)                                      | —               | `[ ]`  |
-| `PARITY-234` | Page objects        | Page objects       | —                                                               | —               | `[ ]`  |
-| `PARITY-235` | Component helpers   | `@selector`        | —                                                               | —               | `[ ]`  |
+| Id           | Feature             | Laravel feature    | @tsir implementation                                                                | Evidence        | Status |
+| ------------ | ------------------- | ------------------ | ----------------------------------------------------------------------------------- | --------------- | ------ |
+| `PARITY-230` | Browser abstraction | `Dusk` test API    | `Page` interface: `goto`, `click`, `fill`, `text`, `screenshot`                     | `nightwatch.ts` | `[x]`  |
+| `PARITY-231` | In-memory backend   | —                  | `inMemoryBackend`                                                                   | `nightwatch.ts` | `[x]`  |
+| `PARITY-232` | Playwright backend  | `Dusk` uses Chrome | `playwrightBackend`                                                                 | `nightwatch.ts` | `[x]`  |
+| `PARITY-233` | Assertions          | `assertSee`, etc.  | — (no built-in assertions)                                                          | —               | `[ ]`  |
+| `PARITY-234` | Page objects        | Page objects       | Done: a page object wraps its selectors once and every test method reads through it | —               | `[ ]`  |
+| `PARITY-235` | Component helpers   | `@selector`        | Done: a test asserts a component state through a helper rather than a raw selector  | —               | `[ ]`  |
 
 ### 6.29 `@tsir/telemetry` — Laravel Horizon + Telescope
 
 Counterpart: LPK-HORIZON, LPK-TELESCOPE.
 
-| Id           | Feature                     | Laravel feature   | @tsir implementation                                         | Evidence            | Status |
-| ------------ | --------------------------- | ----------------- | ------------------------------------------------------------ | ------------------- | ------ |
-| `PARITY-236` | Queue monitoring (Horizon)  | Horizon dashboard | `createQueueMonitor`, job counts/list/detail/retry           | `queue-monitor.ts`  | `[x]`  |
-| `PARITY-237` | Request logging (Telescope) | Telescope         | `createRequestLogger`, method/path/status/duration/principal | `request-logger.ts` | `[x]`  |
-| `PARITY-238` | Request log storage         | Telescope DB      | `requestLogs` table                                          | `request-logger.ts` | `[x]`  |
-| `PARITY-239` | Queue job storage           | Horizon metrics   | `queueJobs`, `queueDead` tables                              | `queue-monitor.ts`  | `[x]`  |
-| `PARITY-240` | Job retry from UI           | Horizon retry     | retry from `queue-monitor`                                   | `queue-monitor.ts`  | `[x]`  |
-| `PARITY-241` | Failed job detail           | Telescope         | —                                                            | —                   | `[ ]`  |
-| `PARITY-242` | Exception tracking          | Telescope         | —                                                            | —                   | `[ ]`  |
-| `PARITY-243` | Cache/DB query tracking     | Telescope         | —                                                            | —                   | `[ ]`  |
-| `PARITY-244` | Mail/notification tracking  | Telescope         | —                                                            | —                   | `[ ]`  |
+| Id           | Feature                     | Laravel feature   | @tsir implementation                                                                             | Evidence            | Status |
+| ------------ | --------------------------- | ----------------- | ------------------------------------------------------------------------------------------------ | ------------------- | ------ |
+| `PARITY-236` | Queue monitoring (Horizon)  | Horizon dashboard | `createQueueMonitor`, job counts/list/detail/retry                                               | `queue-monitor.ts`  | `[x]`  |
+| `PARITY-237` | Request logging (Telescope) | Telescope         | `createRequestLogger`, method/path/status/duration/principal                                     | `request-logger.ts` | `[x]`  |
+| `PARITY-238` | Request log storage         | Telescope DB      | `requestLogs` table                                                                              | `request-logger.ts` | `[x]`  |
+| `PARITY-239` | Queue job storage           | Horizon metrics   | `queueJobs`, `queueDead` tables                                                                  | `queue-monitor.ts`  | `[x]`  |
+| `PARITY-240` | Job retry from UI           | Horizon retry     | retry from `queue-monitor`                                                                       | `queue-monitor.ts`  | `[x]`  |
+| `PARITY-241` | Failed job detail           | Telescope         | Done: a failed job row carries its exception, payload and attempt count into a detail view       | —                   | `[ ]`  |
+| `PARITY-242` | Exception tracking          | Telescope         | Done: a thrown exception is recorded with a grouping key, and the count per group is queryable   | —                   | `[ ]`  |
+| `PARITY-243` | Cache/DB query tracking     | Telescope         | Done: a request cache and query events are recorded against it and appear in the timeline        | —                   | `[ ]`  |
+| `PARITY-244` | Mail/notification tracking  | Telescope         | Done: a sent mail and a delivered notification are recorded against the request that caused them | —                   | `[ ]`  |
 
 ### 6.30 APM / Monitoring — Laravel Nightwatch (APM) vs `@tsir/pulse` + `@tsir/telemetry` + Admin UI
 
@@ -643,31 +643,31 @@ Counterpart: LPK-NIGHTWATCH (Laravel Nightwatch APM). Our APM functionality is *
 
 > **Key architectural difference:** Laravel Nightwatch is a **hosted SaaS** with a managed agent (`php artisan nightwatch:agent`) collecting data to a centralized dashboard. Our stack is **self-hosted**: data is stored locally (Postgres/SQLite) and surfaced through the admin app. There is no centralized SaaS dashboard or agent process.
 
-| Id           | Nightwatch APM feature    | @tsir implementation                                                                             | Evidence                           | Status                                                        |
-| ------------ | ------------------------- | ------------------------------------------------------------------------------------------------ | ---------------------------------- | ------------------------------------------------------------- |
-| `PARITY-245` | HTTP request tracing      | `createRequestLogger` records method/path/status/duration/principal/ip/ua to `requestLogs` table | `telemetry/request-logger.ts`      | `[~]` partial — no per-query breakdown or timeline            |
-| `PARITY-246` | Request timeline          | — (each event linked to its parent request with timings)                                         | —                                  | `[ ]`                                                         |
-| `PARITY-247` | Outgoing HTTP requests    | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-248` | SQL query monitoring      | — (no query timing capture)                                                                      | —                                  | `[ ]`                                                         |
-| `PARITY-249` | Slow query detection      | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-250` | Queue job monitoring      | `createQueueMonitor`: counts/list/get/retry across `queueJobs` + `queueDead`                     | `telemetry/queue-monitor.ts`       | `[x]`                                                         |
-| `PARITY-251` | Scheduled task monitoring | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-252` | Command/Artisan tracking  | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-253` | Mail monitoring           | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-254` | Notification monitoring   | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-255` | Cache hit/miss tracking   | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-256` | Exception tracking        | — (no capture, no grouping into issues)                                                          | —                                  | `[ ]`                                                         |
-| `PARITY-257` | Logs (searchable)         | `createLogger` with structured records + sinks; no search UI                                     | `pulse/logger.ts`                  | `[~]` partial — logs exist, no search UI                      |
-| `PARITY-258` | Metrics                   | `createMetrics`: counter/histogram/gauge with cardinality guard                                  | `pulse/metrics.ts`                 | `[x]`                                                         |
-| `PARITY-259` | Metrics visualization     | Admin Dashboard page renders metric cards from `/system/metrics`                                 | `admin/.../pages/Dashboard.svelte` | `[~]` partial — raw number cards, no charts/graphs            |
-| `PARITY-260` | Tracing (distributed)     | `createTracer`: W3C `traceparent`, spans, samplers                                               | `pulse/tracing.ts`                 | `[x]`                                                         |
-| `PARITY-261` | Health checks             | `createHealth`: liveness/readiness with critical/degraded states                                 | `pulse/health.ts`                  | `[x]`                                                         |
-| `PARITY-262` | Alerts / notifications    | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-263` | Hosted dashboard          | Admin app Dashboard, Requests, Queues pages (self-hosted)                                        | `admin/client/src/pages/`          | `[~]` partial — basic list UIs, no Nightwatch-level dashboard |
-| `PARITY-264` | Agent process             | — (no separate agent; instrumentation is in-process)                                             | —                                  | `[D]` deliberate: in-process instrumentation, no agent        |
-| `PARITY-265` | Multi-region data         | — (local storage only)                                                                           | —                                  | `[ ]`                                                         |
-| `PARITY-266` | Per-user impact           | —                                                                                                | —                                  | `[ ]`                                                         |
-| `PARITY-267` | Team collaboration        | — (single-user admin)                                                                            | —                                  | `[ ]`                                                         |
+| Id           | Nightwatch APM feature    | @tsir implementation                                                                                  | Evidence                           | Status                                                        |
+| ------------ | ------------------------- | ----------------------------------------------------------------------------------------------------- | ---------------------------------- | ------------------------------------------------------------- |
+| `PARITY-245` | HTTP request tracing      | `createRequestLogger` records method/path/status/duration/principal/ip/ua to `requestLogs` table      | `telemetry/request-logger.ts`      | `[~]` partial — no per-query breakdown or timeline            |
+| `PARITY-246` | Request timeline          | — (each event linked to its parent request with timings)                                              | —                                  | `[ ]`                                                         |
+| `PARITY-247` | Outgoing HTTP requests    | Done: a link client call is recorded against the request with method, host, status and duration       | —                                  | `[ ]`                                                         |
+| `PARITY-248` | SQL query monitoring      | — (no query timing capture)                                                                           | —                                  | `[ ]`                                                         |
+| `PARITY-249` | Slow query detection      | Done: a query over slowQueryMs is recorded as a slow-query event with the scrubbed SQL                | —                                  | `[ ]`                                                         |
+| `PARITY-250` | Queue job monitoring      | `createQueueMonitor`: counts/list/get/retry across `queueJobs` + `queueDead`                          | `telemetry/queue-monitor.ts`       | `[x]`                                                         |
+| `PARITY-251` | Scheduled task monitoring | Done: a scheduled run is recorded with its next-run time, outcome and duration                        | —                                  | `[ ]`                                                         |
+| `PARITY-252` | Command/Artisan tracking  | Done: a console command run is recorded with redacted arguments and its exit code                     | —                                  | `[ ]`                                                         |
+| `PARITY-253` | Mail monitoring           | Done: sent mail is recorded with recipient, subject and delivery outcome, addresses redacted          | —                                  | `[ ]`                                                         |
+| `PARITY-254` | Notification monitoring   | Done: a notification delivery is recorded with its channel and outcome                                | —                                  | `[ ]`                                                         |
+| `PARITY-255` | Cache hit/miss tracking   | Done: cache reads increment hit and miss counters per store and key prefix                            | —                                  | `[ ]`                                                         |
+| `PARITY-256` | Exception tracking        | — (no capture, no grouping into issues)                                                               | —                                  | `[ ]`                                                         |
+| `PARITY-257` | Logs (searchable)         | `createLogger` with structured records + sinks; no search UI                                          | `pulse/logger.ts`                  | `[~]` partial — logs exist, no search UI                      |
+| `PARITY-258` | Metrics                   | `createMetrics`: counter/histogram/gauge with cardinality guard                                       | `pulse/metrics.ts`                 | `[x]`                                                         |
+| `PARITY-259` | Metrics visualization     | Admin Dashboard page renders metric cards from `/system/metrics`                                      | `admin/.../pages/Dashboard.svelte` | `[~]` partial — raw number cards, no charts/graphs            |
+| `PARITY-260` | Tracing (distributed)     | `createTracer`: W3C `traceparent`, spans, samplers                                                    | `pulse/tracing.ts`                 | `[x]`                                                         |
+| `PARITY-261` | Health checks             | `createHealth`: liveness/readiness with critical/degraded states                                      | `pulse/health.ts`                  | `[x]`                                                         |
+| `PARITY-262` | Alerts / notifications    | Done: a threshold breach emits an alert through a declared channel and repeated breaches de-duplicate | —                                  | `[ ]`                                                         |
+| `PARITY-263` | Hosted dashboard          | Admin app Dashboard, Requests, Queues pages (self-hosted)                                             | `admin/client/src/pages/`          | `[~]` partial — basic list UIs, no Nightwatch-level dashboard |
+| `PARITY-264` | Agent process             | — (no separate agent; instrumentation is in-process)                                                  | —                                  | `[D]` deliberate: in-process instrumentation, no agent        |
+| `PARITY-265` | Multi-region data         | — (local storage only)                                                                                | —                                  | `[ ]`                                                         |
+| `PARITY-266` | Per-user impact           | Done: a slow or failing request is attributed to the authenticated principal                          | —                                  | `[ ]`                                                         |
+| `PARITY-267` | Team collaboration        | — (single-user admin)                                                                                 | —                                  | `[ ]`                                                         |
 
 **APM coverage summary:** Of 21 Nightwatch APM features, 4 are verified (`[x]`), 4 are partial (`[~]`), 12 are not implemented (`[ ]`), and 1 is deliberately different (`[D]`). The biggest gaps are **exception tracking**, **SQL query monitoring**, **request timelines**, **alerts**, and **a rich dashboard with visualizations**.
 

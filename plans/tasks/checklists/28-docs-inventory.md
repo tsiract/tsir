@@ -5,20 +5,19 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**14/19 (74%)** — 14 done, 0 partial, 5 open, 0 blocked.
+**15/19 (79%)** — 15 done, 0 partial, 4 open, 0 blocked.
 
 Documentation this ledger added: [`docs/28-docs-inventory.md`](../docs/28-docs-inventory.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (5)
+## Open (4)
 
 - [ ] `DOCS-010` A guide for the data layer, written after `DX-004`/`DX-006` — `28-docs-inventory.md:91`
 - [ ] `DOCS-011` Docs-in-PR catches renamed config, commands and error codes — `28-docs-inventory.md:92`
 - [ ] `DOCS-012` A guide for capability resolution, written after `DX-012` — `28-docs-inventory.md:93`
-- [ ] `DOCS-016` An acceptance note in every open task — `28-docs-inventory.md:102`
 - [ ] `DOCS-017` Read the frontpage as a stranger and as an agent — `28-docs-inventory.md:103`
 
-## Done (14)
+## Done (15)
 
 - [x] `DOCS-001` Prose for `@tsir/broadcast` (34 exports) — `28-docs-inventory.md:77`
 - [x] `DOCS-002` Prose for `@tsir/media` (28 exports, 8 codes) — `28-docs-inventory.md:78`
@@ -32,5 +31,6 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [x] `DOCS-013` Give the parity ledger's 245 feature rows ids — `28-docs-inventory.md:99`
 - [x] `DOCS-014` Retire the `✅` notation in 28 rows — `28-docs-inventory.md:100`
 - [x] `DOCS-015` `plans/tasks/STATUS.md` is generated and gated — `28-docs-inventory.md:101`
+- [x] `DOCS-016` An acceptance note in every open task — `28-docs-inventory.md:102`
 - [x] `DOCS-018` A checklist per ledger, generated and gated — `28-docs-inventory.md:104`
 - [x] `DOCS-019` What documentation each task added, derived from the ledger — `28-docs-inventory.md:105`

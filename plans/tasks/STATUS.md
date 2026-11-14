@@ -8,11 +8,11 @@
 
 | State     | Count   | Meaning                             |
 | --------- | ------- | ----------------------------------- |
-| done      | 746     | acceptance met, evidence linked     |
+| done      | 747     | acceptance met, evidence linked     |
 | partial   | 22      | a branch or a half landed           |
-| open      | 165     | not started                         |
+| open      | 164     | not started                         |
 | blocked   | 0       | waiting on a named task or decision |
-| **total** | **933** | **746/933 (80%) done**              |
+| **total** | **933** | **747/933 (80%) done**              |
 
 ## By file
 
@@ -36,7 +36,7 @@
 | [`25-modularity.md`](./25-modularity.md)                             | 7    | 0       | 1    | 0       | 7/8 (88%)     |
 | [`26-laravel-decoupling.md`](./26-laravel-decoupling.md)             | 0    | 0       | 12   | 0       | 0/12 (0%)     |
 | [`27-feature-parity.md`](./27-feature-parity.md)                     | 176  | 11      | 62   | 0       | 176/249 (71%) |
-| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 14   | 0       | 5    | 0       | 14/19 (74%)   |
+| [`28-docs-inventory.md`](./28-docs-inventory.md)                     | 15   | 0       | 4    | 0       | 15/19 (79%)   |
 | [`auth.md`](./auth.md)                                               | 12   | 0       | 3    | 0       | 12/15 (80%)   |
 | [`billing.md`](./billing.md)                                         | 4    | 0       | 1    | 0       | 4/5 (80%)     |
 | [`browser.md`](./browser.md)                                         | 3    | 0       | 3    | 0       | 3/6 (50%)     |
@@ -70,7 +70,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `CTN-*`    | 14   | 14    |
 | `DB-*`     | 22   | 28    |
 | `DOC-*`    | 14   | 17    |
-| `DOCS-*`   | 14   | 19    |
+| `DOCS-*`   | 15   | 19    |
 | `DPL-*`    | 28   | 33    |
 | `DX-*`     | 0    | 20    |
 | `DXS-*`    | 15   | 15    |
@@ -103,7 +103,7 @@ The prefix is the contract: an id in code (`// TODO(VLT-012)`) says which ledger
 | `VLD-*`    | 10   | 10    |
 | `VLT-*`    | 26   | 29    |
 
-## Open work (187 tasks)
+## Open work (186 tasks)
 
 Every row is a task in a ledger file. A task not listed here is done or does not exist.
 
@@ -277,7 +277,6 @@ Every row is a task in a ledger file. A task not listed here is done or does not
 | `DOCS-010`   | open    | A guide for the data layer, written after `DX-004`/`DX-006`                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-011`   | open    | Docs-in-PR catches renamed config, commands and error codes                                | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-012`   | open    | A guide for capability resolution, written after `DX-012`                                  | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
-| `DOCS-016`   | open    | An acceptance note in every open task                                                      | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `DOCS-017`   | open    | Read the frontpage as a stranger and as an agent                                           | [`28-docs-inventory.md`](./28-docs-inventory.md)                     |
 | `AUTH-13`    | open    | SPA cookie auth (Sanctum) — `XSRF-TOKEN` + stateful cookie                                 | [`auth.md`](./auth.md)                                               |
 | `AUTH-14`    | open    | CSRF protection middleware                                                                 | [`auth.md`](./auth.md)                                               |
