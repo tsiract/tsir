@@ -43,5 +43,12 @@ export {
 export { createScoutBootstrap } from './bootstrap.ts';
 export type { ScoutBootstrap, ScoutBootstrapOptions } from './bootstrap.ts';
 
+export { searchableIndexer, SEARCH_INDEX_JOB, SEARCH_REMOVE_JOB } from './indexer.ts';
+export type {
+  IndexJobPayload,
+  RemoveJobPayload,
+  SearchIndexerOptions,
+  SearchJobDispatcher,
+} from './indexer.ts';
 export { conformanceCases } from './conformance.ts';
 export type { ConformanceCase, ConformanceOptions } from './conformance.ts';

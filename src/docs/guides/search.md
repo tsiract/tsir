@@ -135,6 +135,48 @@ at boot, and the error never echoes it — `HostedSearchError` names the provide
 **Algolia's app id comes from the hostname** and is validated: `https://<APP_ID>-dsn.algolia.net`.
 That is why a made-up host fails at construction rather than at the first write.
 
+## Keeping the index off the request path
+
+`index()` and `remove()` are network calls to a service nobody reads until a later search. Wrapping
+the engine in `searchableIndexer` turns those two into queue jobs, so the request returns once the
+job is accepted; `search()` is untouched, because it is the one call that is on the request path.
+
+```ts
+import { searchableIndexer } from '@tsir/scout';
+import { queues } from './queues.ts'; // any object with a `dispatch` method
+
+const indexed = searchableIndexer({ engine, queue: queues.connection() });
+await indexed.index({ id: 'post-1', fields: { title: 'Hello' } }); // queued, not written
+await indexed.search('hello'); // still immediate
+```
+
+The same object is a `SearchEngine`, so nothing that takes an engine needs to know. Register a handler
+for each job name in the worker — the handler is what closes the loop:
+
+```ts
+import { defineJob } from '@tsir/queue';
+import { SEARCH_INDEX_JOB, SEARCH_REMOVE_JOB, type IndexJobPayload } from '@tsir/scout';
+
+export const SearchIndexJob = defineJob<IndexJobPayload>({
+  name: SEARCH_INDEX_JOB,
+  handle: ({ payload }) => engine.index({ id: payload.id, fields: payload.fields }),
+});
+```
+
+`queue` is any object with a `dispatch` method — `@tsir/queue`'s `Queue` satisfies it, and `scout`
+cannot import it (`check-boundaries`), which is why the seam is structural. Pass `inline: true` when
+there is no worker, such as a one-off backfill.
+
+**A dispatch that is not accepted throws.** `accepted: false` means the message was de-duplicated or
+dropped; treating it as done is how an index silently stops receiving writes while every request
+still returns `200`. And there is no local fallback: a write that appears to succeed and is not
+indexed is a document that exists and cannot be found.
+
+Ordering is not guaranteed. Two jobs for one id may run in either order, which is why `index` and
+`remove` are idempotent and the last state wins rather than the last call — a re-index of a since
+deleted document brings it back. If that matters, give each document id one connection, or index from
+a single writer.
+
 ## Writing your own engine
 
 Run the conformance kit. It is case data rather than a test suite, so it works under whatever runner

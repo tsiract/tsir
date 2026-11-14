@@ -576,17 +576,18 @@ Counterpart: LPK-SOCIALITE.
 
 Counterpart: LPK-SCOUT.
 
-| Feature                 | Laravel feature      | @tsir implementation                      | Evidence     | Status           |
-| ----------------------- | -------------------- | ----------------------------------------- | ------------ | ---------------- |
-| Search engine interface | Scout engine         | engine interface                          | `scout.ts`   | `[x]`            |
-| SQLite FTS5             | —                    | `sqliteEngine`                            | `drivers.ts` | `[x]`            |
-| Postgres tsvector       | —                    | `postgresEngine`                          | `drivers.ts` | `[x]`            |
-| In-memory engine        | `collection`         | `memoryEngine` with tokenize + TF scoring | `scout.ts`   | `[x]`            |
-| Algolia driver          | Algolia              | —                                         | —            | `[ ]`            |
-| Meilisearch driver      | Meilisearch          | —                                         | —            | `[ ]`            |
-| Typesense driver        | Typesense            | —                                         | —            | `[ ]`            |
-| Searchable trait        | `Searchable`         | — (explicit indexing)                     | —            | `[D]` deliberate |
-| Queue sync              | `ShouldBeSearchable` | —                                         | —            | `[ ]`            |
+| Feature                 | Laravel feature      | @tsir implementation                        | Evidence         | Status           |
+| ----------------------- | -------------------- | ------------------------------------------- | ---------------- | ---------------- |
+| Search engine interface | Scout engine         | engine interface                            | `scout.ts`       | `[x]`            |
+| SQLite FTS5             | —                    | `sqliteEngine`                              | `drivers.ts`     | `[x]`            |
+| Postgres tsvector       | —                    | `postgresEngine`                            | `drivers.ts`     | `[x]`            |
+| In-memory engine        | `collection`         | `memoryEngine` with tokenize + TF scoring   | `scout.ts`       | `[x]`            |
+| Algolia driver          | Algolia              | `hostedSearch({ provider: 'algolia' })`     | `hosted.ts`      | `[x]`            |
+| Meilisearch driver      | Meilisearch          | `hostedSearch({ provider: 'meilisearch' })` | `hosted.ts`      | `[x]`            |
+| Typesense driver        | Typesense            | `hostedSearch({ provider: 'typesense' })`   | `hosted.ts`      | `[x]`            |
+| Engine conformance kit  | —                    | `conformanceCases({ engine, prefix })`      | `conformance.ts` | `[x]`            |
+| Searchable trait        | `Searchable`         | — (explicit indexing)                       | —                | `[D]` deliberate |
+| Queue sync              | `ShouldBeSearchable` | `searchableIndexer({ engine, queue })`      | `indexer.ts`     | `[x]`            |
 
 ### 6.27 `@tsir/broadcast` — Laravel Broadcasting (Echo + Reverb)
 
@@ -734,27 +735,28 @@ The admin app (`src/apps/admin.product.com/client/src/pages/`) is the **only** u
 | billing             | Cashier           | 9              | 8        | 0       | 1         | 0       | 0          | 0                  |
 | servers             | Forge             | 8              | 7        | 0       | 1         | 0       | 0          | 0                  |
 | oauth               | Socialite         | 8              | 5        | 0       | 3         | 0       | 0          | 0                  |
-| search              | Scout             | 9              | 4        | 0       | 4         | 0       | 0          | 1                  |
+| search              | Scout             | 10             | 9        | 0       | 0         | 0       | 0          | 1                  |
 | broadcast           | Broadcasting      | 10             | 10       | 0       | 0         | 0       | 0          | 0                  |
 | browser             | Dusk              | 6              | 3        | 0       | 3         | 0       | 0          | 0                  |
 | telemetry           | Horizon+Telescope | 9              | 5        | 0       | 4         | 0       | 0          | 0                  |
-| **total (29 pkgs)** | —                 | 255            | 177      | 12      | 56        | 0       | 0          | 10                 |
+| **total (29 pkgs)** | —                 | 256            | 182      | 12      | 52        | 0       | 0          | 10                 |
 
 ### 7.2 Aggregate metrics
 
-Counted mechanically from the § 6 tables on 2026-11-08 (every row's last cell, package sections only —
+Counted mechanically from the § 6 tables on 2026-11-09 (every row's last cell, package sections only —
 the `@tsir/*` cross-cutting section is counted separately because it is not a package), so this block
-cannot drift from the rows again:
+cannot drift from the rows again. The count itself is mechanical; the **rows** are not, and three
+`@tsir/search` rows still said `[ ]` for engines that shipped — see the note below:
 
-- **Total identified features:** 255 (plus 22 cross-cutting rows in § 6.30/§ 6.31)
-- **Verified parity:** 177 (69.4% of 255)
+- **Total identified features:** 256 (plus 22 cross-cutting rows in § 6.30/§ 6.31)
+- **Verified parity:** 182 (71.1% of 256)
 - **Partial parity:** 12 (4.7%)
-- **Not implemented:** 56 (22.0%)
+- **Not implemented:** 52 (20.3%)
 - **Deliberately different:** 10 (3.9%)
 - **Not applicable:** 0 here; 2 in the cross-cutting section
 - **Blocked / Unverified:** 0 / 0
-- Excluding deliberately-different rows (not gaps): **72.2% verified**, **77.1%** including partial
-  — Gate P10's ≥ 80 % target is therefore **not yet met**, by about 8 points.
+- Excluding deliberately-different rows (not gaps): **74.0% verified**, **78.9%** including partial
+  — Gate P10's ≥ 80 % target is therefore **not yet met**, by about 5 points.
 
 > The earlier "162 / 241" block is superseded: it double-counted the `@tsir/*` cross-cutting rows and
 > pre-dated the schedule (7/8) and broadcast (10/10) closures. § 7.1 above is the same mechanical
@@ -771,6 +773,13 @@ cannot drift from the rows again:
 >
 > **2026-11-08 broadcast parity:** 5 `@tsir/broadcast` features closed (Redis broadcaster,
 > Pusher driver, presence channels, private channels, client events) — broadcast now 10/10 verified.
+>
+> **2026-11-09 search parity:** 5 `@tsir/search` rows corrected from `[ ]` — the three hosted
+> engines (`hostedSearch({ provider })` for Typesense, Meilisearch and Algolia, one fetch-only
+> driver shared by all three), the engine conformance kit (`SRCH-8`), and queue sync (`SRCH-7`),
+> which defers `index`/`remove` to a queue while `search` stays inline. Search is 9/10; the last row
+> is `Searchable`, deliberately different because indexing here is explicit. The rows had been stale
+> since the engines landed, and § 7.1's total is recounted from them.
 
 ### 7.3 Highest-priority implementation gaps
 
@@ -780,7 +789,7 @@ never just a number.
 | #   | Package                      | Verified | Gap                                                                                                         | Task(s)                                                                      |
 | --- | ---------------------------- | -------- | ----------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
 | 1   | `@tsir/pulse`                | 4/23     | The whole driver/instrumentation half: per-runtime log drivers and the HTTP/DB/queue/vault instrumentations | `OBS-014`, `OBS-020`, `OBS-024`, `OBS-026`–`OBS-028`                         |
-| 2   | `@tsir/search` (scout)       | 4/9      | Algolia / Meilisearch / Typesense engines, queue sync, engine conformance kit                               | `SRCH-4`–`SRCH-8`                                                            |
+| 2   | `@tsir/search` (scout)       | 9/10     | None — engines, conformance kit and queue sync all landed; the last row is deliberately different           | —                                                                            |
 | 3   | `@tsir/telemetry`            | 5/9      | Failed-job detail, exception tracking, cache/DB/mail event tracking                                         | `TEL-5`–`TEL-9`; blocked on `INF-010`                                        |
 | 4   | `@tsir/auth`                 | 6/11     | Sanctum SPA cookie auth, CSRF middleware, email verification                                                | `AUTH-13`–`AUTH-15`; needs `HTP-023`                                         |
 | 5   | `@tsir/router`               | 5/9      | Named routes + URL generation, `apiResource`, sub-domain routing                                            | `RTR-013`–`RTR-015`                                                          |
@@ -879,13 +888,21 @@ groups. Acceptance criteria reference the feature rows in § 6.
 ### `PARITY-003 — `@tsir/search` (scout): third-party engines
 
 - **Phase:** 10
-- **Status:** `[ ]`
-- **Depends on:** Phase 9 rename complete
-- **Features:** § 6.26 rows: Algolia, Meilisearch, Typesense, queue sync (in-memory engine now `[x]`)
+- **Status:** `[~]` (engines done; queue sync remaining)
+- **Depends on:** —
+- **Features:** § 6.26 rows: Algolia, Meilisearch, Typesense, queue sync
 - **Acceptance criteria:**
-  - [x] `memoryEngine` implements the engine interface — already implemented with tokenize + TF scoring.
-  - [ ] At least one third-party engine (Meilisearch) implemented against a test container.
-  - [ ] SQLite + Postgres engines continue to pass.
+  - [x] `memoryEngine` implements the engine interface — tokenize + term-frequency scoring.
+  - [x] All three hosted engines, sharing one fetch-only driver — `hostedSearch({ provider })` for
+        `typesense`, `meilisearch` and `algolia`, with per-provider auth headers, host defaults and
+        result-field mapping. No SDK: a provider is a host and a key.
+  - [x] SQLite + Postgres engines continue to pass.
+  - [x] Engine conformance kit — `conformanceCases({ engine, prefix })`, 11 cases, run against
+        `memory` in-repo; a third-party engine runs the same data under its own runner (`SRCH-8`).
+- **Evidence:** `src/framework/scout/src/hosted.ts` (`hosted.test.ts`), `conformance.ts`
+  (`conformance.test.ts`, 6 tests), `src/docs/guides/search.md`.
+- **Remaining:** `SRCH-7` queue sync — index and remove dispatched as queued jobs, so a write does
+  not wait for a remote index. The port makes it additive: it wraps an engine, it does not change one.
 
 ### `PARITY-004 — `@tsir/storage`: visibility, streaming, listing, copy/move
 
