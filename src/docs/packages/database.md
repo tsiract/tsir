@@ -18,6 +18,10 @@ The packages are not yet published to npm.
 
 `BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseBootstrap`, `DatabaseBootstrapOptions`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `HttpMysqlOptions`, `HttpMysqlResponse`, `HttpPostgresOptions`, `HttpPostgresResponse`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `SQLITE_CAPABILITIES`, `SqliteDriverOptions`, `SqliteLike`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDatabaseBootstrap`, `createDrizzle`, `createHttpMysqlDriver`, `createHttpPostgresDriver`, `createRotationStore`, `createSqliteBinding`, `createSqliteDriver`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `parsePostgresUrl`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
 
+**`@tsir/database/bun`**
+
+`SqliteOpeningOptions`, `openSqliteFiles`
+
 **`@tsir/database/postgres`**
 
 `DeployTargetName`, `HyperdriveLike`, `PgClientLike`, `PgQueryLike`, `PgResultLike`, `PoolInput`, `PoolOptions`, `PostgresDriverOptions`, `ResolvedPool`, `createPostgresDriver`, `hyperdriveConnection`, `postgresCapabilities`, `resolvePool`
@@ -92,9 +96,10 @@ console.log(result.rows);
   carries what the provider said, because that is the operable part — a missing table, a stale
   password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
   this" without parsing vendor prose.
-- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. The file is opened lazily, and a
-  connection that reached its first statement without one is a bootstrap that never ran — the error
-  names the path rather than failing with an unhandled `EBADF`.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. Nothing opens a file implicitly:
+  pass `openSqlite: openSqliteFiles` from `@tsir/database/bun` to `createDatabaseBootstrap`, or hand the
+  driver a handle yourself. A Worker that never does this is correct — it has no filesystem — and the
+  error names the connection rather than failing with an unhandled `EBADF`. See "Two entrypoints" below.
 - `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
   nested transactions and no savepoints in this driver; flatten the work into one transaction, or
   run the statements as a batch.

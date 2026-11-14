@@ -100,3 +100,58 @@ describe('createDatabaseBootstrap · deferred bindings', () => {
     expect(b.rows).toEqual([{ ok: 1 }]);
   });
 });
+
+/**
+ * The Bun-only file opener is an *argument*, and that is the whole point.
+ *
+ * A bootstrap that imported `openSqliteFiles` itself would put `bun:sqlite`, `node:fs` and
+ * `node:path` in every Workers bundle — not on a code path, in the module graph — and the Worker
+ * would fail to load. `deploy-bundle-targets.test.ts` proves the bundle side; these prove the
+ * option is honoured, so an app that passes it still gets its CLI fallback.
+ */
+describe('openSqlite is supplied by the caller (INF-002)', () => {
+  const sqliteConfig = {
+    default: 'primary',
+    connections: { primary: { driver: 'sqlite', url: 'file::memory:' } },
+  } as const;
+
+  test('a supplied opener runs, and what it opens becomes the binding', async () => {
+    const opened: unknown[] = [];
+    const bootstrap = createDatabaseBootstrap(sqliteConfig, {
+      migrationsDir: '/tmp/migrations',
+      sqlitePath: '/tmp/app.db',
+      openSqlite: async (options) => {
+        opened.push(options);
+        return { primary: fakeBinding() };
+      },
+    });
+    expect(opened).toEqual([]); // still lazy: nothing opened at construction
+
+    await bootstrap.db.query({ sql: 'select 1', params: [] });
+    await bootstrap.db.query({ sql: 'select 1', params: [] });
+    // Opened once, not per statement: the handle the opener returned is kept on the connection.
+    expect(opened).toHaveLength(1);
+    // The opener is told what to open — the parsed config, so it sees the defaults — rather than
+    // reading `config/database.ts` a second time and drifting from what was parsed.
+    const told = opened[0] as {
+      connections: Record<string, { driver: string; url?: string }>;
+      sqlitePath?: string;
+    };
+    expect(told.connections['primary']?.url).toBe('file::memory:');
+    expect(told.sqlitePath).toBe('/tmp/app.db');
+  });
+
+  test('no opener means no file is opened, and the driver says which connection it needs', async () => {
+    // This is the Workers configuration. The failure has to name the connection, because the
+    // alternative — an empty binding that fails later, somewhere else — is what makes a missing
+    // binding feel like a framework bug.
+    const bootstrap = createDatabaseBootstrap(sqliteConfig, { migrationsDir: '/tmp/migrations' });
+    const failure: unknown = await bootstrap.db
+      .query({ sql: 'select 1', params: [] })
+      .catch((error: unknown) => error);
+    // `format()` is the rendering that carries the code; `String(error)` is just the message, and
+    // asserting on it would pass for any error that happened to say the same words.
+    const error = failure as { format?: () => string };
+    expect(error.format?.()).toContain('DB_SQLITE_NO_HANDLE');
+  });
+});

@@ -139,15 +139,16 @@ function deferredSqliteDriver(connectionName: string, bindings: BindingsSource):
         return driver;
       }
       // No handle is an unanswered lookup, not an empty database: the driver cannot invent a
-      // file, and guessing a path would open one nobody named. `createDatabaseBootstrap` supplies
-      // the handle for a config that names a `url`; an application that builds the registry
-      // directly passes its own.
+      // file, and guessing a path would open one nobody named. Something has to open it, and on
+      // Bun that is `openSqliteFiles` from `@tsir/database/bun`, passed to
+      // `createDatabaseBootstrap` as `openSqlite` — it is not opened for you, because opening a
+      // file needs `bun:sqlite` and `node:fs`, and a Workers bundle cannot contain those.
       throw new TsirError(
         'DB_SQLITE_NO_HANDLE',
         `sqlite connection "${connectionName}" has no open file handle`,
         {
           kind: 'config',
-          hint: `pass bindings: { ${connectionName}: new Sqlite(path) } — createDatabaseBootstrap opens \`database.connections.${connectionName}.url\` for you`,
+          hint: `pass \`openSqlite: openSqliteFiles\` from \`@tsir/database/bun\`, or bindings: { ${connectionName}: new Sqlite(path) }`,
           context: { connection: connectionName },
         },
       );
@@ -261,7 +262,9 @@ function networkDriver(
     // A path, not a transport. The handle is resolved through `bindings` under the connection's
     // own name, deferred for the same reason D1's is: opening the file needs `bun:sqlite`, which
     // cannot be imported statically here without dragging a Bun builtin into every bundle that
-    // imports this module. `createDatabaseBootstrap` opens it when a `sqlitePath`/`url` is set.
+    // imports this module. Something outside must open it — `openSqliteFiles` from
+    // `@tsir/database/bun`, passed to `createDatabaseBootstrap` as `openSqlite`, or a handle the
+    // app opened itself.
     return deferredSqliteDriver(connectionName, bindings);
   }
 

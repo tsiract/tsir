@@ -473,6 +473,7 @@
     "resolvePool"
   ],
   "database:postgres/drizzle": ["createPgDrizzle"],
+  "database:bun": ["SqliteOpeningOptions", "openSqliteFiles"],
   "deploy": [
     "BindingKind",
     "BindingRef",

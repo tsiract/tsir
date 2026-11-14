@@ -17,6 +17,10 @@
     "./postgres/drizzle": {
       "types": "./src/postgres/drizzle.ts",
       "default": "./src/postgres/drizzle.ts"
+    },
+    "./bun": {
+      "types": "./src/bun.ts",
+      "default": "./src/bun.ts"
     }
   },
   "sideEffects": false,

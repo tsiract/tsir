@@ -13,8 +13,6 @@
  * work without a Cloudflare account.
  */
 
-import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { token, valueProvider, type Provider, type Token } from '@tsir/container';
 
 import { createConnectionsFromConfig } from './from-config.ts';
@@ -23,7 +21,6 @@ import { databaseConfigSchema } from './config.ts';
 import type { RuntimeBindings } from './from-config.ts';
 import type { Database } from './database.ts';
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
-import { createSqliteBinding } from './sqlite-binding.ts';
 
 /** Options for `createDatabaseBootstrap`. */
 export interface DatabaseBootstrapOptions {
@@ -35,7 +32,25 @@ export interface DatabaseBootstrapOptions {
    * throws on first query (correct for Cloudflare-only deployments).
    */
   readonly sqlitePath?: string;
+  /**
+   * Opens local SQLite files for the `sqlite` connections and `sqlitePath`.
+   *
+   * Pass `openSqliteFiles` from `@tsir/database/bun`. It is an argument rather than an import
+   * because opening a file needs `bun:sqlite`, `node:fs` and `node:path`, and a Workers bundle
+   * that merely *contains* those specifiers fails to load. An app that never runs the CLI omits
+   * this and its bundle stays clean (ADR-0022); the SQLite driver then answers
+   * `DB_SQLITE_NO_HANDLE` if it is asked to open a file nobody opened.
+   */
+  readonly openSqlite?: SqliteOpener | undefined;
 }
+
+/** The Bun-only file opener, `openSqliteFiles` from `@tsir/database/bun`. */
+export type SqliteOpener = (options: {
+  readonly connections: Readonly<
+    Record<string, { readonly driver: string; readonly url?: string | undefined }>
+  >;
+  readonly sqlitePath?: string | undefined;
+}) => Promise<RuntimeBindings>;
 
 /** Everything an app needs to wire its database layer. */
 export interface DatabaseBootstrap {
@@ -96,45 +111,18 @@ export function createDatabaseBootstrap(
     // 2. Test / CLI fixture binding.
     const globalBinding = (globalThis as { __binding?: unknown }).__binding;
     if (globalBinding !== undefined) return { DB: globalBinding };
-    // 3. Local SQLite fallback so CLI commands work without Cloudflare.
-    //
-    // `bun:sqlite` is imported here rather than at module scope on purpose. It is a **Bun**
-    // builtin, so a static import drags it into the module graph of every bundle that imports
-    // `@tsir/database` — including a Workers bundle, where `Bun.build` rejects it outright
-    // ("Browser build cannot import Bun builtin"). The fallback only ever runs in the CLI, so
-    // the import belongs here, where only the CLI reaches it. `sqlite-binding.ts` already
-    // takes its `bun:sqlite` import as a type for the same reason.
-    // A `sqlite` connection names its file in `url`, and opening it is the bootstrap's job: the
-    // registry resolves a handle through `bindings`, and this is the one place that may produce
-    // one — `bun:sqlite` is imported inside this function for the reason above, and a *static*
-    // import of it (or of a module that names it at the top level) breaks a Workers bundle even
-    // when the branch never runs (`deploy-bundle-targets.test.ts`).
-    for (const [name, entry] of Object.entries(config.connections)) {
-      if (entry.driver !== 'sqlite' || entry.url === undefined) continue;
-      try {
-        const file = entry.url.replace(/^file:/u, '');
-        if (file !== ':memory:') {
-          const dir = dirname(file);
-          if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-        }
-        const { Database: Sqlite } = await import('bun:sqlite');
-        return { ...runtimeBindings, [name]: new Sqlite(file) };
-      } catch {
-        // A runtime without `bun:sqlite` leaves this connection unresolved, and the driver answers
-        // `DB_SQLITE_NO_HANDLE` naming it on first use.
-      }
-    }
-
-    if (options.sqlitePath !== undefined) {
-      try {
-        const dbDir = dirname(options.sqlitePath);
-        if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
-        const { Database: Sqlite } = await import('bun:sqlite');
-        const sqlite = new Sqlite(options.sqlitePath);
-        return { DB: createSqliteBinding(sqlite) };
-      } catch {
-        return runtimeBindings;
-      }
+    // 3. Local SQLite fallback so CLI commands work without Cloudflare. The opener is supplied
+    // by `@tsir/database/bun`, because the alternative is a Workers bundle that names
+    // `bun:sqlite` and fails at load. Deferred imports would keep it out of the *runtime* path
+    // and still leave it in the bundle, which is the failure this indirection removes.
+    if (options.openSqlite !== undefined) {
+      Object.assign(
+        runtimeBindings,
+        await options.openSqlite({
+          connections: config.connections,
+          sqlitePath: options.sqlitePath,
+        }),
+      );
     }
     return runtimeBindings;
   };

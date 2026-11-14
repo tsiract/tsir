@@ -49,6 +49,25 @@ describe('a workerd bundle of @tsir/database', () => {
       const messages = result.logs.map((log) => log.message).join('\n');
       expect(messages).not.toContain('bun:sqlite');
       expect(result.success).toBe(true);
+
+      // `bun:sqlite` was only half the graph. `bootstrap.ts` also imported `node:fs` and `node:path`
+      // at module scope, which no browser-targeted build can resolve — the bundle succeeded and the
+      // Worker failed at load. Asserting the emitted text, not the build log, catches a specifier
+      // that a `conditions` list happened to keep external.
+      const emitted = await Promise.all(result.outputs.map((output) => output.text()));
+      const text = emitted.join('\n');
+      // A specifier in a comment is an explanation; a specifier in an import is a runtime
+      // requirement the Worker cannot satisfy. `String.raw` keeps the regex readable — inside an
+      // ordinary template literal `\\s` is an escaped backslash followed by `s`, which matches
+      // nothing, and the assertion passes for the wrong reason.
+      for (const specifier of ['bun:sqlite', 'node:fs', 'node:path']) {
+        const escaped = specifier.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+        const pattern = new RegExp(
+          String.raw`(?:from\s*["']${escaped}["']|import\(\s*["']${escaped}["']\s*\)|require\(\s*["']${escaped}["']\s*\))`,
+          'u',
+        );
+        expect({ specifier, imported: pattern.test(text) }).toEqual({ specifier, imported: false });
+      }
     } finally {
       await rm(dir, { recursive: true, force: true });
     }

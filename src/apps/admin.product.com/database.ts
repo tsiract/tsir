@@ -11,6 +11,7 @@
  * fall back to a local SQLite file when no Cloudflare binding is available.
  */
 import { createDatabaseBootstrap } from '@tsir/database';
+import { openSqliteFiles } from '@tsir/database/bun';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -29,6 +30,7 @@ export const {
 } = createDatabaseBootstrap(rawDatabaseConfig, {
   migrationsDir: join(import.meta.dir, 'migrations'),
   sqlitePath: join(import.meta.dir, '..', '..', '..', '.tsir', 'admin.db'),
+  openSqlite: openSqliteFiles,
 });
 
 /** Type of the drizzle instance, for service constructor signatures. */

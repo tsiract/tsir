@@ -29,9 +29,10 @@ console.log(result.rows);
   carries what the provider said, because that is the operable part — a missing table, a stale
   password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
   this" without parsing vendor prose.
-- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. The file is opened lazily, and a
-  connection that reached its first statement without one is a bootstrap that never ran — the error
-  names the path rather than failing with an unhandled `EBADF`.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. Nothing opens a file implicitly:
+  pass `openSqlite: openSqliteFiles` from `@tsir/database/bun` to `createDatabaseBootstrap`, or hand the
+  driver a handle yourself. A Worker that never does this is correct — it has no filesystem — and the
+  error names the connection rather than failing with an unhandled `EBADF`. See "Two entrypoints" below.
 - `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
   nested transactions and no savepoints in this driver; flatten the work into one transaction, or
   run the statements as a batch.
@@ -88,3 +89,32 @@ Queries use bound parameters, and the names of tables and columns are checked as
 data never becomes SQL text. Logged SQL is scrubbed of parameter values before it is written. Keep
 connection strings and bindings in the platform's secret store, and pass them to the driver rather than
 writing them into code.
+
+## Two entrypoints
+
+`@tsir/database` is what a Worker imports. `@tsir/database/bun` is what a CLI or a local dev script
+imports, and it is the only one that may name `bun:sqlite`, `node:fs` or `node:path`.
+
+```ts
+// database.ts — a Workers app that also runs `tsir migrate` locally
+import { createDatabaseBootstrap } from '@tsir/database';
+import { openSqliteFiles } from '@tsir/database/bun';
+import config from './config/database.ts';
+import { join } from 'node:path';
+
+export const { db, drizzle } = createDatabaseBootstrap(config, {
+  migrationsDir: join(import.meta.dir, 'migrations'),
+  sqlitePath: join(import.meta.dir, '..', '.tsir', 'app.db'),
+  openSqlite: openSqliteFiles,
+});
+```
+
+The split is not tidiness. Those three specifiers cannot be bundled for a Worker at all: a bundle
+that contains one fails when the module graph is evaluated, not when the fallback branch runs, so an
+`await import()` inside the function does not help. `deploy-bundle-targets.test.ts` builds the root
+entrypoint for a browser target and asserts none of the three appear in the emitted code. Omitting
+`openSqlite` is the Workers-only configuration and costs nothing.
+
+This is the subpath-scope decision applied to a runtime rather than a package: an optional
+dependency may live behind one entrypoint, and a bundle proof keeps the scope honest. `@tsir/link`
+does the same for gRPC and its XML parser.
