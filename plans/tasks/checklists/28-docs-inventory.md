@@ -5,19 +5,18 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**18/22 (82%)** — 18 done, 0 partial, 4 open, 0 blocked.
+**19/22 (86%)** — 19 done, 0 partial, 3 open, 0 blocked.
 
 Documentation this ledger added: [`docs/28-docs-inventory.md`](../docs/28-docs-inventory.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (4)
+## Open (3)
 
 - [ ] `DOCS-010` A guide for the data layer, written after `DX-004`/`DX-006` — `28-docs-inventory.md:91`
 - [ ] `DOCS-012` A guide for capability resolution, written after `DX-012` — `28-docs-inventory.md:93`
-- [ ] `DOCS-020` The install step needs a command that exists — `28-docs-inventory.md:106`
 - [ ] `DOCS-022` The package count cannot drift — `28-docs-inventory.md:108`
 
-## Done (18)
+## Done (19)
 
 - [x] `DOCS-001` Prose for `@tsir/broadcast` (34 exports) — `28-docs-inventory.md:77`
 - [x] `DOCS-002` Prose for `@tsir/media` (28 exports, 8 codes) — `28-docs-inventory.md:78`
@@ -36,4 +35,5 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [x] `DOCS-017` Read the frontpage as a stranger and as an agent — `28-docs-inventory.md:103`
 - [x] `DOCS-018` A checklist per ledger, generated and gated — `28-docs-inventory.md:104`
 - [x] `DOCS-019` What documentation each task added, derived from the ledger — `28-docs-inventory.md:105`
+- [x] `DOCS-020` The install step needs a command that exists — `28-docs-inventory.md:106`
 - [x] `DOCS-021` The three code samples are gated — `28-docs-inventory.md:107`

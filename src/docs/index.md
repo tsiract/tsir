@@ -15,7 +15,7 @@ Three commands get you a running app. This is the whole fast path:
 
 ```sh
 tsir new hello          # create a project (outside the distribution directory)
-cd hello
+cd apps/hello           # `tsir new` scaffolds into apps/<name>/
 bun install --ignore-scripts
 tsir dev                # http://127.0.0.1:3000 → {"message":"Welcome to hello app!"}
 ```

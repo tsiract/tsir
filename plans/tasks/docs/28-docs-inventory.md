@@ -4,7 +4,7 @@
 > Every document a task in this ledger cites, and every done task that cites none — read from
 > the acceptance notes, not from a list somebody keeps by hand.
 
-**20 document(s) cited by 14 task(s).**
+**22 document(s) cited by 14 task(s).**
 
 ## Documents
 
@@ -18,8 +18,10 @@
 | `plans/tasks/01-foundation.md` | `DOCS-014` |
 | `plans/tasks/21-frontpage.md` | `DOCS-014` |
 | `plans/tasks/STATUS.md` | `DOCS-015` |
+| `README.md` | `DOCS-020` |
 | `src/docs/guides/make.md` | `DOCS-009` |
 | `src/docs/guides/providers.md` | `DOCS-009` |
+| `src/docs/index.md` | `DOCS-020` |
 | `src/docs/installation.md` | `DOCS-020` |
 | `src/docs/packages/index.md` | `DOCS-010` |
 | `src/docs/packages/prose/broadcast.md` | `DOCS-001` |
