@@ -60,22 +60,48 @@ export type SqliteOpener = (options: {
   readonly sqlitePath?: string | undefined;
 }) => Promise<RuntimeBindings>;
 
+/** What `dbFor` returns: the same Drizzle surface as `db`, for a named connection. */
+export type DrizzleFor = SqliteRemoteDatabase<Record<string, unknown>>;
+
 /** Everything an app needs to wire its database layer. */
-export interface DatabaseBootstrap {
+export interface DatabaseBootstrap<Names extends string = string> {
   /** Connections registry — exported for CLI commands (`tsir migrate`, &c.). */
   readonly databases: ReturnType<typeof createConnectionsFromConfig>;
-  /** The default connection's `Database` — services query against this. */
-  readonly db: Database;
-  /** Drizzle bound to the default connection. */
-  readonly drizzle: SqliteRemoteDatabase<Record<string, unknown>>;
-  /** DI token for `db`. */
+  /**
+   * Drizzle bound to the default connection — this is what a service queries with (ADR-0032 § 1).
+   *
+   * It is Drizzle itself, not a wrapper: every method, every extension and every `sql` template
+   * works unchanged. The only thing the framework resolved is *which* connection.
+   */
+  readonly db: DrizzleFor;
+  /**
+   * Drizzle for any other declared connection, typed against the config.
+   *
+   * `dbFor('analytics')` is checked at compile time against the names in `tsir.js`: a name that is
+   * not configured does not typecheck, so a typo cannot become a runtime lookup that returns
+   * `undefined` on the first request.
+   */
+  readonly dbFor: (name: Names) => DrizzleFor;
+  /** The default connection's `Database` — the escape hatch for raw statements. */
+  readonly connection: Database;
+  /** The raw `Database` for any declared connection, by name. */
+  readonly connectionFor: (name: Names) => Database;
+  /** Drizzle bound to the default connection. Same object as `db`; kept as the explicit name. */
+  readonly drizzle: DrizzleFor;
+  /**
+   * DI token for the raw default `Database`.
+   *
+   * Historical name: it has always resolved to the connection, not to Drizzle, and renaming it
+   * would break every module's provider list for no behavioural gain. `drizzleToken` is the one a
+   * new controller wants.
+   */
   readonly dbToken: Token<Database>;
-  /** DI token for `drizzle`. */
-  readonly drizzleToken: Token<SqliteRemoteDatabase<Record<string, unknown>>>;
-  /** Value provider for `db`. */
+  /** DI token for `drizzle` (= `db`). */
+  readonly drizzleToken: Token<DrizzleFor>;
+  /** Value provider for the raw default `Database`. */
   readonly dbProvider: Provider<Database>;
-  /** Value provider for `drizzle`. */
-  readonly drizzleProvider: Provider<SqliteRemoteDatabase<Record<string, unknown>>>;
+  /** Value provider for `drizzle` (= `db`). */
+  readonly drizzleProvider: Provider<DrizzleFor>;
   /**
    * Mutable bindings record. The handler copies `env` into it per request; the
    * deferred D1 driver reads from the accessor below on first query.
@@ -104,10 +130,10 @@ export interface DatabaseBootstrap {
  * export type DrizzleDb = typeof drizzle;
  * ```
  */
-export function createDatabaseBootstrap(
+export function createDatabaseBootstrap<Names extends string = string>(
   rawConfig: unknown,
   options: DatabaseBootstrapOptions,
-): DatabaseBootstrap {
+): DatabaseBootstrap<Names> {
   // Parse through the framework schema so defaults and validation run at import.
   const config = databaseConfigSchema.parse(rawConfig);
 
@@ -138,17 +164,39 @@ export function createDatabaseBootstrap(
   const databases = createConnectionsFromConfig(config, bindings, {
     ...(options.log === undefined ? {} : { log: options.log }),
   });
-  const db = databases.defaultDatabase;
-  const drizzle = createDrizzle(db);
+  const connection = databases.defaultDatabase;
+  const drizzle = createDrizzle(connection);
+
+  /**
+   * One Drizzle instance per connection, built on first use and memoised (`DX-002`).
+   *
+   * Memoised for the reason `INF-010` documents rather than for speed: two Drizzle instances over
+   * one driver are two sets of column identities, and a join across them produces duplicate table
+   * aliases — a query that is wrong, not merely slow. A caller that asks twice must get the same
+   * object, so the map is the identity.
+   */
+  const drizzles = new Map<string, DrizzleFor>([[databases.default, drizzle]]);
+  const drizzleFor = (name: string): DrizzleFor => {
+    const found = drizzles.get(name);
+    if (found !== undefined) return found;
+    // `connection(name)` throws `DB_UNKNOWN_CONNECTION` listing the declared names, which is the
+    // error a caller wants; building eagerly here would defeat the deferred-binding contract.
+    const built = createDrizzle(databases.connection(name as Names));
+    drizzles.set(name, built);
+    return built;
+  };
 
   const dbToken = token<Database>('db');
-  const drizzleToken = token<typeof drizzle>('drizzle');
-  const dbProvider = valueProvider(dbToken, db);
+  const drizzleToken = token<DrizzleFor>('drizzle');
+  const dbProvider = valueProvider(dbToken, connection);
   const drizzleProvider = valueProvider(drizzleToken, drizzle);
 
   return {
     databases,
-    db,
+    db: drizzle,
+    dbFor: (name: Names) => drizzleFor(name),
+    connection,
+    connectionFor: (name: Names) => databases.connection(name),
     drizzle,
     dbToken,
     drizzleToken,

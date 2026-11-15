@@ -102,12 +102,24 @@ import { openSqliteFiles } from '@tsir/database/bun';
 import config from './config/database.ts';
 import { join } from 'node:path';
 
-export const { db, drizzle } = createDatabaseBootstrap(config, {
+export const { db, dbFor, connection, drizzle } = createDatabaseBootstrap(config, {
   migrationsDir: join(import.meta.dir, 'migrations'),
   sqlitePath: join(import.meta.dir, '..', '.tsir', 'app.db'),
   openSqlite: openSqliteFiles,
 });
 ```
+
+`db` **is Drizzle**, bound to the connection `database.default` names — not a wrapper, so every
+method, extension and `sql` template works unchanged. `dbFor('analytics')` is the same thing for any
+other declared connection, checked against the config at compile time: a name that is not configured
+does not typecheck, and the instance is memoised per connection so two calls return the same object
+(two Drizzle instances over one driver are two column identities, and a join across them emits
+duplicate aliases).
+
+The raw connection has not gone away, because `select 1` in a health check should not need a table:
+`connection` is the default `Database`, `connectionFor(name)` any other. `dbToken` still resolves to
+that raw handle, which is what every existing provider list expects; `drizzleToken` is what a new
+controller wants.
 
 The split is not tidiness. Those three specifiers cannot be bundled for a Worker at all: a bundle
 that contains one fails when the module graph is evaluated, not when the fallback branch runs, so an

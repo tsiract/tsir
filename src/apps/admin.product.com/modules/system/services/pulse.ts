@@ -11,7 +11,7 @@
  */
 import { createPulseBootstrap, memorySink, stdoutSink } from '@tsir/pulse';
 import { statement } from '@tsir/database';
-import { db } from '../../../database.ts';
+import { connection } from '../../../database.ts';
 
 export const {
   logger,
@@ -34,7 +34,9 @@ export const {
       {
         name: 'database',
         async run() {
-          await db.query(statement('select 1 as ok'));
+          // The health check wants the connection, not Drizzle: `select 1` is the whole
+          // statement and a Drizzle builder would add nothing but a table that does not exist.
+          await connection.query(statement('select 1 as ok'));
           return true;
         },
       },

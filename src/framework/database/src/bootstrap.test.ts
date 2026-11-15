@@ -55,7 +55,7 @@ describe('createDatabaseBootstrap · deferred bindings', () => {
 
     // No `env` has been copied in yet, so this is the boot state of a Worker: configured, but
     // with nothing to talk to. The failure has to name the fix, not just fail.
-    const failure = await bootstrap.db
+    const failure = await bootstrap.connection
       .query({ sql: 'select 1', params: [] })
       .then(() => undefined)
       .catch((error: unknown) => error as { code?: string; message?: string });
@@ -70,18 +70,18 @@ describe('createDatabaseBootstrap · deferred bindings', () => {
     const bootstrap = createDatabaseBootstrap(CONFIG, { migrationsDir: '/tmp/migrations' });
 
     // The first attempt fails, and must not poison the connection.
-    await bootstrap.db.query({ sql: 'select 1', params: [] }).catch(() => undefined);
+    await bootstrap.connection.query({ sql: 'select 1', params: [] }).catch(() => undefined);
 
     bootstrap.runtimeBindings.DB = fakeBinding();
 
-    const first = await bootstrap.db.query({ sql: 'select 1', params: [] });
-    const second = await bootstrap.db.query({ sql: 'select 1', params: [] });
+    const first = await bootstrap.connection.query({ sql: 'select 1', params: [] });
+    const second = await bootstrap.connection.query({ sql: 'select 1', params: [] });
 
     expect(first.rows).toEqual([{ ok: 1 }]);
     expect(second.rows).toEqual([{ ok: 1 }]);
     // `health` goes through the same resolved driver, so a third call proves it was reused
     // rather than rebuilt per statement.
-    expect((await bootstrap.db.health()).ok).toBe(true);
+    expect((await bootstrap.connection.health()).ok).toBe(true);
   });
 
   test('concurrent first queries share one resolution', async () => {
@@ -92,8 +92,8 @@ describe('createDatabaseBootstrap · deferred bindings', () => {
     // `createD1Driver` would run twice; that is invisible in the result, so it is asserted
     // through the outcome instead: neither call may reject.
     const [a, b] = await Promise.all([
-      bootstrap.db.query({ sql: 'select 1', params: [] }),
-      bootstrap.db.query({ sql: 'select 1', params: [] }),
+      bootstrap.connection.query({ sql: 'select 1', params: [] }),
+      bootstrap.connection.query({ sql: 'select 1', params: [] }),
     ]);
 
     expect(a.rows).toEqual([{ ok: 1 }]);
@@ -127,8 +127,8 @@ describe('openSqlite is supplied by the caller (INF-002)', () => {
     });
     expect(opened).toEqual([]); // still lazy: nothing opened at construction
 
-    await bootstrap.db.query({ sql: 'select 1', params: [] });
-    await bootstrap.db.query({ sql: 'select 1', params: [] });
+    await bootstrap.connection.query({ sql: 'select 1', params: [] });
+    await bootstrap.connection.query({ sql: 'select 1', params: [] });
     // Opened once, not per statement: the handle the opener returned is kept on the connection.
     expect(opened).toHaveLength(1);
     // The opener is told what to open — the parsed config, so it sees the defaults — rather than
@@ -146,7 +146,7 @@ describe('openSqlite is supplied by the caller (INF-002)', () => {
     // alternative — an empty binding that fails later, somewhere else — is what makes a missing
     // binding feel like a framework bug.
     const bootstrap = createDatabaseBootstrap(sqliteConfig, { migrationsDir: '/tmp/migrations' });
-    const failure: unknown = await bootstrap.db
+    const failure: unknown = await bootstrap.connection
       .query({ sql: 'select 1', params: [] })
       .catch((error: unknown) => error);
     // `format()` is the rendering that carries the code; `String(error)` is just the message, and

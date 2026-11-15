@@ -21,6 +21,9 @@ import rawDatabaseConfig from './config/database.ts';
 export const {
   databases,
   db,
+  dbFor,
+  connection,
+  connectionFor,
   drizzle,
   dbToken,
   drizzleToken,
