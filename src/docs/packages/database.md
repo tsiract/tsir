@@ -22,6 +22,18 @@ The packages are not yet published to npm.
 
 `SqliteOpeningOptions`, `openSqliteFiles`
 
+**`@tsir/database/config`**
+
+`ConnectionConfig`, `DATABASE_ENGINES`, `DatabaseConfig`, `DatabaseEngine`, `connectionConfigSchema`, `connectionNames`, `databaseConfigSchema`, `postgresOnlyKeys`
+
+**`@tsir/database/drizzle`**
+
+`createDrizzle`, `errorCode`, `rootCause`
+
+**`@tsir/database/from-config`**
+
+`BindingsSource`, `ConnectionsFromConfigOptions`, `RuntimeBindings`, `createConnectionsFromConfig`
+
 **`@tsir/database/postgres`**
 
 `DeployTargetName`, `HyperdriveLike`, `PgClientLike`, `PgQueryLike`, `PgResultLike`, `PoolInput`, `PoolOptions`, `PostgresDriverOptions`, `ResolvedPool`, `createPostgresDriver`, `hyperdriveConnection`, `postgresCapabilities`, `resolvePool`
@@ -29,6 +41,10 @@ The packages are not yet published to npm.
 **`@tsir/database/postgres/drizzle`**
 
 `createPgDrizzle`
+
+**`@tsir/database/redaction`**
+
+`SENSITIVE_COLUMNS`, `columnName`, `isSensitiveColumn`, `redactSql`
 
 ## Error codes
 

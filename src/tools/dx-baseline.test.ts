@@ -42,6 +42,29 @@ describe('dx-baseline counts the cost a call site pays', () => {
     expect(countSource("'reset-password': tpl as unknown as MailTemplate<never>,").casts).toBe(0);
   });
 
+  test('a factory call handing over an instance is not an injection site', () => {
+    // `createQueryMonitor({ drizzle, engine })` hands a monitor an instance the module already has.
+    // Counting it made this gate fail on the change that introduced the monitor.
+    const count = countSource(
+      "export const m = createQueryMonitor({ drizzle: drizzle, engine: 'd1' });",
+    );
+    expect(count.drizzleParams).toBe(0);
+  });
+
+  test('a plain function parameter is not a constructor injection either', () => {
+    // `createAdminQueueMonitor(drizzle: DrizzleDb)` is the same shape: a argument, not a dependency
+    // the container resolves. The modifier is what makes it a parameter property.
+    expect(countSource('export function make(drizzle: DrizzleDb) {}').drizzleParams).toBe(0);
+  });
+
+  test('a parameter property is, with or without `readonly`', () => {
+    expect(countSource('constructor(private drizzle: DrizzleDb) {}').drizzleParams).toBe(1);
+    expect(countSource('constructor(private readonly drizzle: DrizzleDb) {}').drizzleParams).toBe(
+      1,
+    );
+    expect(countSource('constructor(protected drizzle: DrizzleDb) {}').drizzleParams).toBe(1);
+  });
+
   test('prose that names Drizzle is not a call site', () => {
     // `packages.ts` describes @tsir/database in a card. Before this rule it counted as a file with
     // one Drizzle touch and zero queries, which is a number that means nothing.

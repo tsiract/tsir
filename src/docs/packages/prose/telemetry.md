@@ -62,3 +62,31 @@ came from.
 The queue monitor reads job payloads, which means it displays whatever the application put there. It
 does not redact them: a payload containing personal data is visible to anyone who can open the
 monitor, so put identifiers in job payloads rather than records.
+
+## Query monitoring
+
+`createQueryMonitor` turns the events `@tsir/database` already emits into rows you can read. Nothing
+constructs it for you: pass the same Drizzle instance the app uses, and hand `record` to the
+connection's sink.
+
+```ts
+import { createQueryMonitor } from '@tsir/telemetry';
+
+const queryMonitor = createQueryMonitor({ drizzle, engine: 'd1' });
+const databases = createConnectionsFromConfig(config, bindings, {
+  log: (e) => void queryMonitor.record(e),
+});
+```
+
+It keeps the last `bufferLimit` statements in memory — so a page works before the migration has run
+— and writes each one to `query_logs`. Three readers: `recent()`, `failures()` and `slowerThan(ms)`.
+
+Two rules are worth knowing before you wonder why a statement is missing. The monitor **does not
+record its own insert**: the insert goes through the same driver, which emits an event, which would
+record another row. The guard is the statement text, because a re-entrancy flag cannot be correct
+across an `await`. And a failure to write a row is counted in `dropped` rather than thrown: the
+statement already ran, and a monitor that can fail a request is a monitor that will be switched off.
+
+`level: 'slow'` (the default) keeps slow statements and **every** failure, because a fast failure is
+still a failure. That is also what `logging: 'off'` does now — it silences routine statements, not
+its own incident.

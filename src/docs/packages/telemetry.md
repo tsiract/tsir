@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/telemetry`**
 
-`JobCounts`, `JobState`, `PostgresConnection`, `QueueJobRow`, `QueueMonitor`, `QueueMonitorOptions`, `RequestLogDatabase`, `RequestLogEntry`, `RequestLoggerOptions`, `SqliteConnection`, `TelemetryBootstrap`, `TelemetryBootstrapOptions`, `TelemetryEngine`, `TelemetryTables`, `createQueueMonitor`, `createRequestLogger`, `createTelemetryBootstrap`, `telemetryTableDdl`, `telemetryTables`
+`JobCounts`, `JobState`, `PostgresConnection`, `QueryMonitor`, `QueryMonitorDatabase`, `QueryMonitorOptions`, `QueryRecord`, `QueueJobRow`, `QueueMonitor`, `QueueMonitorOptions`, `RequestLogDatabase`, `RequestLogEntry`, `RequestLoggerOptions`, `SqliteConnection`, `TelemetryBootstrap`, `TelemetryBootstrapOptions`, `TelemetryEngine`, `TelemetryTables`, `createQueryMonitor`, `createQueueMonitor`, `createRequestLogger`, `createTelemetryBootstrap`, `telemetryTableDdl`, `telemetryTables`
 
 ## Error codes
 

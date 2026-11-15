@@ -39,18 +39,40 @@ export interface TelemetryTables {
     ReturnType<typeof sqliteTables>['requestLogs'] | PostgresTables['requestLogs'];
   readonly queueJobs: ReturnType<typeof sqliteTables>['queueJobs'] | PostgresTables['queueJobs'];
   readonly queueDead: ReturnType<typeof sqliteTables>['queueDead'] | PostgresTables['queueDead'];
+  readonly queryLogs: ReturnType<typeof sqliteTables>['queryLogs'] | PostgresTables['queryLogs'];
 }
 
 function sqliteTables(suffix = ''): {
   requestLogs: ReturnType<typeof buildSqliteRequestLogs>;
   queueJobs: ReturnType<typeof buildSqliteQueueJobs>;
   queueDead: ReturnType<typeof buildSqliteQueueDead>;
+  queryLogs: ReturnType<typeof buildSqliteQueryLogs>;
 } {
   return {
     requestLogs: buildSqliteRequestLogs(`request_logs${suffix}`),
     queueJobs: buildSqliteQueueJobs(`queue_jobs${suffix}`),
     queueDead: buildSqliteQueueDead(`queue_dead${suffix}`),
+    queryLogs: buildSqliteQueryLogs(`query_logs${suffix}`),
   };
+}
+
+/**
+ * One row per statement the connection reported (`DX-014`).
+ *
+ * `sql` is redacted before it is written (`DX-016`); the column exists so a page can read a
+ * statement, and the writer is the only place a value could have reached it.
+ */
+function buildSqliteQueryLogs(name: string) {
+  return sqliteTable(name, {
+    id: sqliteText('id').primaryKey(),
+    connection: sqliteText('connection').notNull(),
+    sql: sqliteText('sql').notNull(),
+    durationMs: sqliteInteger('duration_ms').notNull(),
+    rows: sqliteInteger('rows').notNull(),
+    ok: sqliteInteger('ok').notNull(),
+    error: sqliteText('error'),
+    createdAt: sqliteInteger('created_at').notNull(),
+  });
 }
 
 type PostgresTables = ReturnType<typeof postgresTables>;
@@ -110,12 +132,27 @@ function postgresTables(): {
   requestLogs: ReturnType<typeof buildPostgresRequestLogs>;
   queueJobs: ReturnType<typeof buildPostgresQueueJobs>;
   queueDead: ReturnType<typeof buildPostgresQueueDead>;
+  queryLogs: ReturnType<typeof buildPostgresQueryLogs>;
 } {
   return {
     requestLogs: buildPostgresRequestLogs(),
     queueJobs: buildPostgresQueueJobs(),
     queueDead: buildPostgresQueueDead(),
+    queryLogs: buildPostgresQueryLogs(),
   };
+}
+
+function buildPostgresQueryLogs() {
+  return pgTable('query_logs', {
+    id: pgText('id').primaryKey(),
+    connection: pgText('connection').notNull(),
+    sql: pgText('sql').notNull(),
+    durationMs: bigint('duration_ms', { mode: 'number' }).notNull(),
+    rows: pgInteger('rows').notNull(),
+    ok: pgInteger('ok').notNull(),
+    error: pgText('error'),
+    createdAt: bigint('created_at', { mode: 'number' }).notNull(),
+  });
 }
 
 function buildPostgresRequestLogs() {
@@ -194,6 +231,9 @@ export function telemetryTableDdl(engine: TelemetryEngine): readonly string[] {
   // third dialect is worse than saying which two are supported.
   const big = engine === 'postgres' ? 'BIGINT' : 'INTEGER';
   return [
+    `CREATE TABLE IF NOT EXISTS query_logs (\n  id TEXT PRIMARY KEY,\n  connection TEXT NOT NULL,\n  sql TEXT NOT NULL,\n  duration_ms ${big} NOT NULL,\n  rows INTEGER NOT NULL,\n  ok INTEGER NOT NULL,\n  error TEXT,\n  created_at ${big} NOT NULL\n)`,
+    `CREATE INDEX IF NOT EXISTS query_logs_created ON query_logs (created_at)`,
+    `CREATE INDEX IF NOT EXISTS query_logs_duration ON query_logs (duration_ms)`,
     `CREATE TABLE IF NOT EXISTS request_logs (\n  id TEXT PRIMARY KEY,\n  method TEXT NOT NULL,\n  path TEXT NOT NULL,\n  status INTEGER NOT NULL,\n  duration_ms ${big} NOT NULL,\n  principal_subject TEXT,\n  ip TEXT,\n  user_agent TEXT,\n  created_at ${big} NOT NULL\n)`,
     `CREATE INDEX IF NOT EXISTS request_logs_created ON request_logs (created_at)`,
     // The queue's own tables, which the monitor only reads. They belong to `@tsir/queue`'s database

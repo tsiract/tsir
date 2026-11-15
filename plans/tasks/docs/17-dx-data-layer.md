@@ -12,3 +12,7 @@ Not failures: a task can be pure code. They are listed because a task marked don
 acceptance note names no page is the one place a claim of "documented" can hide.
 
 - `DX-000` Count the boilerplate, and make the count a gate
+- `DX-014` Query timings reach the admin app, not only a logger
+- `DX-015` Slow queries logged, with a threshold from config
+- `DX-016` Query redaction that knows what is sensitive, not just what is quoted
+- `DX-017` A query-monitor page in the admin app

@@ -43,5 +43,13 @@ export {
   type TelemetryTables,
 } from './tables.ts';
 
+export {
+  createQueryMonitor,
+  type QueryMonitor,
+  type QueryMonitorDatabase,
+  type QueryMonitorOptions,
+  type QueryRecord,
+} from './query-monitor.ts';
+
 export { createTelemetryBootstrap } from './bootstrap.ts';
 export type { TelemetryBootstrap, TelemetryBootstrapOptions } from './bootstrap.ts';

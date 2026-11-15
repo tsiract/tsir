@@ -1,12 +1,12 @@
 {
   "applications": {
     "src/apps/admin.product.com": {
-      "drizzleParams": 14,
+      "drizzleParams": 12,
       "tokenEntries": 19,
       "casts": 0,
       "querySites": 34,
       "tables": 26,
-      "files": 22
+      "files": 20
     },
     "src/apps/examples/full-actions-example.com": {
       "drizzleParams": 0,
@@ -42,11 +42,11 @@
     }
   },
   "totals": {
-    "drizzleParams": 14,
+    "drizzleParams": 12,
     "tokenEntries": 19,
     "casts": 0,
     "querySites": 34,
     "tables": 26,
-    "files": 22
+    "files": 20
   }
 }

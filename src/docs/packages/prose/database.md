@@ -118,3 +118,20 @@ entrypoint for a browser target and asserts none of the three appear in the emit
 This is the subpath-scope decision applied to a runtime rather than a package: an optional
 dependency may live behind one entrypoint, and a bundle proof keeps the scope honest. `@tsir/link`
 does the same for gRPC and its XML parser.
+
+## Redacting a statement
+
+`redactSql` turns a statement into something safe to store. `scrubSql` (in the logging path) removes
+quoted literals; `redactSql` additionally drops the value of any comparison whose **column** is
+sensitive — `email`, `password*`, `*_hash`, `secret*`, `token*`, `api_key`, `phone`, `ssn`, `card*`,
+`session*`, `authorization`, `cookie` and a handful more.
+
+```ts
+redactSql('update users set email = lower(?) where id = ?'); // 'update users set email = ? where id = ?'
+```
+
+The column is the signal because the value frequently is not: `phone = 5551234` has no quotes to
+scrub, and `email = lower(?)` is a function call whose result is still an address. Matching is on
+name segments, so `pinned` is not `pin`. What survives is deliberate: `id = 7` and `token is not null`
+are kept, because a log where every value is `?` is a log nobody reads, and a redactor that is turned
+off leaks everything.

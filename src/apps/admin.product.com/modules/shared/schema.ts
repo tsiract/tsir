@@ -245,7 +245,11 @@ const telemetry = telemetryTables('d1');
 export const requestLogs = telemetry.requestLogs;
 export const queueJobs = telemetry.queueJobs;
 export const queueDead = telemetry.queueDead;
+// One row per statement the connection reported (`DX-014`). The app does not write it: the sink
+// `createQueryMonitor` returns is what inserts, so a module cannot forget to log a query.
+export const queryLogs = telemetry.queryLogs;
 
 export type RequestLog = typeof requestLogs.$inferSelect;
 export type QueueJob = typeof queueJobs.$inferSelect;
 export type QueueDeadJob = typeof queueDead.$inferSelect;
+export type QueryLog = typeof queryLogs.$inferSelect;

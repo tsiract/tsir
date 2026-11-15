@@ -55,6 +55,14 @@ export interface QueryLogEvent {
   readonly durationMs: number;
   readonly rows: number;
   readonly ok: boolean;
+  /**
+   * Whether this statement crossed the connection's `slowQueryMs`.
+   *
+   * The driver emits an event for a *failure* at every level, so a consumer cannot infer "slow"
+   * from having received one. A monitor that stores "what was slow" needs the fact, not the
+   * threshold repeated — the threshold lives in config and can change between two connections.
+   */
+  readonly slow: boolean;
   /** Present only on failure; the message is the driver's, never a parameter. */
   readonly error?: string;
 }
@@ -140,14 +148,31 @@ export interface QueryLogOptions {
  * is the only level with a threshold, and a *failed* statement is logged at every
  * level except `off` — an error that took 3 ms is still an error.
  */
+/**
+ * The events a connection emits, before anything decides where they go.
+ *
+ * `off` is not "blind" (`DX-015`). The three levels describe **routine** statements:
+ *
+ * | level  | successes                       | failures | slow (≥ `slowQueryMs`) |
+ * | ------ | ------------------------------- | -------- | ---------------------- |
+ * | `off`  | —                               | yes      | yes                    |
+ * | `slow` | at or above `slowQueryMs`       | yes      | yes                    |
+ * | `all`  | every statement                 | yes      | yes                    |
+ *
+ * The old rule returned `false` for everything at `off`, which made an operator who turned routine
+ * logging off also blind to the two things they kept it for. A failing statement and a statement
+ * over the threshold are not routine, and a threshold that only applies when you are already
+ * logging is a threshold nobody sees in an incident.
+ */
 export function shouldLog(
   level: QueryLogLevel,
   durationMs: number,
   slowQueryMs: number,
   ok: boolean,
 ): boolean {
-  if (level === 'off') return false;
+  // Not routine, at every level: an error is an error at 3 ms, and a slow statement is exactly what
+  // `slowQueryMs` was configured to name.
   if (!ok) return true;
-  if (level === 'all') return true;
-  return durationMs >= slowQueryMs;
+  if (durationMs >= slowQueryMs) return true;
+  return level === 'all';
 }

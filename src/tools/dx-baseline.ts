@@ -96,8 +96,15 @@ export function countSource(source: string): AppCount {
     // The import is where the name comes from, not a place a provider list names it.
     const isImport = /^\s*import\b/u.test(line);
     // A constructor parameter that asks for the raw instance: `private readonly drizzle: DrizzleDb`.
+    //
+    // The modifier is required, and that is the whole rule: TypeScript only allows `private readonly`
+    // in a *parameter property*, so the modifier is what distinguishes an injected dependency from a
+    // property in an options object. Without it, `createQueryMonitor({ drizzle, engine })` — a
+    // factory call that hands over an instance it already has — counted as a new injection site and
+    // this gate failed on the change that introduced it. A rule that counts calls as costs measures
+    // the wrong thing, and a gate that fires on correct work gets switched off.
     if (
-      /\b(?:private|readonly|protected|public)?\s*\w*drizzle\w*\s*:\s*(?:typeof\s+)?drizzle/iu.test(
+      /\b(?:private|protected|public)\s+(?:readonly\s+)?\w*drizzle\w*\s*:\s*(?:typeof\s+)?drizzle/iu.test(
         line,
       )
     ) {

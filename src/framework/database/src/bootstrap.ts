@@ -20,6 +20,7 @@ import { createDrizzle } from './drizzle.ts';
 import { databaseConfigSchema } from './config.ts';
 import type { RuntimeBindings } from './from-config.ts';
 import type { Database } from './database.ts';
+import type { QueryLogger } from './logging.ts';
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
 
 /** Options for `createDatabaseBootstrap`. */
@@ -32,6 +33,13 @@ export interface DatabaseBootstrapOptions {
    * throws on first query (correct for Cloudflare-only deployments).
    */
   readonly sqlitePath?: string;
+  /**
+   * Receives one event per reported statement, for every connection (`DX-014`).
+   *
+   * The same sink `createConnectionsFromConfig` takes; a bootstrap is the one call an app makes, so
+   * it must not be the place the observer silently goes missing.
+   */
+  readonly log?: QueryLogger | undefined;
   /**
    * Opens local SQLite files for the `sqlite` connections and `sqlitePath`.
    *
@@ -127,7 +135,9 @@ export function createDatabaseBootstrap(
     return runtimeBindings;
   };
 
-  const databases = createConnectionsFromConfig(config, bindings);
+  const databases = createConnectionsFromConfig(config, bindings, {
+    ...(options.log === undefined ? {} : { log: options.log }),
+  });
   const db = databases.defaultDatabase;
   const drizzle = createDrizzle(db);
 

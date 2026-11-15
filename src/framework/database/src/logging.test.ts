@@ -177,7 +177,10 @@ describe('database · query logging with redaction (DB-009)', () => {
     expect(events).toHaveLength(0);
   });
 
-  test('off logs nothing at all, even on failure', async () => {
+  test('off silences routine statements and still reports a failure', async () => {
+    // This used to assert nothing at all was emitted, which made `off` mean "blind". The two things
+    // an operator keeps logging for — an error and a statement over the threshold — are not routine
+    // (`DX-015`).
     const { events, log } = capture();
     const database = createDatabase({
       driver: createD1Driver({ binding: fakeD1() }),
@@ -186,9 +189,29 @@ describe('database · query logging with redaction (DB-009)', () => {
     });
 
     await database.query(statement('SELECT 1'));
-    await database.query(statement('boom')).catch(() => undefined);
-
     expect(events).toHaveLength(0);
+
+    await database.query(statement('boom')).catch(() => undefined);
+    expect(events).toHaveLength(1);
+    expect(events[0]?.ok).toBe(false);
+  });
+
+  test('off still reports a slow statement, with the configured threshold', async () => {
+    const { events, log } = capture();
+    // The driver moves the clock *during* the statement, which is where a duration comes from; a
+    // clock advanced before the call is measured from zero and the test would assert nothing.
+    const clock = testClock();
+    const database = createDatabase({
+      driver: createD1Driver({ binding: fakeD1({ onQuery: () => clock.advance(50) }) }),
+      logging: 'off',
+      slowQueryMs: 10,
+      clock,
+      log,
+    });
+
+    await database.query(statement('SELECT 1'));
+    expect(events).toHaveLength(1);
+    expect(events[0]?.slow).toBe(true);
   });
 
   test('a failure is logged at every other level, however fast it was', async () => {
@@ -235,7 +258,10 @@ describe('database · query logging with redaction (DB-009)', () => {
   });
 
   test('shouldLog is total over the three levels', () => {
-    expect(shouldLog('off', 10_000, 200, false)).toBe(false);
+    // `off` is blind to routine statements only.
+    expect(shouldLog('off', 5, 200, true)).toBe(false);
+    expect(shouldLog('off', 900, 200, true)).toBe(true);
+    expect(shouldLog('off', 10_000, 200, false)).toBe(true);
     expect(shouldLog('slow', 199, 200, true)).toBe(false);
     expect(shouldLog('slow', 200, 200, true)).toBe(true);
     expect(shouldLog('slow', 1, 200, false)).toBe(true);

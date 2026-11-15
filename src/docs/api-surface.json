@@ -474,6 +474,24 @@
   ],
   "database:postgres/drizzle": ["createPgDrizzle"],
   "database:bun": ["SqliteOpeningOptions", "openSqliteFiles"],
+  "database:redaction": ["SENSITIVE_COLUMNS", "columnName", "isSensitiveColumn", "redactSql"],
+  "database:from-config": [
+    "BindingsSource",
+    "ConnectionsFromConfigOptions",
+    "RuntimeBindings",
+    "createConnectionsFromConfig"
+  ],
+  "database:drizzle": ["createDrizzle", "errorCode", "rootCause"],
+  "database:config": [
+    "ConnectionConfig",
+    "DATABASE_ENGINES",
+    "DatabaseConfig",
+    "DatabaseEngine",
+    "connectionConfigSchema",
+    "connectionNames",
+    "databaseConfigSchema",
+    "postgresOnlyKeys"
+  ],
   "deploy": [
     "BindingKind",
     "BindingRef",
@@ -1716,6 +1734,10 @@
     "JobCounts",
     "JobState",
     "PostgresConnection",
+    "QueryMonitor",
+    "QueryMonitorDatabase",
+    "QueryMonitorOptions",
+    "QueryRecord",
     "QueueJobRow",
     "QueueMonitor",
     "QueueMonitorOptions",
@@ -1727,6 +1749,7 @@
     "TelemetryBootstrapOptions",
     "TelemetryEngine",
     "TelemetryTables",
+    "createQueryMonitor",
     "createQueueMonitor",
     "createRequestLogger",
     "createTelemetryBootstrap",

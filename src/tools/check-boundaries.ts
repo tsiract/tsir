@@ -98,8 +98,13 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   // be able to reach the router, and a runtime package must never acquire a UI dependency. It is
   // deliberately **not** runtime-neutral: it reads package.json and owns stdin/stdout.
   tui: [],
-  // `telemetry` is the structured logging/metrics bootstrap. Leaf on `container`.
-  telemetry: ['container'],
+  // `telemetry` is the structured logging/metrics bootstrap: request logs, queue state, and the
+  // query monitor (`DX-014`). It imports `@tsir/database` for two things and no more — the
+  // `QueryLogEvent` it receives, and `redactSql`, which is the function that must run before a
+  // statement is stored. Redacting at the writer only works if the writer is the redactor, so this
+  // arrow is the alternative to a second redaction rule that could disagree with the first. It is
+  // one-way: `database` does not know `telemetry` exists, so there is no cycle.
+  telemetry: ['container', 'database'],
   // `broadcast` is the realtime channel port: a port, an in-memory broadcaster, and a
   // bootstrap. Leaf on `container`.
   broadcast: ['container'],

@@ -1,3 +1,16 @@
+/** Per-registry options that are not part of `database.connections`. */
+export interface ConnectionsFromConfigOptions {
+  /**
+   * Receives one event per statement the connection decides to report (`DX-014`).
+   *
+   * The *level* stays per connection — `logging` and `slowQueryMs` are config — because they
+   * describe what that database's traffic is supposed to look like, not what an observer wants.
+   * One sink for the whole registry is enough: the event carries its connection name, so a
+   * monitor writing rows does not need to know which one it came from.
+   */
+  readonly log?: QueryLogger | undefined;
+}
+
 /**
  * Build a connections registry from `config/database.ts`.
  *
@@ -20,6 +33,7 @@ import { createHttpPostgresDriver, parsePostgresUrl } from './postgres-http.ts';
 import { createSqliteDriver, SQLITE_CAPABILITIES, sqliteBegin, type SqliteLike } from './sqlite.ts';
 import type { DbDriver, DbHealth, DbResult, DbStatement } from './driver.ts';
 import type { DatabaseConfig } from './config.ts';
+import type { QueryLogger } from './logging.ts';
 import { driverUnavailable } from './errors.ts';
 import { TsirError } from '@tsir/core';
 
@@ -213,6 +227,7 @@ function definitionFromConfig(
   name: string,
   config: DatabaseConfig['connections'][string],
   bindings: BindingsSource,
+  options: ConnectionsFromConfigOptions = {},
 ): ConnectionDefinition {
   if (config.driver === 'd1') {
     const bindingName = config.binding;
@@ -225,13 +240,32 @@ function definitionFromConfig(
     }
     return {
       driver: deferredD1Driver(bindingName, bindings, config.statementTimeoutMs),
+      ...loggingFromConfig(config, options),
     };
   }
 
   // The three network engines are wired by `url`, and they share the HTTP transport: a Workers
   // bundle cannot open a socket, and on Lambda a pool per instance is the connection storm
   // `POOL_CEILING` exists to prevent. A pooler answers both, over HTTP (`DB-028`).
-  return { driver: networkDriver(config, bindings, name) };
+  return { driver: networkDriver(config, bindings, name), ...loggingFromConfig(config, options) };
+}
+
+/**
+ * What the config says about reporting, in the shape `DatabaseOptions` takes.
+ *
+ * `logging: 'off'` still passes the sink: the connection decides, per statement, and a database
+ * that is off for routine statements must still report a *failure* (`DX-015`). Dropping the sink
+ * here would make `off` mean "also blind", which is not what an operator turning it off asked for.
+ */
+function loggingFromConfig(
+  config: DatabaseConfig['connections'][string],
+  options: ConnectionsFromConfigOptions,
+): Pick<ConnectionDefinition, 'logging' | 'slowQueryMs' | 'log'> {
+  return {
+    logging: config.logging,
+    slowQueryMs: config.slowQueryMs,
+    ...(options.log === undefined ? {} : { log: options.log }),
+  };
 }
 
 /**
@@ -301,9 +335,10 @@ function networkDriver(
 export function createConnectionsFromConfig(
   config: DatabaseConfig,
   bindings: BindingsSource,
+  options: ConnectionsFromConfigOptions = {},
 ): ReturnType<typeof createConnections> {
   const entries = Object.entries(config.connections).map(
-    ([name, entry]) => [name, definitionFromConfig(name, entry, bindings)] as const,
+    ([name, entry]) => [name, definitionFromConfig(name, entry, bindings, options)] as const,
   );
 
   return createConnections({

@@ -256,6 +256,10 @@ tsir queue:table      # queue_jobs, queue_dead
 tsir schedule:table   # schedule_locks
 ```
 
+`@tsir/telemetry` also ships DDL, because its tables are read by the admin app rather than created
+by a driver: `telemetryTableDdl('d1')` returns `query_logs`, `request_logs` and the queue pair, and
+the admin app applies them from `migrations/0005_query_logs.sql`.
+
 Two more tables have no command yet, and are created by the driver's own `CREATE TABLE IF NOT
 EXISTS` on first use, or by your migration:
 
@@ -265,6 +269,7 @@ EXISTS` on first use, or by your migration:
 | `tsir_sessions`      | `auth` `databaseSessionStore` | `tsir_sessions`      |
 | `tsir_api_keys`      | `auth` `keysDatabase`         | `tsir_api_keys`      |
 | `features`           | `pennant` `databaseStore`     | `features`           |
+| `query_logs`         | `telemetry` query monitor     | `query_logs`         |
 
 ---
 

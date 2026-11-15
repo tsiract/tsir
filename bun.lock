@@ -414,6 +414,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@tsir/container": "workspace:*",
+        "@tsir/database": "workspace:*",
         "drizzle-orm": "0.45.4",
       },
     },

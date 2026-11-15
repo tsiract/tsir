@@ -5,12 +5,12 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**1/20 (5%)** — 1 done, 0 partial, 19 open, 0 blocked.
+**5/20 (25%)** — 5 done, 0 partial, 15 open, 0 blocked.
 
 Documentation this ledger added: [`docs/17-dx-data-layer.md`](../docs/17-dx-data-layer.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (19)
+## Open (15)
 
 - [ ] `DX-001` `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other — `17-dx-data-layer.md:38`
 - [ ] `DX-002` Drizzle instances exist for every declared connection, built on first use — `17-dx-data-layer.md:39`
@@ -25,13 +25,13 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [ ] `DX-011` `resolveCapability(name)` — the default comes from `tsir.js` — `17-dx-data-layer.md:63`
 - [ ] `DX-012` `capabilityFor(name)` — a named store/connection/disk, typed — `17-dx-data-layer.md:64`
 - [ ] `DX-013` Admin app migrated to the new surface — `17-dx-data-layer.md:65`
-- [ ] `DX-014` Query timings reach the admin app, not only a logger — `17-dx-data-layer.md:71`
-- [ ] `DX-015` Slow queries logged, with a threshold from config — `17-dx-data-layer.md:72`
-- [ ] `DX-016` Query redaction that knows what is sensitive, not just what is quoted — `17-dx-data-layer.md:73`
-- [ ] `DX-017` A query-monitor page in the admin app — `17-dx-data-layer.md:74`
 - [ ] `DX-018` N+1 detection for a request — `17-dx-data-layer.md:75`
 - [ ] `DX-019` `dx-baseline.test.ts` — the DX contract, executable — `17-dx-data-layer.md:81`
 
-## Done (1)
+## Done (5)
 
 - [x] `DX-000` Count the boilerplate, and make the count a gate — `17-dx-data-layer.md:37`
+- [x] `DX-014` Query timings reach the admin app, not only a logger — `17-dx-data-layer.md:71`
+- [x] `DX-015` Slow queries logged, with a threshold from config — `17-dx-data-layer.md:72`
+- [x] `DX-016` Query redaction that knows what is sensitive, not just what is quoted — `17-dx-data-layer.md:73`
+- [x] `DX-017` A query-monitor page in the admin app — `17-dx-data-layer.md:74`
