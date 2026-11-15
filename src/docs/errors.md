@@ -5,7 +5,7 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-298 codes across 28 packages.
+300 codes across 28 packages.
 
 ## `@tsir/auth`
 
@@ -120,6 +120,8 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DB_D1_NO_BINDING`               |
 | `DB_DRIVER_UNAVAILABLE`          |
 | `DB_HEALTH_FAILED`               |
+| `DB_MODEL_AMBIGUOUS`             |
+| `DB_MODEL_NOT_FOUND`             |
 | `DB_MYSQL_HTTP_FAILED`           |
 | `DB_NO_CONNECTIONS`              |
 | `DB_POSTGRES_BOOTSTRAP_UNWIRED`  |

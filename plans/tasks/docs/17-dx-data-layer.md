@@ -14,6 +14,7 @@ acceptance note names no page is the one place a claim of "documented" can hide.
 - `DX-000` Count the boilerplate, and make the count a gate
 - `DX-001` `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other
 - `DX-002` Drizzle instances exist for every declared connection, built on first use
+- `DX-004` `defineModel(table, options)` — typed reads
 - `DX-014` Query timings reach the admin app, not only a logger
 - `DX-015` Slow queries logged, with a threshold from config
 - `DX-016` Query redaction that knows what is sensitive, not just what is quoted

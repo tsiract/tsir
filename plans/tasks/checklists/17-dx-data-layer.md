@@ -5,15 +5,14 @@
 > of truth; this page is an index into it, one line per task. Each line ends with the line number
 > in the ledger, so the row it describes is one jump away.
 
-**7/20 (35%)** — 7 done, 0 partial, 13 open, 0 blocked.
+**8/20 (40%)** — 8 done, 0 partial, 12 open, 0 blocked.
 
 Documentation this ledger added: [`docs/17-dx-data-layer.md`](../docs/17-dx-data-layer.md) —
 generated from the acceptance notes, with the documents nothing cites listed by name.
 
-## Open (13)
+## Open (12)
 
 - [ ] `DX-003` `createAppServices` (alias `createDatabaseBootstrap`) wires every capability — `17-dx-data-layer.md:41`
-- [ ] `DX-004` `defineModel(table, options)` — typed reads — `17-dx-data-layer.md:47`
 - [ ] `DX-005` Model writes: `create`, `update`, `delete`, `upsert` — `17-dx-data-layer.md:48`
 - [ ] `DX-006` Relations: `hasMany`/`belongsTo`/`hasOne`, declared, and typed by `with()` — `17-dx-data-layer.md:49`
 - [ ] `DX-007` `softDeletes`: declared, not assumed — `17-dx-data-layer.md:50`
@@ -26,11 +25,12 @@ generated from the acceptance notes, with the documents nothing cites listed by 
 - [ ] `DX-018` N+1 detection for a request — `17-dx-data-layer.md:76`
 - [ ] `DX-019` `dx-baseline.test.ts` — the DX contract, executable — `17-dx-data-layer.md:82`
 
-## Done (7)
+## Done (8)
 
 - [x] `DX-000` Count the boilerplate, and make the count a gate — `17-dx-data-layer.md:38`
 - [x] `DX-001` `db` is a Drizzle instance for the default connection; `dbFor(name)` for any other — `17-dx-data-layer.md:39`
 - [x] `DX-002` Drizzle instances exist for every declared connection, built on first use — `17-dx-data-layer.md:40`
+- [x] `DX-004` `defineModel(table, options)` — typed reads — `17-dx-data-layer.md:47`
 - [x] `DX-014` Query timings reach the admin app, not only a logger — `17-dx-data-layer.md:72`
 - [x] `DX-015` Slow queries logged, with a threshold from config — `17-dx-data-layer.md:73`
 - [x] `DX-016` Query redaction that knows what is sensitive, not just what is quoted — `17-dx-data-layer.md:74`

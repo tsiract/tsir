@@ -33,6 +33,13 @@ console.log(result.rows);
   pass `openSqlite: openSqliteFiles` from `@tsir/database/bun` to `createDatabaseBootstrap`, or hand the
   driver a handle yourself. A Worker that never does this is correct — it has no filesystem — and the
   error names the connection rather than failing with an unhandled `EBADF`. See "Two entrypoints" below.
+- `DB_MODEL_NOT_FOUND`: a `findOrFail` matched no row. The message names the table **and** the id,
+  because the two questions after this error are always which table and which row. Use `find`/`first`
+  when a missing row is expected — the failure is in the caller's expectation, not the query.
+- `DB_MODEL_AMBIGUOUS`: a `where` key is not a column of the table. TypeScript rejects it at the call
+  site; this is the runtime path, where the key arrived as data — a filter built from a query string.
+  Ignoring it would match every row, which reads as a working filter, so it throws and lists the real
+  columns instead.
 - `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
   nested transactions and no savepoints in this driver; flatten the work into one transaction, or
   run the statements as a batch.
@@ -130,6 +137,29 @@ entrypoint for a browser target and asserts none of the three appear in the emit
 This is the subpath-scope decision applied to a runtime rather than a package: an optional
 dependency may live behind one entrypoint, and a bundle proof keeps the scope honest. `@tsir/link`
 does the same for gRPC and its XML parser.
+
+## A model over a table
+
+`defineModel(table)` carries the table, the row type and the insert type, and offers the reads every
+repository writes by hand. It is not an Active Record: nothing is mutable, nothing lazy, no
+`user.save()`, and a relation that was not asked for is not on the object (`ADR-0032` § 2).
+
+```ts
+export const Users = defineModel(users);
+
+await Users.find(db, 7); // User | undefined — a missing row is an answer
+await Users.findOrFail(db, 7); // User, or DB_MODEL_NOT_FOUND naming table and id
+await Users.where(db, { email }); // User[] — `{ emial }` is a compile error
+await Users.count(db); // number
+```
+
+`where` taking a **column record** rather than a string is the point. A mistyped string key becomes a
+predicate that matches every row, which reads as a working filter; at the type level it cannot be
+written, and at runtime — where a key can arrive from a query string — an unknown key throws
+`DB_MODEL_AMBIGUOUS` listing the real columns rather than being dropped.
+
+The client is an argument (`db`, `dbFor(name)`), never resolved inside the model: a model that held a
+connection would be a second place the default is decided.
 
 ## Redacting a statement
 

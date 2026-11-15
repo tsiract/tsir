@@ -42,7 +42,12 @@ export { createConnectionsFromConfig } from './from-config.ts';
 export type { BindingsSource, RuntimeBindings } from './from-config.ts';
 
 export { createDatabaseBootstrap } from './bootstrap.ts';
-export type { DatabaseBootstrap, DatabaseBootstrapOptions } from './bootstrap.ts';
+export type { DatabaseBootstrap, DatabaseBootstrapOptions, DrizzleFor } from './bootstrap.ts';
+
+export { defineModel, columnsOf, countExpression } from './model.ts';
+export type { Model, ModelClient, ModelOptions, ModelTable, Where } from './model.ts';
+
+export { redactSql, isSensitiveColumn, SENSITIVE_COLUMNS } from './redaction.ts';
 
 export { createSqliteBinding } from './sqlite-binding.ts';
 

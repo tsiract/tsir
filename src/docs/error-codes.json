@@ -87,6 +87,8 @@
     "DB_MIGRATION_ENGINE_UNSUPPORTED": "migrate",
     "DB_MIGRATION_FAILED": "migrate",
     "DB_MIGRATION_LOCK_UNSUPPORTED": "migrate",
+    "DB_MODEL_AMBIGUOUS": "database",
+    "DB_MODEL_NOT_FOUND": "database",
     "DB_MYSQL_HTTP_FAILED": "database",
     "DB_NO_CONNECTIONS": "database",
     "DB_POSTGRES_BOOTSTRAP_UNWIRED": "database",
