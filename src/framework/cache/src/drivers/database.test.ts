@@ -328,3 +328,42 @@ describe('in the registry', () => {
     });
   });
 });
+
+describe('engine selection (CAP-009)', () => {
+  test('a mysql connection is refused at construction, naming the statement', () => {
+    // Both `mysql` and `sqlite` answer `?`, so the placeholder cannot tell them apart — and the
+    // difference is exactly the upsert. Refusing when the driver is built means the mistake is a
+    // boot failure with the fix in it, not a syntax error on the first `increment`.
+    const fake = fakeSql();
+    let caught: unknown;
+    try {
+      databaseDriver({
+        database: {
+          capabilities: { engine: 'mysql', placeholder: 'question' },
+          query: (statement) => fake.sql.query(statement),
+        },
+      });
+    } catch (thrown: unknown) {
+      caught = thrown;
+    }
+    expect(String(caught)).toMatch(/mysql/u);
+    expect(String(caught)).toMatch(/ON CONFLICT/u);
+  });
+
+  test('sqlite and postgres are accepted — they have the syntax this driver emits', () => {
+    for (const engine of ['d1', 'sqlite', 'postgres'] as const) {
+      const fake = fakeSql();
+      expect(() =>
+        databaseDriver({
+          database: {
+            capabilities: {
+              engine,
+              placeholder: engine === 'postgres' ? 'dollar' : 'question',
+            },
+            query: (statement) => fake.sql.query(statement),
+          },
+        }),
+      ).not.toThrow();
+    }
+  });
+});

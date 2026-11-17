@@ -1,20 +1,27 @@
 # ─────────────────────────────────────────────────────────────────────────────
-# Tsir — developer entry point
+# Tsir — framework engineering workspace
+#
+# This repository is the source of the Tsir framework. It is **not** a Tsir
+# application: nothing here is run with `make` on behalf of an application's
+# developer. Application workflows live behind `dist/tsir`, the executable the
+# distribution ships; `make dist` is the boundary between the two.
 #
 # Every target is a thin dispatcher: it prints what it runs and delegates.
-# Logic lives in src/tools/ or in the `tsir` CLI, never in Make.
+# Logic lives in src/tools/ or in the console package, never in Make.
 #
 # Target naming: the CLI namespaces with colons (`tsir migrate:status`), Make
 # targets use hyphens (`make migrate-status`), because a colon in a Make target
 # name is parsed as a prerequisite separator.
 #
 #   make            → help
-#   make dev        → stop owned processes, then start the dev environment
+#   make dev        → stop owned processes, then start the core dev environment
 #   make kill       → stop processes started by `make dev`
+#   make build      → compile the framework packages (core build)
+#   make dist       → assemble the developer distribution in dist/
 #   make check      → typecheck + lint + boundaries + frontpage + license + deps
 #                     + links + surface + version + format
 #
-# The full contract is the target list below and the CLI in src/framework/console/.
+# The boundary contract is recorded as ADR-0031 and enforced by `make dist-check`.
 # ─────────────────────────────────────────────────────────────────────────────
 
 SHELL       := /bin/bash
@@ -27,60 +34,126 @@ BUN_INSTALL_CACHE_DIR ?= $(CURDIR)/.cache/bun
 export BUN_INSTALL_CACHE_DIR
 
 BUN   ?= bun
-HTTP_EXAMPLE := src/apps/frontpage
 ADMIN_APP    := src/apps/admin.product.com
 BASH  ?= bash
 TSIR  ?= $(BUN) src/framework/console/src/cli.ts
+BUILD_DIR ?= .build
 PORT  ?= 3000
 ADMIN_PORT ?= 3001
 HOST  ?= 0.0.0.0
 
+# The reader's overrides: `make dist FRONTEND=react`, `make changeset SUMMARY="…" BUMP=minor`.
+#
+# Every one of these is read back by a target below, and each is declared here rather than left
+# to make's habit of expanding an undefined variable to the empty string. That habit is the whole
+# reason this block exists: `$(COMPOSE)` lost its detection line in a refactor while `db-up` kept
+# reading it, so `make db-up` announced "no Compose found" on a machine that had Docker. Make calls
+# that an empty string, not an error, and no shell check can tell it from a real absence.
+#
+# `make make-check` refuses an undefined read and an unused definition, so the block stays honest.
+#
+# COMPOSE is detected rather than defaulted: both spellings exist in the wild, and the target's
+# guard (`test -n "$(COMPOSE)"`) is only meaningful when the value means "one was found".
+COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; fi)
+DIST_YES        ?=
+DIST_CONFIG_ONLY ?=
+DIST_OUT        ?=
+FRONTEND        ?=
+PACKAGE_MANAGER ?=
+STYLING         ?=
+KILL_ARGS       ?=
+SUMMARY         ?=
+BUMP            ?=
+NAME            ?=
+KIND            ?=
+
 .DEFAULT_GOAL := help
-.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site help install dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor tsir example check boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package dist verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
-        coercion crypto logs modules test test-watch test-integration build start clean clean-cache \
-        db-up db-down migrate migrate-status seed \
-        deploy-plan deploy-diff deploy-build deploy-validate route-list route-compile codegen-check openapi \
-        make-%
+.PHONY: docs-pr readme readme-check flakes docs-packages docs-packages-write docs-site tasks tasks-check docs-inventory docs-inventory-check docs-index docs-index-check contracts contracts-write quickstart dx-baseline help install preflight dev frontpage-build kill kill-owned kill-ports kill-ports-dry doctor check verify boundaries plan-refs plans error-codes frontpage license deps deps-doc links surface surface-write version changeset release-version bench bench-write new-package build dist dist-build dist-check verify-dist release-pack release-pack-fast typecheck lint format format-check coverage proto proto-check \
+        coercion crypto logs modules codegen-check tui-check test test-unit test-watch test-integration clean clean-cache \
+        make-check compile-cli verify-templates emulator-check driver-defaults production-wiring llms llms-check db-up db-down deploy-sample app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check \
 
 # ─── Meta ────────────────────────────────────────────────────────────────────
 
 help: ## Show available targets
-	@printf '\n  \033[1mtsir\033[0m — development commands\n\n'
+	@printf '\n  \033[1mtsir\033[0m — framework engineering workspace\n'
+	@printf '  \033[2mThis repository builds the framework. Applications live in a distribution: use\n'
+	@printf '  `./dist/tsir new <name>`, not a target here.\033[0m\n'
+	@printf '\n  \033[1mdevelop\033[0m\n'
 	@printf '  \033[36mmake install\033[0m         install workspace dependencies (bun install)\n'
-	@printf '  \033[36mmake dev\033[0m             cleanup, then serve frontpage + app\n'
-	@printf '  \033[36mmake kill\033[0m            stop processes started by `make dev`\n'
+	@printf '  \033[36mmake dev\033[0m             stop what we started, then serve frontpage + docs + admin\n'
+	@printf '  \033[36mmake kill\033[0m            stop processes started here and free their ports\n'
 	@printf '  \033[36mmake doctor\033[0m          diagnose env, config, ports, versions\n'
-	@printf '  \033[36mmake tsir ARGS="…"\033[0m run the tsir CLI (e.g. ARGS="config:dump")\n'
-	@printf '  \033[36mmake example\033[0m         boot the frontpage app and report its lifecycle\n'
-	@printf '  \033[36mmake boundaries\033[0m      enforce the package dependency graph\n'
-	@printf '  \033[36mmake frontpage\033[0m       fail if the marketing page overstates what exists\n'
-	@printf '  \033[36mmake license\033[0m         verify MIT across every manifest\n'
-	@printf '  \033[36mmake deps\033[0m            enforce the dependency policy (tree-shakeable only)\n'
-	@printf '  \033[36mmake dist\033[0m            build the distributable into dist/ (gitignored)\n'
-	@printf '  \033[36mmake verify-dist\033[0m     prove dist/ boots + tree-shakes + fits Workers/Lambda\n'
+	@printf '  \033[36mmake kill-ports\033[0m       free every listening port that is not a service we need (dry run: kill-ports-dry)\n'
+	@printf '\n  \033[1mverify\033[0m\n'
 	@printf '  \033[36mmake check\033[0m           typecheck + lint + boundaries + frontpage + license + deps + format\n'
+	@printf '  \033[36mmake verify\033[0m          \033[36mmake check\033[0m plus the test suite — the real "is my branch sane?"\n'
+	@printf '  \033[36mmake llms\033[0m            regenerate llms.txt from the doc tree\n'
+	@printf '  \033[36mmake llms-check\033[0m      llms.txt matches the doc tree, so a model reads a current index\n'
 	@printf '  \033[36mmake typecheck\033[0m       tsc --noEmit across the workspace\n'
 	@printf '  \033[36mmake lint\033[0m            eslint (type-aware)\n'
-	@printf '  \033[36mmake format\033[0m          prettier --write\n'
-	@printf '  \033[36mmake test\033[0m            bun test\n'
-	@printf '  \033[36mmake proto\033[0m          regenerate gRPC contracts from proto/ (buf)\n'
+	@printf '  \033[36mmake format\033[0m          prettier --write (\033[36mmake format-check\033[0m to verify only)\n'
+	@printf '  \033[36mmake test\033[0m            bun test — unit + integration across the source packages\n'
+	@printf '  \033[36mmake test-unit\033[0m       unit tests only\n'
+	@printf '  \033[36mmake test-watch\033[0m      rerun the tests on change\n'
+	@printf '  \033[36mmake test-integration\033[0m database-backed tests (skips cleanly without DATABASE_URL)\n'
 	@printf '  \033[36mmake coverage\033[0m        per-package coverage gate (line ≥ 90 %%, funcs ≥ 85 %%)\n'
+	@printf '  \033[36mmake docs-pr\033[0m         a framework change has a changeset; a surface or contract change has docs (DXS-012, DOCS-011)\n'
+	@printf '\n  \033[1mbuild\033[0m\n'
+	@printf '  \033[36mmake build\033[0m           compile the framework packages into %s/ (core build)\n' "$(BUILD_DIR)"
+	@printf '  \033[36mmake dist\033[0m            configure (wizard) and build the distribution into dist/\n'
+	@printf '  \033[36mmake dist-build\033[0m      assemble from the committed config, no questions\n'
+	@printf '  \033[36mmake dist-check\033[0m      assert the distribution boundary holds\n'
+	@printf '  \033[36mmake verify-dist\033[0m     prove dist/ boots, tree-shakes, and bundles for Workers/Lambda\n'
+	@printf '  \033[36mmake release-pack\033[0m    build both release artifacts (dist/ tree + per-package tarballs)\n'
+	@printf '  \033[36mmake compile-cli\033[0m     compile the shipped CLI into one executable, and scaffold from it\n'
+	@printf '  \033[36mmake verify-templates\033[0m install, typecheck and build every frontend template (needs registry)\n'
+	@printf '  \033[36mmake emulator-check\033[0m the AWS Emulator table covers every AWS call in src/, and is still true\n'
+	@printf '  \033[36mmake driver-defaults\033[0m every default names a shipped driver; no stateless target defaults to memory\n'
+	@printf '  \033[36mmake production-wiring\033[0m every app bootstrap passes \033[36mproduction\033[0m, so the guards can fire\n'
+	@printf '  \033[36mmake clean\033[0m           remove %s/ and dist/ — both are generated\n' "$(BUILD_DIR)"
+	@printf '  \033[36mmake clean-cache\033[0m     also remove the bun install cache\n'
+	@printf '\n  \033[1mconstraints\033[0m\n'
+	@printf '  \033[36mmake boundaries\033[0m      enforce the package dependency graph\n'
 	@printf '  \033[36mmake modules\033[0m         application-module boundaries (deep imports, shared/)\n'
+	@printf '  \033[36mmake deps\033[0m            enforce the dependency policy (tree-shakeable only)\n'
+	@printf '  \033[36mmake surface\033[0m         public API matches src/docs/api-surface.json\n'
+	@printf '  \033[36mmake error-codes\033[0m     codes are registered, append-only and documented (ERR-002, ERR-004)\n'
 	@printf '  \033[36mmake plan-refs\033[0m       no path into the internal design plans leaks (DOC-016)\n'
 	@printf '  \033[36mmake plans\033[0m           the plan set is indexed, linked and complete (DOC-017)\n'
-	@printf '  \033[36mmake error-codes\033[0m     codes are registered, append-only and documented (ERR-002, ERR-004)\n'
+	@printf '  \033[36mmake tasks\033[0m           regenerate the task index — every task and its state (DOCS-015)\n'
+	@printf '  \033[36mmake tasks-check\033[0m     the ledger matches STATUS.md and every open task has acceptance (DOCS-015)\n'
+	@printf '  \033[36mmake docs-inventory\033[0m  what documentation is missing, unexecuted or uncitable\n'
+	@printf '  \033[36mmake docs-inventory-check\033[0m  every guide is linked, has a body and runs an example (DOCS-009)\n'
+	@printf '  \033[36mmake dx-baseline\033[0m    the data-layer boilerplate count does not rise (DX-000)\n'
+	@printf '  \033[36mmake quickstart\033[0m       the documented fast path runs in the order it is written (DOCS-020)\n'
+	@printf '  \033[36mmake contracts\033[0m        no tsir.js key, command or error code disappeared undocumented (DOCS-011)\n'
+	@printf '  \033[36mmake contracts-write\033[0m  accept a deliberate rename by re-recording the snapshot\n'
+	@printf '  \033[36mmake docs-index\033[0m      what documentation each task added, per ledger (DOCS-019)\n'
+	@printf '  \033[36mmake docs-index-check\033[0m  citations resolve and the indexes are current (DOCS-019)\n'
+	@printf '  \033[36mmake coercion\033[0m        reject implicit coercion in framework source (VLD-007)\n'
+	@printf '  \033[36mmake crypto\033[0m          cipher inventory and prohibited-practice scan (SEC-005)\n'
+	@printf '  \033[36mmake flakes\033[0m          fail when a quarantined test is past its limit (TST-018)\n'
+	@printf '  \033[36mmake frontpage\033[0m       fail if the marketing page overstates what exists\n'
+	@printf '  \033[36mmake license\033[0m         verify MIT across every manifest\n'
 	@printf '  \033[36mmake links\033[0m           every relative link + anchor in src/ resolves\n'
-	@printf '  \033[36mmake surface\033[0m         public API matches src/docs/api-surface.json\n'
-	@printf '  \033[36mmake docs-site\033[0m       build the docs as static HTML in build/docs-site\n'
-	@printf '  \033[36mmake docs-packages\033[0m   every framework package has a current reference page\n'
 	@printf '  \033[36mmake version\033[0m         manifests are in lockstep\n'
-	@printf '  \033[36mmake changeset\033[0m       record a changeset (SUMMARY="..." BUMP=minor)\n'
-	@printf '  \033[36mmake bench\033[0m           micro-benchmarks vs bench/baseline.json\n'
-	@printf '  \033[36mmake new-package\033[0m     scaffold a package (NAME=... KIND=framework)\n'
+	@printf '  \033[36mmake codegen-check\033[0m   generated contracts match their sources\n'
+	@printf '  \033[36mmake proto\033[0m            regenerate gRPC contracts from proto/ (buf)\n'
+	@printf '  \033[36mmake proto-check\033[0m     the committed gRPC contracts match proto/ (skips without buf)\n'
+	@printf '  \033[36mmake tui-check\033[0m        drive the interactive prompts through a real pty\n'
+	@printf '  \033[36mmake make-check\033[0m      the Makefile and the docs that name its targets agree\n'
+	@printf '\n  \033[1mdocs and release\033[0m\n'
+	@printf '  \033[36mmake docs-site\033[0m       build the docs as static HTML in build/docs-site\n'
+	@printf '  \033[36mmake readme\033[0m          regenerate the README badge block from measured facts\n'
+	@printf '  \033[36mmake docs-packages\033[0m   every framework package has a current reference page\n'
 	@printf '  \033[36mmake deps-doc\033[0m        regenerate src/docs/dependencies.md\n'
-	@printf '  \033[36mmake build\033[0m           alias of `make dist`\n'
-	@printf '  \033[36mmake clean\033[0m           remove dist/ and runtime state\n'
-	@printf '\n  Database and deploy targets: see make db-up, migrate, deploy-plan and deploy-build.\n\n'
+	@printf '  \033[36mmake changeset\033[0m       record a changeset (SUMMARY="..." BUMP=minor)\n'
+	@printf '  \033[36mmake release-version\033[0m apply recorded changesets to the manifests\n'
+	@printf '  \033[36mmake bench\033[0m           micro-benchmarks vs bench/baseline.json\n'
+	@printf '\n  \033[2mEverything above is a gate over this repository. What an application runs\n'
+	@printf '  lives in the CLI instead: `tsir route:compile`, `tsir deploy:plan`, etc.\n'
+	@printf '  The `app-*` targets are drift checks that run them against src/apps,\n'
+	@printf '  a fixture — not a workflow to copy.\033[0m\n\n'
 
 install: ## Install workspace dependencies
 	@printf '  \033[2m→ bun install\033[0m\n'
@@ -88,11 +161,28 @@ install: ## Install workspace dependencies
 
 # ─── Development ─────────────────────────────────────────────────────────────
 
-dev: ## Cleanup, then start the dev environment
+dev: preflight ## Cleanup, then start the dev environment
 	@printf '  \033[2m→ make kill-owned\033[0m\n'
 	@$(MAKE) --no-print-directory kill-owned
-	@printf '  \033[2m→ bun src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)\033[0m\n'
+	@printf '  \033[2m→ src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)\033[0m\n'
 	@$(BUN) src/tools/dev.ts --port $(PORT) --admin-port $(ADMIN_PORT) --host $(HOST)
+
+# The tools and state `dev` needs before it starts, checked rather than assumed. A missing runtime or
+# an uninstalled workspace used to surface as a shell error ("bun: command not found") or as a
+# module-resolution stack from somewhere inside the server, neither of which says what to do.
+preflight: ## Check the tools and workspace state `make dev` needs
+	@command -v "$(firstword $(BUN))" >/dev/null 2>&1 || { \
+		printf '  \033[31m✗\033[0m bun is not on PATH\n'; \
+		printf '  \033[2m  install it: https://bun.sh  (this workspace pins 1.4.x)\033[0m\n'; \
+		exit 3; }
+	@test -d node_modules || { \
+		printf '  \033[31m✗\033[0m workspace dependencies are not installed\n'; \
+		printf '  \033[2m  run: make install\033[0m\n'; \
+		exit 3; }
+	@$(BUN) -e 'process.exit(0)' >/dev/null 2>&1 || { \
+		printf '  \033[31m✗\033[0m the runtime is not usable\n'; \
+		exit 3; }
+	@printf '  \033[32m✓\033[0m tools and workspace ready\n'
 
 kill: kill-owned kill-ports ## Stop what we started, then free every unprotected listening port
 	@printf '  \033[32m✓\033[0m kill complete\n'
@@ -109,18 +199,19 @@ kill-ports-dry: ## Show what `make kill-ports` would free, touching nothing
 doctor: ## Diagnose the local environment
 	@$(BUN) src/tools/doctor.ts
 
-tsir: ## Run the tsir CLI: make tsir ARGS="config:dump"
-	@$(TSIR) $(ARGS)
-
-example: ## Boot the frontpage app and report its lifecycle (exits after boot)
-	@cd src/apps/frontpage && $(BUN) ../../framework/console/src/cli.ts doctor
-
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
-check: typecheck lint boundaries docs-pr modules frontpage license deps plan-refs plans error-codes docs-packages docs-site links surface readme-check version format-check codegen-check coercion crypto flakes proto-check ## Full local gate
+check: typecheck lint boundaries docs-pr quickstart dx-baseline contracts docs-inventory-check docs-index-check modules frontpage license deps plan-refs plans tasks-check error-codes docs-packages docs-site links llms-check surface readme-check version format-check codegen-check coercion crypto flakes proto-check tui-check emulator-check driver-defaults production-wiring make-check ## Full local gate
 	@printf '  \033[32m✓\033[0m check complete\n'
 
-docs-pr: ## A changed framework source has a changeset, and a changed surface has docs (DXS-012)
+# `check` deliberately excludes the test suite: it has to pass without a database, a network or a
+# Docker daemon, and some tests need all three. The consequence is that `make check` can be green
+# while `bun test` is red, which is a trap — CI runs both, and a contributor who ran only `check`
+# finds out in review. `verify` is the target that means what people assume `check` means.
+verify: check test ## Every gate plus the whole test suite — this is "is my branch sane"
+	@printf '  \033[32m✓\033[0m verify complete\n'
+
+docs-pr: ## A framework change has a changeset; a surface or contract change has docs (DXS-012, DOCS-011)
 	@$(BUN) src/tools/check-docs-in-pr.ts
 
 coercion: ## Reject implicit coercion in framework source (VLD-007)
@@ -134,6 +225,10 @@ proto-check: ## Committed gRPC contracts match proto/ (LNK-012; skips without bu
 	@printf '  \033[2m→ bun src/tools/check-proto.ts\033[0m\n'
 	@$(BUN) src/tools/check-proto.ts
 
+tui-check: ## Drive the interactive prompts through a real pty (ADR-0031)
+	@printf '  \033[2m→ bun src/tools/check-tui.ts\033[0m\n'
+	@$(BUN) src/tools/check-tui.ts
+
 crypto: ## Cryptography inventory + prohibited-practices lint (SEC-005)
 	@printf '  \033[2m→ bun src/tools/check-crypto.ts\033[0m\n'
 	@$(BUN) src/tools/check-crypto.ts
@@ -146,13 +241,17 @@ boundaries: ## Enforce the package dependency graph (ADR-0008)
 	@printf '  \033[2m→ bun src/tools/check-boundaries.ts\033[0m\n'
 	@$(BUN) src/tools/check-boundaries.ts
 
+make-check: ## The Makefile and the docs that name its targets agree (DXS-015)
+	@$(BUN) src/tools/check-make.ts
+
 modules: ## Enforce application-module boundaries (MOD-003)
 	@printf '  \033[2m→ bun src/tools/check-modules.ts\033[0m\n'
 	@$(BUN) src/tools/check-modules.ts
 
-frontpage: ## Check the built artifact and honest package claims (DOC-004, DOC-005)
+frontpage: ## Check the built artifact and honest package claims (DOC-004, DOC-005, DOCS-008)
 	@$(BUN) src/apps/frontpage/build.ts --check
 	@$(BUN) src/tools/check-frontpage.ts
+	@$(BUN) src/tools/frontpage-claims.ts
 
 frontpage-build: ## Compile DaisyUI Nord/Abyss and inline all frontpage assets
 	@$(BUN) src/apps/frontpage/build.ts
@@ -175,8 +274,11 @@ format-check: ## Verify formatting without writing
 
 # ─── Testing ─────────────────────────────────────────────────────────────────
 
-test: ## Run unit tests
+test: ## Run the whole framework test suite (unit + integration)
 	@$(BUN) test
+
+test-unit: ## Run the fast unit tests only (the inner development loop)
+	@$(BUN) test --testPathIgnorePatterns '(^|/)integration/'
 
 coverage: ## Per-package coverage gate (line ≥ 90 %, funcs ≥ 85 %)
 	@$(BUN) src/tools/coverage-gate.ts src/framework/cache src/framework/console src/framework/testing src/framework/queue src/framework/events src/framework/schedule src/framework/storage src/framework/mail src/framework/notify src/framework/policy src/framework/auth src/framework/pulse src/framework/container src/framework/config src/framework/core src/framework/database src/framework/deploy src/framework/migrate src/framework/seed src/framework/router src/framework/http src/framework/validate src/framework/vault src/framework/link
@@ -189,13 +291,80 @@ test-watch: ## Run tests in watch mode
 
 # ─── Build / run ─────────────────────────────────────────────────────────────
 
-build: dist ## Build artifacts (alias of `make dist`)
+build: ## Compile the framework packages (core build; not the distribution)
+	@printf '  \033[2m→ bun src/tools/dist.ts --packages --out $(BUILD_DIR)\033[0m\n'
+	@$(BUN) src/tools/dist.ts --packages --out "$(BUILD_DIR)"
 
-dist: ## Build the distributable source tree into dist/ (gitignored)
+dist-check: ## Assert the distribution boundary (no internal assets leak, no absolute paths)
+	@$(BUN) src/tools/check-dist.ts
+
+clean: ## Remove the generated build outputs; both are recreated by their targets
+	@rm -rf "$(BUILD_DIR)" dist .tsir
+	@printf '  \033[32m✓\033[0m removed $(BUILD_DIR)/ dist/ .tsir/\n'
+
+clean-cache: clean ## Also drop the bun install cache this workspace used
+	@rm -rf "$(BUN_INSTALL_CACHE_DIR)"
+	@printf '  \033[32m✓\033[0m removed $(BUN_INSTALL_CACHE_DIR)/\n'
+
+# Distribution engineering: configure what the product offers, then build it.
+#
+#   make dist                     wizard when a terminal is attached, then build
+#   make dist DIST_YES=1          build with the committed tsir.dist.config.json, never prompt
+#   make dist FRONTEND=none …     build with one answer overridden
+#   make dist DIST_CONFIG_ONLY=1  write the configuration and stop (review before committing)
+#
+# The assembler itself is dist.ts; the wizard and the configuration contract live beside it.
+dist: ## Configure (interactively) and build the distribution into dist/ (gitignored)
+	@$(BUN) src/tools/dist-cli.ts $(if $(DIST_YES),--no-interactive) \
+		$(if $(DIST_CONFIG_ONLY),--config-only) \
+		$(if $(FRONTEND),--frontend $(FRONTEND)) \
+		$(if $(PACKAGE_MANAGER),--package-manager $(PACKAGE_MANAGER)) \
+		$(if $(STYLING),--styling $(STYLING)) \
+		$(if $(DIST_OUT),--out $(DIST_OUT))
+
+dist-build: ## Assemble the distribution from the committed config (no wizard; used by CI)
 	@$(BUN) src/tools/dist.ts
 
-verify-dist: dist ## Prove dist/ boots, tree-shakes, and bundles for Workers/Lambda
+verify-dist: dist-build ## Prove dist/ boots, tree-shakes, bundles for Workers/Lambda, and compiles to one file
 	@$(BUN) src/tools/verify-dist.ts
+
+# The compiled launcher is one of the proofs inside `verify-dist`; this target exists so it can be
+# run on its own, in a second rather than in the minute the whole verification takes.
+compile-cli: dist-build ## Compile dist/'s CLI into a single executable and scaffold from it
+	@$(BUN) src/tools/verify-dist.ts --only compiled-launcher
+
+# The table's own gate: every AWS operation `src/` calls has a row, and every row still matches the
+# emulator's source at the pinned tag. This is a question about *this repository's* source, so it is
+# a `make` target — `tsir deploy:verify` prints the same table for an application, and must never
+# fail because that application calls AWS.
+emulator-check: ## The AWS Emulator table covers every AWS call in src/, and still matches the source
+	@printf '  \033[2m→ bun src/tools/emulator-check.ts\033[0m\n'
+	@$(BUN) src/tools/emulator-check.ts
+
+# The per-target driver defaults are hand-written data in `@tsir/core`, which cannot import the
+# packages whose drivers it names (the boundary gate forbids it, rightly). This reads them all and
+# checks the two things that would otherwise reach a user as a confusing boot error: a default
+# naming a driver no package ships, and a stateless target defaulting to an ephemeral one.
+driver-defaults: ## Every driver default names a shipped driver, and no stateless target defaults to memory
+	@printf '  \033[2m→ bun src/tools/check-driver-defaults.ts\033[0m\n'
+	@$(BUN) src/tools/check-driver-defaults.ts
+
+production-wiring: ## Every app bootstrap passes `production`, or the guard that package implements never fires
+	@printf '  \033[2m→ bun src/tools/check-production-wiring.ts\033[0m\n'
+	@$(BUN) src/tools/check-production-wiring.ts
+
+llms: ## Regenerate llms.txt — the documentation index written for a model (AI-001)
+	@printf '  \033[2m→ bun src/tools/llms.ts\033[0m\n'
+	@$(BUN) src/tools/llms.ts
+
+llms-check: ## llms.txt matches the doc tree, so the index a model reads is never stale
+	@printf '  \033[2m→ bun src/tools/llms.ts --check\033[0m\n'
+	@$(BUN) src/tools/llms.ts --check
+
+# Needs a package registry, so it is not part of `make check` (which must pass offline). CI runs it
+# after `make release-pack`, where the network is already in use.
+verify-templates: ## Install, typecheck and build every shipped frontend template (needs the registry)
+	@$(BUN) src/tools/verify-templates.ts
 
 release-pack: verify-dist ## Build both release artifacts: dist/ tree + per-package tarballs
 	@$(BUN) src/tools/release-pack.ts
@@ -210,6 +379,44 @@ plan-refs: ## Internal design plans stay internal: no path into them leaks (DOC-
 plans: ## The plan set is internally consistent: indexed, linked, statuses agree (DOC-017)
 	@printf '  \033[2m→ bun src/tools/check-plans.ts\033[0m\n'
 	@$(BUN) src/tools/check-plans.ts
+
+tasks: ## Regenerate the task index and per-ledger checklists (DOCS-015, DOCS-018)
+	@printf '  \033[2m→ bun src/tools/task-status.ts --write\033[0m\n'
+	@$(BUN) src/tools/task-status.ts --write
+
+dx-baseline: ## The data-layer boilerplate count does not rise (DX-000)
+	@printf '  \033[2m→ bun src/tools/dx-baseline.ts\033[0m\n'
+	@$(BUN) src/tools/dx-baseline.ts
+
+quickstart: ## The documented fast path runs, in the order it is written (DOCS-020)
+	@printf '  \033[2m→ bun src/tools/check-quickstart.ts\033[0m\n'
+	@$(BUN) src/tools/check-quickstart.ts
+
+contracts: ## Names people type: tsir.js keys, CLI commands, error codes (DOCS-011)
+	@printf '  \033[2m→ bun src/tools/check-contracts.ts\033[0m\n'
+	@$(BUN) src/tools/check-contracts.ts
+
+contracts-write: ## Accept a deliberate rename by re-recording the contract snapshot
+	@printf '  \033[2m→ bun src/tools/check-contracts.ts --write\033[0m\n'
+	@$(BUN) src/tools/check-contracts.ts --write
+
+docs-index: ## Regenerate what documentation each task added, per ledger (DOCS-019)
+	@printf '  \033[2m→ bun src/tools/doc-ledger.ts --write\033[0m\n'
+	@$(BUN) src/tools/doc-ledger.ts --write
+
+docs-index-check: ## Each task's documentation citations still resolve, and the indexes are current (DOCS-019)
+	@printf '  \033[2m→ bun src/tools/doc-ledger.ts --check\033[0m\n'
+	@$(BUN) src/tools/doc-ledger.ts --check
+
+tasks-check: ## The index and checklists match the ledgers, and every open task has acceptance (DOCS-015, DOCS-018)
+	@printf '  \033[2m→ bun src/tools/task-status.ts --check\033[0m\n'
+	@$(BUN) src/tools/task-status.ts --check
+
+docs-inventory: ## What documentation is missing, unexecuted or uncitable
+	@$(BUN) src/tools/doc-inventory.ts
+
+docs-inventory-check: ## Every guide links, has a body and runs an example (DOCS-009)
+	@$(BUN) src/tools/doc-inventory.ts --check
 
 docs-packages: ## Every framework package has a current reference page (DOC-010)
 	@$(BUN) src/tools/package-pages.ts
@@ -267,25 +474,27 @@ test-integration: ## Database-backed tests; skips cleanly when DATABASE_URL is u
 deps: ## Enforce the third-party dependency policy (ADR-0012)
 	@$(BUN) src/tools/check-deps.ts
 
-start: ## Boot the built application (APP=path; run `tsir build` in the app first)
-	@cd "$(or $(APP),$(HTTP_EXAMPLE))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" start $(ARGS)
+# The sample application lives in `src/apps/` and is used to prove the framework end to end.
+# These targets exist for **that** — a spike fixture the framework is developed against — not as
+# an application workflow. A developer's `migrate`, `seed`, `route:*` and `deploy:*` commands are
+# `dist/tsir` commands (see ADR-0031).
+app-route-compile: ## The sample app's committed route map still matches its source
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
 
-clean-cache: ## Delete caches and generated dirs that would bloat the workspace
-	@rm -rf "$(CURDIR)/.cache" "$(CURDIR)/.bun" "$(CURDIR)/.tsir" "$(CURDIR)/dist" \
-	        "$(CURDIR)/coverage" "$(CURDIR)/.coverage" "$(CURDIR)/.verify" \
-	        "$(CURDIR)/bench/latest.json"
-	@printf '  \033[32m✓\033[0m caches cleared\n'
+app-deploy-plan: ## The sample app's committed deploy plan is still current
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
 
-clean: ## Remove build output and runtime state (guarded)
-	@test "$(CURDIR)" != "/" || { echo "refusing to clean /"; exit 1; }
-	@rm -rf "$(CURDIR)/dist" "$(CURDIR)/.tsir"
-	@find "$(CURDIR)" -maxdepth 3 -name '*.tsbuildinfo' -delete 2>/dev/null || true
-	@printf '  \033[32m✓\033[0m cleaned dist/ and runtime state\n'
+app-deploy-build: ## Build the sample app's deploy units for both targets (into .verify)
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
 
-# ─── Reserved: implemented in later phases ─────────────────────────────────
+app-deploy-validate: ## No secrets in the units app-deploy-build emitted
+	@cd $(SAMPLE_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
 
-# Either Compose: the v2 plugin (`docker compose`) or the standalone v1 binary (`docker-compose`).
-COMPOSE := $(shell if docker compose version >/dev/null 2>&1; then echo "docker compose"; elif command -v docker-compose >/dev/null 2>&1; then echo "docker-compose"; fi)
+deploy-sample: app-deploy-build app-deploy-validate ## Both of the above, for a manual look
+	@printf '  \033[32m✓\033[0m sample deploy units are valid\n'
+
+soap-check: ## Fail if a committed WSDL-derived module is stale
+	@$(BUN) src/framework/console/src/cli.ts link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
 db-up: ## Start local Postgres on 127.0.0.1:5432 (needs Docker; DXS-009)
 	@test -n "$(COMPOSE)" || { echo '  ✗ no Compose found: install the docker compose plugin or docker-compose'; exit 1; }
@@ -301,69 +510,15 @@ db-down: ## Stop local Postgres (keeps its data volume; DXS-009)
 	# Stopping needs no password, but Compose validates every variable in the file first.
 	POSTGRES_PASSWORD=$${POSTGRES_PASSWORD:-unused} $(COMPOSE) -f compose.yaml down
 
-# The database commands run inside an application, because that is where the
-# `Database` and the seeders are exported from (an application owns its client —
-# ADR-0009). So they need `APP=`: there is no sensible repository-wide default,
-# and guessing one would run migrations against whatever happened to be checked out.
-APP ?=
-
-migrate: ## Apply pending migrations (APP=path)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate $(ARGS)
-
-migrate-status: ## Show applied, pending and drifted migrations (APP=path)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" migrate:status $(ARGS)
-
-seed: ## Run the application's seeders for APP_ENV (APP=path, ARGS=--class X)
-	@test -n "$(APP)" || { echo "  · set APP=<application path> — see src/docs/migrations.md"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" db:seed $(ARGS)
-
-deploy-plan: ## Resolve and print the deploy unit graph (ARGS=--explain|--json|--write)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:plan $(ARGS)
-
-deploy-diff: ## Compare the unit graph to the committed snapshot (ARGS=--json)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:diff $(ARGS)
-
-deploy-build: ## Emit Workers/Lambda artifacts (ARGS=--target cloudflare,lambda --minify)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:build $(ARGS)
-
-deploy-validate: ## Gate a release: budgets, secret scan, capabilities (ARGS=--json)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" deploy:validate $(ARGS)
-
-route-list: ## List compiled routes (APP=path, ARGS=--json for machine output)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" route:list $(ARGS)
-
-route-compile: ## Generate routes.gen.ts (ARGS=--check to fail on drift)
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) ../../framework/console/src/cli.ts route:compile $(ARGS)
+# ─── Sample application (core validation only) ───────────────────────────────
+#
+# The sample app under `src/apps/` is a fixture the framework is developed and
+# validated against. The targets below exist to keep its committed generated
+# artifacts honest; they are not an application workflow, which lives behind
+# `dist/tsir` (see ADR-0031).
+SAMPLE_APP := $(ADMIN_APP)
 
 codegen-check: ## Fail if a committed generated artefact is stale (part of `make check`)
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts route:compile --check
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:plan --check
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:build --target cloudflare,lambda --out "$(CURDIR)/.verify/deploy"
-	@cd $(ADMIN_APP) && $(BUN) ../../framework/console/src/cli.ts deploy:validate --out "$(CURDIR)/.verify/deploy"
+	@$(MAKE) --no-print-directory app-route-compile app-deploy-plan app-deploy-build app-deploy-validate soap-check
 	@rm -rf "$(CURDIR)/.verify/deploy"; rmdir "$(CURDIR)/.verify" 2>/dev/null || true
-	@$(TSIR) link:soap:gen src/framework/console/src/commands/fixtures/tax.wsdl --check
 
-openapi: ## Generate the OpenAPI 3.1 document of an app (APP=path, ARGS="--out openapi.json")
-	@test -n "$(APP)" || { echo "  · set APP=<application path>"; exit 1; }
-	@cd "$(APP)" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" openapi:generate $(ARGS)
-
-# ─── Code generators (`tsir make:*`) ──────────────────────────────────────────
-#
-# Scaffold modules, controllers, models, services, and every other artefact
-# through the framework's own generators. Never hand-write a file that
-# `tsir make:*` can produce — the generated shape is what the rest of the
-# framework (routes, DI, deploy graph) expects.
-#
-#   make make-module     ARGS="shop"
-#   make make-controller ARGS="order shop"
-#   make make-model      ARGS="order shop"
-#   make make-migration  ARGS="create-orders shop"
-#   make make-seeder     ARGS="shop"
-#
-# Run from the app directory (APP=path) or from the workspace root; the CLI
-# resolves the nearest `tsir.js`.
-
-make-%: ## Run `tsir make:<name>` — e.g. `make make-controller ARGS="order shop"`
-	@cd "$(or $(APP),$(ADMIN_APP))" && $(BUN) "$(CURDIR)/src/framework/console/src/cli.ts" make:$* $(ARGS)

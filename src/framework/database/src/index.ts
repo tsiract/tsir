@@ -42,11 +42,24 @@ export { createConnectionsFromConfig } from './from-config.ts';
 export type { BindingsSource, RuntimeBindings } from './from-config.ts';
 
 export { createDatabaseBootstrap } from './bootstrap.ts';
-export type { DatabaseBootstrap, DatabaseBootstrapOptions } from './bootstrap.ts';
+export type { DatabaseBootstrap, DatabaseBootstrapOptions, DrizzleFor } from './bootstrap.ts';
+
+export { defineModel, columnsOf, countExpression } from './model.ts';
+export type { Model, ModelClient, ModelOptions, ModelTable, Where } from './model.ts';
+
+export { redactSql, isSensitiveColumn, SENSITIVE_COLUMNS } from './redaction.ts';
 
 export { createSqliteBinding } from './sqlite-binding.ts';
 
 export { createD1Driver, D1_CAPABILITIES } from './d1.ts';
+// `CAP-009`: the three engines that were in the capability map and not in `DATABASE_ENGINES`.
+// Each is selectable from `tsir.js` — that is what makes them drivers rather than functions.
+export { createHttpPostgresDriver, parsePostgresUrl } from './postgres-http.ts';
+export type { HttpPostgresOptions, HttpPostgresResponse } from './postgres-http.ts';
+export { createHttpMysqlDriver } from './mysql.ts';
+export type { HttpMysqlOptions, HttpMysqlResponse } from './mysql.ts';
+export { createSqliteDriver, SQLITE_CAPABILITIES } from './sqlite.ts';
+export type { SqliteDriverOptions, SqliteLike } from './sqlite.ts';
 export type { D1DriverOptions, D1Like, D1ResultLike, D1StatementLike } from './d1.ts';
 
 export { createDrizzle, errorCode, rootCause } from './drizzle.ts';

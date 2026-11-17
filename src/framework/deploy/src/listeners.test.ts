@@ -1,9 +1,18 @@
 import { describe, expect, test } from 'bun:test';
 
-import { Controller, OnEventBridge, OnSns, OnStepTask, RouteRegistry } from '@tsir/router';
+import {
+  Controller,
+  OnEventBridge,
+  OnSns,
+  OnStepTask,
+  removeRouteModule,
+  RouteRegistry,
+  routeModule,
+  type RouteModule,
+} from '@tsir/router';
 
-import { compileListeners } from './listeners.ts';
-import type { ListenerController } from './listeners.ts';
+import { compileListeners, listenerUnitFor } from './listeners.ts';
+import type { ListenerApp, ListenerController } from './listeners.ts';
 
 const fakeContext = { functionName: 'test', getRemainingTimeInMillis: () => 1000 } as never;
 
@@ -206,5 +215,71 @@ describe('compileListeners · Step Functions tasks (DPL-029)', () => {
     return expect(unit.invoke!({ task: 'nonexistent' }, fakeContext)).rejects.toThrow(
       /known: process-refund, send-invoice/,
     );
+  });
+});
+
+describe('listenerUnitFor (DPL-026)', () => {
+  /**
+   * An app handle shaped like `defineApp`'s: a loader plus a module list.
+   *
+   * `listenerControllers()` reads `defineApp`'s module list, so the test declares a real
+   * `routeModule` — the same thing an application does — and removes it afterwards, because
+   * the declaration list is process-global (and other files in this process declared modules
+   * too, so removing only ours is the honest cleanup).
+   */
+  function appWith(module: RouteModule | undefined): ListenerApp {
+    const modules = module === undefined ? [] : [module.module];
+    return { load: () => ({ values: {} }), modulesFor: () => modules };
+  }
+
+  function declareOrders(): { readonly declared: RouteModule; readonly registry: RouteRegistry } {
+    const registry = new RouteRegistry();
+    const declared = routeModule({ name: 'orders-listeners-test', registry });
+
+    @Controller(registry)
+    class OrdersForTest {
+      @OnSns({ topic: 'orders' })
+      onOrder(): void {}
+
+      @OnStepTask({ name: 'charge' })
+      charge(): unknown {
+        return { charged: true };
+      }
+    }
+    void OrdersForTest;
+    return { declared, registry };
+  }
+
+  test('an app with listeners yields the handlers the adapter dispatches to', () => {
+    const { declared } = declareOrders();
+    try {
+      const unit = listenerUnitFor(appWith(declared));
+      expect(Object.keys(unit).sort()).toEqual(['invoke', 'sns']);
+    } finally {
+      removeRouteModule(declared);
+    }
+  });
+
+  test('an app with no listeners yields nothing, not undefined', () => {
+    expect(listenerUnitFor(appWith(undefined))).toEqual({});
+  });
+
+  test('`expect` turns a bundle that lost its listeners into a loud init failure', () => {
+    // This is the `"sideEffects": false` case: the build sees the decorators, the bundler drops
+    // the registration import, and the deployed handler would otherwise ignore every event.
+    expect(() => listenerUnitFor(appWith(undefined), { expect: ['sns'], unit: 'notify' })).toThrow(
+      /no listener controller reached the bundle/u,
+    );
+
+    const { declared } = declareOrders();
+    try {
+      // The same app with its listeners but no matching handler is a different diagnosis: the
+      // graph and the decorators disagree about which unit owns the trigger.
+      expect(() =>
+        listenerUnitFor(appWith(declared), { expect: ['eventbridge'], unit: 'notify' }),
+      ).toThrow(/no listener handles it/u);
+    } finally {
+      removeRouteModule(declared);
+    }
   });
 });

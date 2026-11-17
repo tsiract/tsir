@@ -34,6 +34,10 @@ console.log(report.channels);
 
 ## Failure modes
 
+- `NOTIFY_ENGINE_UNSUPPORTED`: the database inbox was given a `mysql` connection. Its insert is
+  `ON CONFLICT DO NOTHING`, which is what makes a retried delivery a no-op; MySQL's
+  `INSERT IGNORE` also swallows a truncated column and a bad foreign key, so an inbox using it
+  would silently drop notifications. Refused rather than approximated.
 - `NOTIFY_NO_CHANNELS`: no channels are declared.
 - `NOTIFY_UNKNOWN_CHANNEL`: a channel name was used that is not declared.
 - `NOTIFY_DUPLICATE_CHANNEL`: two channels have the same name. A duplicate would send two different

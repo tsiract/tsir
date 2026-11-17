@@ -71,9 +71,14 @@ function purityVerdict(manifest: Packument): string | undefined {
   return undefined;
 }
 
+// Sorted, because this list drives `importers` — which is rendered into
+// `src/docs/dependencies.md`. Directory order is filesystem-dependent (ext4 returns hash
+// order, APFS returns creation order), so an unsorted list made the generated table differ
+// between Linux and macOS and turned a docs file into a platform-specific artifact.
 const packages = (await readdir(FRAMEWORK, { withFileTypes: true }))
   .filter((entry) => entry.isDirectory())
-  .map((entry) => entry.name);
+  .map((entry) => entry.name)
+  .sort();
 
 /**
  * Where a third-party package actually landed.
@@ -282,7 +287,7 @@ for (const [dep, use] of [...runtimeUses].sort(([a], [b]) => a.localeCompare(b))
   const policy = RUNTIME_ALLOWLIST[dep];
   const scope = policy?.scope === undefined ? '' : ` _(only with ${policy.scope.join(', ')})_`;
   docLines.push(
-    `| \`${dep}\` | ${[...use.versions].join(', ')} | ${use.importers.join(', ')} | ${policy?.rationale ?? '—'}${scope} |`,
+    `| \`${dep}\` | ${[...use.versions].join(', ')} | ${[...use.importers].sort().join(', ')} | ${policy?.rationale ?? '—'}${scope} |`,
   );
 }
 docLines.push('');

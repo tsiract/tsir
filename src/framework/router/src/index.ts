@@ -53,8 +53,14 @@ export { compileRoutes, defineRoute, describeTable, METHOD_ORDER, pathShape } fr
 export { emitRoutesModule } from './codegen.ts';
 export type { GeneratedRoute, ImportRef, RoutesModuleInput } from './codegen.ts';
 
-export { collectRouteEntries, removeRouteModule, routeModule, routeModules } from './module.ts';
-export type { RouteModule, RouteModuleOptions } from './module.ts';
+export {
+  collectRouteEntries,
+  listenerControllers,
+  removeRouteModule,
+  routeModule,
+  routeModules,
+} from './module.ts';
+export type { ListenerControllerEntry, RouteModule, RouteModuleOptions } from './module.ts';
 
 export { createMatcher, RouteMatcher } from './matcher.ts';
 export type { MatchResult, RouteParams } from './matcher.ts';

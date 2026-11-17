@@ -13,9 +13,6 @@
  * work without a Cloudflare account.
  */
 
-import { Database as Sqlite } from 'bun:sqlite';
-import { existsSync, mkdirSync } from 'node:fs';
-import { dirname } from 'node:path';
 import { token, valueProvider, type Provider, type Token } from '@tsir/container';
 
 import { createConnectionsFromConfig } from './from-config.ts';
@@ -23,8 +20,8 @@ import { createDrizzle } from './drizzle.ts';
 import { databaseConfigSchema } from './config.ts';
 import type { RuntimeBindings } from './from-config.ts';
 import type { Database } from './database.ts';
+import type { QueryLogger } from './logging.ts';
 import type { SqliteRemoteDatabase } from 'drizzle-orm/sqlite-proxy';
-import { createSqliteBinding } from './sqlite-binding.ts';
 
 /** Options for `createDatabaseBootstrap`. */
 export interface DatabaseBootstrapOptions {
@@ -36,24 +33,75 @@ export interface DatabaseBootstrapOptions {
    * throws on first query (correct for Cloudflare-only deployments).
    */
   readonly sqlitePath?: string;
+  /**
+   * Receives one event per reported statement, for every connection (`DX-014`).
+   *
+   * The same sink `createConnectionsFromConfig` takes; a bootstrap is the one call an app makes, so
+   * it must not be the place the observer silently goes missing.
+   */
+  readonly log?: QueryLogger | undefined;
+  /**
+   * Opens local SQLite files for the `sqlite` connections and `sqlitePath`.
+   *
+   * Pass `openSqliteFiles` from `@tsir/database/bun`. It is an argument rather than an import
+   * because opening a file needs `bun:sqlite`, `node:fs` and `node:path`, and a Workers bundle
+   * that merely *contains* those specifiers fails to load. An app that never runs the CLI omits
+   * this and its bundle stays clean (ADR-0022); the SQLite driver then answers
+   * `DB_SQLITE_NO_HANDLE` if it is asked to open a file nobody opened.
+   */
+  readonly openSqlite?: SqliteOpener | undefined;
 }
 
+/** The Bun-only file opener, `openSqliteFiles` from `@tsir/database/bun`. */
+export type SqliteOpener = (options: {
+  readonly connections: Readonly<
+    Record<string, { readonly driver: string; readonly url?: string | undefined }>
+  >;
+  readonly sqlitePath?: string | undefined;
+}) => Promise<RuntimeBindings>;
+
+/** What `dbFor` returns: the same Drizzle surface as `db`, for a named connection. */
+export type DrizzleFor = SqliteRemoteDatabase<Record<string, unknown>>;
+
 /** Everything an app needs to wire its database layer. */
-export interface DatabaseBootstrap {
+export interface DatabaseBootstrap<Names extends string = string> {
   /** Connections registry — exported for CLI commands (`tsir migrate`, &c.). */
   readonly databases: ReturnType<typeof createConnectionsFromConfig>;
-  /** The default connection's `Database` — services query against this. */
-  readonly db: Database;
-  /** Drizzle bound to the default connection. */
-  readonly drizzle: SqliteRemoteDatabase<Record<string, unknown>>;
-  /** DI token for `db`. */
+  /**
+   * Drizzle bound to the default connection — this is what a service queries with (ADR-0032 § 1).
+   *
+   * It is Drizzle itself, not a wrapper: every method, every extension and every `sql` template
+   * works unchanged. The only thing the framework resolved is *which* connection.
+   */
+  readonly db: DrizzleFor;
+  /**
+   * Drizzle for any other declared connection, typed against the config.
+   *
+   * `dbFor('analytics')` is checked at compile time against the names in `tsir.js`: a name that is
+   * not configured does not typecheck, so a typo cannot become a runtime lookup that returns
+   * `undefined` on the first request.
+   */
+  readonly dbFor: (name: Names) => DrizzleFor;
+  /** The default connection's `Database` — the escape hatch for raw statements. */
+  readonly connection: Database;
+  /** The raw `Database` for any declared connection, by name. */
+  readonly connectionFor: (name: Names) => Database;
+  /** Drizzle bound to the default connection. Same object as `db`; kept as the explicit name. */
+  readonly drizzle: DrizzleFor;
+  /**
+   * DI token for the raw default `Database`.
+   *
+   * Historical name: it has always resolved to the connection, not to Drizzle, and renaming it
+   * would break every module's provider list for no behavioural gain. `drizzleToken` is the one a
+   * new controller wants.
+   */
   readonly dbToken: Token<Database>;
-  /** DI token for `drizzle`. */
-  readonly drizzleToken: Token<SqliteRemoteDatabase<Record<string, unknown>>>;
-  /** Value provider for `db`. */
+  /** DI token for `drizzle` (= `db`). */
+  readonly drizzleToken: Token<DrizzleFor>;
+  /** Value provider for the raw default `Database`. */
   readonly dbProvider: Provider<Database>;
-  /** Value provider for `drizzle`. */
-  readonly drizzleProvider: Provider<SqliteRemoteDatabase<Record<string, unknown>>>;
+  /** Value provider for `drizzle` (= `db`). */
+  readonly drizzleProvider: Provider<DrizzleFor>;
   /**
    * Mutable bindings record. The handler copies `env` into it per request; the
    * deferred D1 driver reads from the accessor below on first query.
@@ -82,47 +130,73 @@ export interface DatabaseBootstrap {
  * export type DrizzleDb = typeof drizzle;
  * ```
  */
-export function createDatabaseBootstrap(
+export function createDatabaseBootstrap<Names extends string = string>(
   rawConfig: unknown,
   options: DatabaseBootstrapOptions,
-): DatabaseBootstrap {
+): DatabaseBootstrap<Names> {
   // Parse through the framework schema so defaults and validation run at import.
   const config = databaseConfigSchema.parse(rawConfig);
 
   const runtimeBindings: RuntimeBindings = {};
 
-  const bindings = (): RuntimeBindings => {
+  const bindings = async (): Promise<RuntimeBindings> => {
     // 1. Runtime bindings set by the handler from `env`.
     if (Object.keys(runtimeBindings).length > 0) return runtimeBindings;
     // 2. Test / CLI fixture binding.
     const globalBinding = (globalThis as { __binding?: unknown }).__binding;
     if (globalBinding !== undefined) return { DB: globalBinding };
-    // 3. Local SQLite fallback so CLI commands work without Cloudflare.
-    if (options.sqlitePath !== undefined) {
-      try {
-        const dbDir = dirname(options.sqlitePath);
-        if (!existsSync(dbDir)) mkdirSync(dbDir, { recursive: true });
-        const sqlite = new Sqlite(options.sqlitePath);
-        return { DB: createSqliteBinding(sqlite) };
-      } catch {
-        return runtimeBindings;
-      }
+    // 3. Local SQLite fallback so CLI commands work without Cloudflare. The opener is supplied
+    // by `@tsir/database/bun`, because the alternative is a Workers bundle that names
+    // `bun:sqlite` and fails at load. Deferred imports would keep it out of the *runtime* path
+    // and still leave it in the bundle, which is the failure this indirection removes.
+    if (options.openSqlite !== undefined) {
+      Object.assign(
+        runtimeBindings,
+        await options.openSqlite({
+          connections: config.connections,
+          sqlitePath: options.sqlitePath,
+        }),
+      );
     }
     return runtimeBindings;
   };
 
-  const databases = createConnectionsFromConfig(config, bindings);
-  const db = databases.defaultDatabase;
-  const drizzle = createDrizzle(db);
+  const databases = createConnectionsFromConfig(config, bindings, {
+    ...(options.log === undefined ? {} : { log: options.log }),
+  });
+  const connection = databases.defaultDatabase;
+  const drizzle = createDrizzle(connection);
+
+  /**
+   * One Drizzle instance per connection, built on first use and memoised (`DX-002`).
+   *
+   * Memoised for the reason `INF-010` documents rather than for speed: two Drizzle instances over
+   * one driver are two sets of column identities, and a join across them produces duplicate table
+   * aliases — a query that is wrong, not merely slow. A caller that asks twice must get the same
+   * object, so the map is the identity.
+   */
+  const drizzles = new Map<string, DrizzleFor>([[databases.default, drizzle]]);
+  const drizzleFor = (name: string): DrizzleFor => {
+    const found = drizzles.get(name);
+    if (found !== undefined) return found;
+    // `connection(name)` throws `DB_UNKNOWN_CONNECTION` listing the declared names, which is the
+    // error a caller wants; building eagerly here would defeat the deferred-binding contract.
+    const built = createDrizzle(databases.connection(name as Names));
+    drizzles.set(name, built);
+    return built;
+  };
 
   const dbToken = token<Database>('db');
-  const drizzleToken = token<typeof drizzle>('drizzle');
-  const dbProvider = valueProvider(dbToken, db);
+  const drizzleToken = token<DrizzleFor>('drizzle');
+  const dbProvider = valueProvider(dbToken, connection);
   const drizzleProvider = valueProvider(drizzleToken, drizzle);
 
   return {
     databases,
-    db,
+    db: drizzle,
+    dbFor: (name: Names) => drizzleFor(name),
+    connection,
+    connectionFor: (name: Names) => databases.connection(name),
     drizzle,
     dbToken,
     drizzleToken,

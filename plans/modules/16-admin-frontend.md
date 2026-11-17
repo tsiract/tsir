@@ -167,3 +167,62 @@ Run `bun client/build.ts` (or `bun run build:client` from the app).
 5. Manual verification: theme toggle persists, sidebar collapses, breadcrumbs reflect the
    route, user menu signs out, `/users/:id` loads and saves, DataTables reflect URL query
    params after refresh, ConfirmDialog replaces native confirm, toasts appear on actions.
+
+---
+
+## 8. Failure modes
+
+The admin app is a normal Tsir application: every failure below is the framework's failure, reported
+the framework's way, and the SPA's job is to render it rather than hide it.
+
+| Failure                                   | Why it happens                                                          | How it is reported                                                      | What the caller can do                                                         |
+| ----------------------------------------- | ----------------------------------------------------------------------- | ----------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `public/app.js` is missing                | the client build was not run before the server started                  | the SPA route serves `index.html` with no bundle — a blank page, no 500 | run `bun client/build.ts`; the server-side asset check names the path          |
+| A stale bundle is served                  | `app.js` is built once and served from disk (`INF-016`)                 | no error — this is the dangerous case                                   | rebuild in the deploy step; the assets binding (`INF-016`) removes the class   |
+| `401` on every admin route                | the session cookie is not `__Host-` in a non-HTTPS local origin         | `401` with an RFC 9457 problem document                                 | run over HTTPS or use the documented local cookie exception                    |
+| `403` on a route a super-admin needs      | the route is missing `guards: ['session','superAdmin']`                 | `403` with `policy` in the problem body                                 | add the guard; the E2E acceptance review records the three that were missing   |
+| `500` from a route that reads `principal` | `principal: true` was not declared on the route                         | `500` naming `principal` as undefined                                   | declare `principal: true` (review finding 2 in the E2E acceptance review)      |
+| A list page loses its filters             | query params were kept in component state rather than `router.query`    | no error — the view resets on refresh                                   | the pattern in § 5 is the acceptance test for every listing page               |
+| Dialect drift on a Postgres admin         | `ilike` and SQLite `1/0` booleans in application queries (`INF-011`)    | a driver error, or a silently wrong filter                              | `INF-011`; the pattern is to build the predicate from the connection's dialect |
+| A request log row never appears           | `requestLogger.record` fired without `waitUntil` (`INF-006`, `INF-016`) | **not reported** — Workers cancels it after the response                | `INF-006`; until then, await the write on routes where it matters              |
+
+## 9. Security considerations
+
+- **The guard is the boundary, not the SPA.** Every `/api/*` admin route declares
+  `guards: ['session', 'superAdmin']`; the Svelte client hides nothing it could not show, and
+  hiding a button is never the control. The E2E acceptance review
+  ([`../reviews/2026-11-08-admin-e2e-acceptance.md`](../reviews/2026-11-08-admin-e2e-acceptance.md))
+  records that this was missing and is now enforced route by route.
+- **`principal: true` is a correctness control.** A route that reads `principal` without declaring
+  it produced a `500`; the same mistake in a route that reads a tenant id would be a cross-tenant
+  read. The declaration is therefore a review checklist item, not a convenience.
+- **`__Host-` cookies, hashed identifiers.** Sessions and API keys are `@tsir/auth`'s
+  responsibility and are covered there; the admin app must not invent its own token handling, and
+  the API client sends credentials only to same-origin paths.
+- **Uploads are validated server-side.** Admin surfaces accept images and CSV; MIME is sniffed and
+  route limits applied (`VLD-006`), and a filename from the client is never used as a storage key.
+- **Asset serving is not authentication.** `public/` is served without a guard because a bundle is
+  public by definition; anything that must not be public does not go in `public/`. The current
+  runtime `node:fs` path (`INF-016`) additionally means a path-traversal bug would be ours rather
+  than the platform's — the assets binding removes that class of bug.
+- **What this does not defend against:** a super-admin account takeover (the blast radius is every
+  route), a compromised dependency in the SPA bundle, or clickjacking against a misconfigured
+  embed. Those belong to [`../operations/14-security.md`](../operations/14-security.md).
+
+## 10. Open questions
+
+| #   | Question                                                                                                           | Decides              |
+| --- | ------------------------------------------------------------------------------------------------------------------ | -------------------- |
+| Q66 | Should the admin SPA ship as a platform asset binding (`INF-016`) or as a separately deployed static site?         | `INF-016`, § 6       |
+| Q67 | Is the admin app the place to prove the `[PLANNED]` `ctx.waitUntil` seam, or should a smaller app prove it first?  | `INF-006`, `INF-016` |
+| Q68 | Do admin tables read from a read replica once `Q63` is answered, given the freshness trade-off on a management UI? | `Q63`, `INF-019`     |
+
+## 11. Task index
+
+- [`tasks/admin-followups.md`](../tasks/admin-followups.md) — `ADM-001`…`ADM-009`, the remaining
+  edge-case verifications.
+- [`tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) — `INF-016`
+  makes this app edge-native; `INF-006` supplies the `waitUntil` it needs; `INF-011` covers the
+  dialect drift in its queries.
+- [`reviews/2026-11-08-admin-e2e-acceptance.md`](../reviews/2026-11-08-admin-e2e-acceptance.md) —
+  the acceptance run that found the three critical defects.

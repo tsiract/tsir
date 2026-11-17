@@ -15,7 +15,7 @@ The product requirements live in the project brief. This directory turns that br
 | `modules/`      | one document per feature area: public surface, failure modes, security, tasks     |
 | `operations/`   | config, developer experience, testing, observability and security practice        |
 | `tasks/`        | the task ledger — one file per area, `PREFIX-NNN` ids, committed acceptance tests |
-| `decisions/`    | ADRs, `0001`–`0027`, each with status, context, decision and consequences         |
+| `decisions/`    | ADRs, `0001`–`0031`, each with status, context, decision and consequences         |
 | `reviews/`      | gate reviews: what was checked, what was waived, who signed off                   |
 
 Nothing outside this directory links into it, and no code imports from it — the ids
@@ -30,28 +30,49 @@ tracker: an RFC is a proposal, never a bug report.
 
 ## 2. How to use this directory
 
-| If you want to…                                      | Read                                                      |
-| ---------------------------------------------------- | --------------------------------------------------------- |
-| Understand what Tsir is and is not                   | [`00-foundation.md`](./roadmap/00-foundation.md)          |
-| Know what is built next, and in what order           | [`01-roadmap.md`](./roadmap/01-roadmap.md)                |
-| Understand package boundaries and tooling            | [`02-monorepo.md`](./architecture/02-monorepo.md)         |
-| Work on the application lifecycle, DI, or config     | [`03-core.md`](./modules/03-core.md)                      |
-| Work on HTTP, routing, validation, OpenAPI           | [`04-http.md`](./modules/04-http.md)                      |
-| Work on Drizzle, migrations, seeders                 | [`05-database.md`](./modules/05-database.md)              |
-| Work on encryption and key rotation                  | [`06-vault.md`](./modules/06-vault.md)                    |
-| Work on REST / gRPC / SOAP / WebSocket service calls | [`07-link.md`](./modules/07-link.md)                      |
-| Work on Cloudflare Workers and AWS Lambda            | [`08-deploy.md`](./modules/08-deploy.md)                  |
-| Work on `tsir.js`, presets, and bootstrap automation | [`09-tsir-config.md`](./operations/09-tsir-config.md)     |
-| Work on the framework welcome page                   | [`10-frontpage.md`](./modules/10-frontpage.md)            |
-| Work on the Makefile, CLI, or generators             | [`11-dx.md`](./operations/11-dx.md)                       |
-| Write tests                                          | [`12-testing.md`](./operations/12-testing.md)             |
-| Work on logs, metrics, tracing, health               | [`13-observability.md`](./operations/13-observability.md) |
-| Review security implications                         | [`14-security.md`](./operations/14-security.md)           |
-| Work on cache, queue, mail, notifications, drivers   | [`15-capabilities.md`](./modules/15-capabilities.md)      |
-| Work on modules, boundaries, or developer experience | [`16-modularity.md`](./architecture/16-modularity.md)     |
+| If you want to…                                      | Read                                                                                |
+| ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Understand what Tsir is and is not                   | [`00-foundation.md`](./roadmap/00-foundation.md)                                    |
+| Know what is built next, and in what order           | [`01-roadmap.md`](./roadmap/01-roadmap.md)                                          |
+| Understand package boundaries and tooling            | [`02-monorepo.md`](./architecture/02-monorepo.md)                                   |
+| Work on the application lifecycle, DI, or config     | [`03-core.md`](./modules/03-core.md)                                                |
+| Work on HTTP, routing, validation, OpenAPI           | [`04-http.md`](./modules/04-http.md)                                                |
+| Work on Drizzle, migrations, seeders                 | [`05-database.md`](./modules/05-database.md)                                        |
+| Work on encryption and key rotation                  | [`06-vault.md`](./modules/06-vault.md)                                              |
+| Work on REST / gRPC / SOAP / WebSocket service calls | [`07-link.md`](./modules/07-link.md)                                                |
+| Work on Cloudflare Workers and AWS Lambda            | [`08-deploy.md`](./modules/08-deploy.md)                                            |
+| Work on `tsir.js`, presets, and bootstrap automation | [`09-tsir-config.md`](./operations/09-tsir-config.md)                               |
+| Work on the framework welcome page                   | [`10-frontpage.md`](./modules/10-frontpage.md)                                      |
+| Work on the Makefile, CLI, or generators             | [`11-dx.md`](./operations/11-dx.md)                                                 |
+| Write tests                                          | [`12-testing.md`](./operations/12-testing.md)                                       |
+| Work on logs, metrics, tracing, health               | [`13-observability.md`](./operations/13-observability.md)                           |
+| Review security implications                         | [`14-security.md`](./operations/14-security.md)                                     |
+| Work on cache, queue, mail, notifications, drivers   | [`15-capabilities.md`](./modules/15-capabilities.md)                                |
+| Work on modules, boundaries, or developer experience | [`16-modularity.md`](./architecture/16-modularity.md)                               |
+| Choose a substrate, a cloud, or a deployment profile | [`17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md) |
+| Work on the admin app (`admin.product.com`)          | [`16-admin-frontend.md`](./modules/16-admin-frontend.md)                            |
+| Decide what belongs in the core repo vs. `dist/`     | [`18-core-vs-distribution.md`](./architecture/18-core-vs-distribution.md)           |
+| Test an AWS event path without an AWS account        | [`19-aws-event-testing.md`](./architecture/19-aws-event-testing.md)                 |
 
 Task tracking: [`tasks/`](./tasks/README.md). Architectural decisions: [`decisions/`](./decisions/README.md).
 Gate reviews (what was checked, what was waived): [`reviews/`](./reviews/README.md).
+
+Three documents carry the infrastructure position, and they are meant to be read in this order:
+
+1. [`reviews/2026-11-07-infrastructure-agnosticism-audit.md`](./reviews/2026-11-07-infrastructure-agnosticism-audit.md)
+   — what the code actually does, package by package, with the `INF-001`…`INF-018` findings.
+2. [`architecture/17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md)
+   — what the framework intends to support: Cloudflare-first, AWS-compatible, hybrid by design,
+   five deployment profiles over seven runtime seams.
+3. [`decisions/0030-hybrid-cloud-and-workload-substrates.md`](./decisions/0030-hybrid-cloud-and-workload-substrates.md)
+   — the decision that ratifies 2, with
+   [`tasks/16-infrastructure-hardening.md`](./tasks/16-infrastructure-hardening.md) as the ledger
+   that makes it true.
+
+Infrastructure prose in this directory carries one of six status labels — `[VERIFIED]`,
+`[PARTIAL]`, `[PLANNED]`, `[PROPOSED]`, `[LIMITATION]`, `[PROVIDER-SPECIFIC]` — defined in
+[`17-infrastructure-philosophy.md § 16`](./architecture/17-infrastructure-philosophy.md#16-capability-status-register).
+A declared provider that does not work is `[PARTIAL]`, never "supported".
 
 ---
 
@@ -258,3 +279,68 @@ These are restated in every relevant plan and must survive every refactor:
 2. If the task contradicts a plan, **amend the plan first** (same PR).
 3. If the task requires a new architectural decision, add an ADR with status `Proposed`; the maintainer flips it to `Accepted` or `Rejected`.
 4. Keep task acceptance criteria testable. "Works well" is not acceptance criteria; "returns 422 with `issues[]` for three malformed bodies" is.
+
+---
+
+## 8. Authority map — which document owns which statement
+
+`plans/` has ~94 documents and several of them touch the same subject. When two disagree, this table
+decides which one is wrong. It was added on 2026-11-08 because the queue, real-time, database-dialect
+and deploy stories were each described in three places with different statuses.
+
+| Subject                                         | **Authoritative document**                                                                                                          | Others may only…                                                             |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| What the code actually does, package by package | [`reviews/2026-11-07-infrastructure-agnosticism-audit.md`](./reviews/2026-11-07-infrastructure-agnosticism-audit.md)                | cite it; never restate a finding with a different severity                   |
+| Capability status labels (`[VERIFIED]` … )      | [`architecture/17-infrastructure-philosophy.md § 16`](./architecture/17-infrastructure-philosophy.md#16-capability-status-register) | reference the label, not a paraphrase                                        |
+| Substrate choice, profiles, cost, lock-in       | [`architecture/17-infrastructure-philosophy.md`](./architecture/17-infrastructure-philosophy.md)                                    | link to a section                                                            |
+| Package boundaries and the dependency DAG       | [`architecture/02-monorepo.md`](./architecture/02-monorepo.md)                                                                      | link                                                                         |
+| Module boundaries and extraction                | [`architecture/16-modularity.md`](./architecture/16-modularity.md)                                                                  | link                                                                         |
+| HTTP pipeline, binders, OpenAPI                 | [`modules/04-http.md`](./modules/04-http.md)                                                                                        | link; the task ledger owns status only                                       |
+| Database engines, connections, transactions     | [`modules/05-database.md`](./modules/05-database.md)                                                                                | link                                                                         |
+| Vault envelope and rotation                     | [`modules/06-vault.md`](./modules/06-vault.md)                                                                                      | link                                                                         |
+| Service-to-service protocols and rooms          | [`modules/07-link.md`](./modules/07-link.md) (rooms: [ADR-0025](./decisions/0025-rooms-are-durable-object-shaped.md))               | link                                                                         |
+| Deploy units, emitters, artifacts               | [`modules/08-deploy.md`](./modules/08-deploy.md) (graph shape: [ADR-0026](./decisions/0026-deploy-graph-is-an-artefact.md))         | link                                                                         |
+| Capability mechanism, drivers, conformance kits | [`modules/15-capabilities.md`](./modules/15-capabilities.md)                                                                        | link                                                                         |
+| Admin app (`admin.product.com`)                 | [`modules/16-admin-frontend.md`](./modules/16-admin-frontend.md)                                                                    | link                                                                         |
+| `tsir.js` shape, presets, bootstrap             | [`operations/09-tsir-config.md`](./operations/09-tsir-config.md)                                                                    | link                                                                         |
+| Logging, metrics, tracing, health               | [`operations/13-observability.md`](./operations/13-observability.md)                                                                | link                                                                         |
+| Testing strategy and harness                    | [`operations/12-testing.md`](./operations/12-testing.md)                                                                            | link                                                                         |
+| Security practice and review requirements       | [`operations/14-security.md`](./operations/14-security.md)                                                                          | link                                                                         |
+| Phase sequence and gates                        | [`roadmap/01-roadmap.md`](./roadmap/01-roadmap.md)                                                                                  | link; § 2.1 records stream state                                             |
+| Glossary, requirements, exclusions              | [`roadmap/00-foundation.md`](./roadmap/00-foundation.md)                                                                            | link                                                                         |
+| Task status and acceptance criteria             | the `tasks/` file that owns the prefix                                                                                              | never restate a status in a module doc — link to the row                     |
+| Execution order across ledgers                  | [`tasks/README.md § 5`](./tasks/README.md#5-execution-order-dependency-driven-re-derived-2026-11-08)                                | link                                                                         |
+| Architecture decisions                          | `decisions/NNNN-*.md` — one file, one decision, immutable once accepted                                                             | a later ADR supersedes; never edit an accepted one into a different decision |
+
+Three rules that follow from it:
+
+1. **A module document may not be the only place a status is stated.** Status lives in `tasks/`; the
+   module document explains the _mechanism_ and links to the row. This was violated in at least four
+   places before 2026-11-08 (`08-deploy.md` § 3.1, `15-capabilities.md § 4.2`, `05-database.md § 2.9`,
+   `04-http.md § 9.1`) and each is now corrected with a dated note.
+2. **A dated note beats a silent edit.** When a document's earlier claim was wrong, the correction is
+   visible — "corrected 2026-11-08" — because a reader who trusted the old text needs to know it
+   changed. Three such notes exist now, and that is deliberate.
+3. **Historical material is kept only when it explains a decision.** `tasks/_capabilities.md` is kept
+   as the record of the Phase 7 module map and marked superseded; `06-link.md`'s WSDL and SOAP
+   sections are kept because ADR-0023/0024 rest on them. Nothing else is retained "for history".
+
+### 8.1 Documents reviewed and left unchanged, and why
+
+Every document in `plans/` was read for this pass. These were reviewed and deliberately **not**
+edited, so a future reader does not re-do the work:
+
+| Document                                                                                                                                                                        | Verdict                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `roadmap/00-foundation.md`                                                                                                                                                      | Accurate; the glossary and exclusion list still match the tree                             |
+| `architecture/02-monorepo.md`                                                                                                                                                   | Accurate; the DAG matches `make boundaries`                                                |
+| `modules/03-core.md`, `06-vault.md`, `07-link.md`, `10-frontpage.md`                                                                                                            | Accurate; their status claims match the ledgers                                            |
+| `operations/11-dx.md`, `12-testing.md`, `14-security.md`                                                                                                                        | Accurate                                                                                   |
+| `decisions/0001`–`0029`                                                                                                                                                         | Untouched by design — accepted ADRs are immutable; `0030` and `0031` are the only new ones |
+| `reviews/2026-10-28-vault-design-review.md`, `2026-10-29-capabilities-review.md`                                                                                                | Historical gate reviews; still the record of those gates                                   |
+| `tasks/01-foundation.md`, `06-link.md`, `07-capabilities.md`, `20-dx.md`, `events.md`, `mail.md`, `notify.md`, `policy.md`, `pulse.md`, `queue.md`, `schedule.md`, `storage.md` | Statuses verified against source; all correct                                              |
+| `tasks/26-laravel-decoupling.md`                                                                                                                                                | Planning-only by design and honestly marked; gated on Phase 8                              |
+
+The one document that was **wrong about the implementation in the other direction** — claiming less
+than the code does — is `tasks/27-feature-parity-audit.md` (storage), corrected in place on 2026-11-08
+with the reasoning preserved rather than deleted.

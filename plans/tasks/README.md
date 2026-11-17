@@ -12,6 +12,64 @@
 4. **Blocked tasks say why.** `[!]` requires a one-line reason and a link to the blocking task or decision.
 5. **Plan-first.** A task that contradicts a plan amends the plan in the same PR.
 
+### 1.1 The rules a machine enforces (`DOCS-013`…`DOCS-019`)
+
+These are checked by `make tasks-check`, which is part of `make check`, so a doc-only pull request
+cannot quietly break them.
+
+| Rule                                                           | What fails, and where                                                       |
+| -------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| **One notation.** `[x]`, `[~]`, `[ ]`, `[!]`. `✅` is retired. | A new `✅` in a status cell names the file and line.                        |
+| **Every row has an id.** A `PREFIX-NNN` in the first cell.     | A status with no id is counted under "Rows with no task id" in `STATUS.md`. |
+| **Every open task has acceptance text.**                       | A `[ ]`/`[~]`/`[!]` row with an empty last cell fails the gate.             |
+| **`STATUS.md` matches the ledgers.**                           | A stale generated page fails; run `make tasks`.                             |
+| **Every ledger's checklist matches the ledger.**               | A stale `checklists/<ledger>.md` fails; run `make tasks`.                   |
+| **A cited document resolves.** A done task naming a page.      | A dangling citation in `docs/` fails; see `make docs-index`.                |
+
+`STATUS.md` is the index to read. It is generated, it lists every open task by id, and it is the
+reason a number in this repository is a measurement rather than a memory.
+
+`checklists/` is the same data sliced per file, for whoever is working inside one ledger. Each page
+is `- [ ] `ID`title —`file:line``, grouped **half done → blocked → open → done**, so the unfinished
+work is at the top and every line can be pasted into a note or jumped to in the ledger. Start with
+[`checklists/`](./checklists/) rather than reading thirty-four tables.
+
+```sh
+bun src/tools/task-status.ts            # every ledger as a checklist, on stdout
+bun src/tools/task-status.ts --write    # STATUS.md + checklists/  (make tasks)
+bun src/tools/task-status.ts --check    # fail when either is stale (make tasks-check)
+```
+
+`docs/` answers the other half of the user's ask — **what documentation did this task add**. Each
+page lists the documents the ledger's acceptance notes cite, grouped by document with the task ids
+that cite it, then the done tasks that cite none (not failures: a task can be pure code, but a "done"
+row naming no page is where a claim of "documented" hides). Citations are read from the notes and
+resolved on disk, so a renamed page becomes a broken reference rather than a sentence that used to be
+true — an _open_ task naming a page it has not written yet is listed as planned, not broken.
+
+```sh
+bun src/tools/doc-ledger.ts            # every cited document, and who cites it
+bun src/tools/doc-ledger.ts --write    # plans/tasks/docs/  (make docs-index)
+bun src/tools/doc-ledger.ts --check    # citations resolve, indexes current (make docs-index-check)
+```
+
+**Which ledger is unfinished.** The checklist page's own header carries the ratio, so
+`grep -h '^\*\*' plans/tasks/checklists/*.md` answers "what is left" without loading a single task
+row.
+
+### 1.2 Where a new task goes
+
+| The work is…                                     | Put it in                                     | Prefix   |
+| ------------------------------------------------ | --------------------------------------------- | -------- |
+| A package's own feature or fix                   | that package's file                           | its own  |
+| Cross-package, host/engine/substrate             | `16-infrastructure-hardening.md`              | `INF-*`  |
+| Removes boilerplate or changes an app-facing API | `17-dx-data-layer.md`                         | `DX-*`   |
+| Documentation, examples, the frontpage           | `28-docs-inventory.md`                        | `DOCS-*` |
+| A stale sentence in an existing plan             | that plan, amended in the same PR as the code | —        |
+
+A task that does not fit one of these rows is a sign the plan is wrong, not that the ledger needs a
+ninth category.
+
 ---
 
 ## 2. Index
@@ -20,22 +78,44 @@ The files below are ordered by **execution sequence**. Each phase depends on the
 before it; do not start a later phase while an earlier one still has open `[ ]` or `[~]`
 items that block it. The dependency arrows note the hard gates.
 
+### Phase 0 — Data-layer DX (runs first; see § 4)
+
+| File                                           | Covers                                                                     | Task range |
+| ---------------------------------------------- | -------------------------------------------------------------------------- | ---------- |
+| [`17-dx-data-layer.md`](./17-dx-data-layer.md) | Bound Drizzle, typed models, one capability-resolution rule, query monitor | `DX-*`     |
+
+This phase outranks the others by decision: a task here removes cost paid at every call site of
+every application, which is a larger number than any remaining parity gap. The last section of this
+file, **Phase 0 — DX first**, explains why.
+
+### Phase 0 — Ledger and docs truthfulness
+
+| File                                             | Covers                                                                            | Task range |
+| ------------------------------------------------ | --------------------------------------------------------------------------------- | ---------- |
+| [`28-docs-inventory.md`](./28-docs-inventory.md) | Missing prose, runnable examples, the frontpage's claims, ids for the parity rows | `DOCS-*`   |
+| [`STATUS.md`](./STATUS.md)                       | **Generated** — every task, its state, and what is left                           | —          |
+| [`checklists/`](./checklists/)                   | **Generated** — one page per ledger, unfinished work first                        | —          |
+
+`STATUS.md` is written by `make tasks` and checked by `make check`. It is the answer to "what is
+missing, what is partial, what is done" without reading thirty-nine files; do not edit it by hand.
+`checklists/` is written by the same command and checked by the same gate.
+
 ### Phase 1–2 — Foundation & core
 
-| File                                     | Covers                                                  | Task range                               |
-| ---------------------------------------- | ------------------------------------------------------- | ---------------------------------------- |
-| [`01-foundation.md`](./01-foundation.md) | Repo, tooling, CI, Makefile, dev server                 | `FND-001`…`FND-024`, `DXS-001`…`DXS-008` |
-| [`02-core.md`](./02-core.md)             | Container, config, lifecycle, errors, `tsir.js` loader  | `CTN-*`, `CFG-*`, `APP-*`, `ERR-*`       |
+| File                                     | Covers                                                 | Task range                               |
+| ---------------------------------------- | ------------------------------------------------------ | ---------------------------------------- |
+| [`01-foundation.md`](./01-foundation.md) | Repo, tooling, CI, Makefile, dev server                | `FND-001`…`FND-024`, `DXS-001`…`DXS-008` |
+| [`02-core.md`](./02-core.md)             | Container, config, lifecycle, errors, `tsir.js` loader | `CTN-*`, `CFG-*`, `APP-*`, `ERR-*`       |
 
 ### Phase 3–6 — Infrastructure
 
-| File                                 | Covers                                                  | Task range                |
-| ------------------------------------ | ------------------------------------------------------- | ------------------------- |
-| [`03-http.md`](./03-http.md)         | Router, HTTP pipeline, validation, OpenAPI              | `RTR-*`, `HTP-*`, `VLD-*` |
-| [`04-database.md`](./04-database.md) | Drizzle integration, migrations, seeders                | `DB-*`, `MIG-*`, `SED-*`  |
-| [`05-vault.md`](./05-vault.md)       | Envelope, keyring, codec, rotation                      | `VLT-*`                   |
-| [`06-link.md`](./06-link.md)         | REST, gRPC, SOAP, WebSocket                             | `LNK-*`                   |
-| [`07-deploy.md`](./07-deploy.md)     | Unit graph, Workers, Lambda, `tsir.js` deploy automation| `DPL-*`                   |
+| File                                 | Covers                                                   | Task range                |
+| ------------------------------------ | -------------------------------------------------------- | ------------------------- |
+| [`03-http.md`](./03-http.md)         | Router, HTTP pipeline, validation, OpenAPI               | `RTR-*`, `HTP-*`, `VLD-*` |
+| [`04-database.md`](./04-database.md) | Drizzle integration, migrations, seeders                 | `DB-*`, `MIG-*`, `SED-*`  |
+| [`05-vault.md`](./05-vault.md)       | Envelope, keyring, codec, rotation                       | `VLT-*`                   |
+| [`06-link.md`](./06-link.md)         | REST, gRPC, SOAP, WebSocket                              | `LNK-*`                   |
+| [`07-deploy.md`](./07-deploy.md)     | Unit graph, Workers, Lambda, `tsir.js` deploy automation | `DPL-*`                   |
 
 `07-deploy.md` has a sidecar: [`07-deploy-cloud-checks.md`](./07-deploy-cloud-checks.md)
 holds the Phase 6 criteria that **cannot** be met in this repository — they need a
@@ -67,45 +147,57 @@ record of the module map and the scope guard. Read `07-capabilities.md` instead.
 
 ### Phase 8 — Cross-cutting
 
-| File                                     | Covers                                              | Task range   |
-| ---------------------------------------- | --------------------------------------------------- | ------------ |
-| [`08-dx.md`](./08-dx.md)                 | CLI, generators, Makefile evolution, bootstrap      | `CLI-*`, `DXS-*`, `CFG-1xx` |
-| [`09-frontpage.md`](./09-frontpage.md)   | Frontpage, docs site, naming checks                 | `DOC-*`      |
-| [`10-testing.md`](./10-testing.md)       | Test harness, matrices, concurrency                 | `TST-*`      |
-| [`11-observability.md`](./11-observability.md) | Logging, metrics, tracing, health              | `OBS-*`      |
-| [`12-security.md`](./12-security.md)     | Threat model, review, secrets                       | `SEC-*`      |
-| [`13-modularity.md`](./13-modularity.md) | Module ownership, boundaries, DX                    | `MOD-*`      |
+| File                                           | Covers                                         | Task range                  |
+| ---------------------------------------------- | ---------------------------------------------- | --------------------------- |
+| [`20-dx.md`](./20-dx.md)                       | CLI, generators, Makefile evolution, bootstrap | `CLI-*`, `DXS-*`, `CFG-1xx` |
+| [`21-frontpage.md`](./21-frontpage.md)         | Frontpage, docs site, naming checks            | `DOC-*`                     |
+| [`22-testing.md`](./22-testing.md)             | Test harness, matrices, concurrency            | `TST-*`                     |
+| [`23-observability.md`](./23-observability.md) | Logging, metrics, tracing, health              | `OBS-*`                     |
+| [`24-security.md`](./24-security.md)           | Threat model, review, secrets                  | `SEC-*`                     |
+| [`25-modularity.md`](./25-modularity.md)       | Module ownership, boundaries, DX               | `MOD-*`                     |
 
 ### Phase 9 — Rebranding (depends on Phase 8 closing)
 
-| File                                                 | Covers                                                  | Task range |
-| ---------------------------------------------------- | ------------------------------------------------------- | ---------- |
-| [`14-laravel-decoupling.md`](./14-laravel-decoupling.md) | Laravel-ecosystem package & terminology renames    | `RBR-*`    |
+| File                                                     | Covers                                          | Task range |
+| -------------------------------------------------------- | ----------------------------------------------- | ---------- |
+| [`26-laravel-decoupling.md`](./26-laravel-decoupling.md) | Laravel-ecosystem package & terminology renames | `RBR-*`    |
 
 ### Phase 10 — Feature parity (depends on Phase 9 rebranding)
 
-| File                                             | Covers                                                  | Task range   |
-| ------------------------------------------------ | ------------------------------------------------------- | ------------ |
-| [`15-feature-parity.md`](./15-feature-parity.md) | 1:1 feature mapping vs Laravel ecosystem                | `PARITY-*`   |
+| File                                             | Covers                                   | Task range |
+| ------------------------------------------------ | ---------------------------------------- | ---------- |
+| [`27-feature-parity.md`](./27-feature-parity.md) | 1:1 feature mapping vs Laravel ecosystem | `PARITY-*` |
 
-The per-module Phase 10 files track the post-rebrand packages (see `14-laravel-decoupling.md`
+The per-module Phase 10 files track the post-rebrand packages (see `26-laravel-decoupling.md`
 for the rename map):
 
-| File                                 | Covers (← legacy name)              | Task range |
-| ------------------------------------ | ----------------------------------- | ---------- |
-| [`search.md`](./search.md)           | Search engine port, drivers, queue sync (← scout) | `SRCH-*` |
-| [`telemetry.md`](./telemetry.md)     | Request/queue logs, exception + cache/DB/mail tracking (← telemetry) | `TEL-*` |
-| [`billing.md`](./billing.md)         | Billing provider port, Stripe + Paddle (← cashier) | `BILL-*` |
-| [`servers.md`](./servers.md)         | Server management, SSH/local/cloud providers (← forge) | `SRV-*` |
-| [`oauth.md`](./oauth.md)             | Social login providers, OAuth 1.0a, stateless auth (← socialize) | `OAUTH-*` |
-| [`browser.md`](./browser.md)         | Browser automation, assertions, page objects (← nightwatch) | `BROW-*` |
+| File                             | Covers (← legacy name)                                               | Task range |
+| -------------------------------- | -------------------------------------------------------------------- | ---------- |
+| [`search.md`](./search.md)       | Search engine port, drivers, queue sync (← scout)                    | `SRCH-*`   |
+| [`telemetry.md`](./telemetry.md) | Request/queue logs, exception + cache/DB/mail tracking (← telemetry) | `TEL-*`    |
+| [`billing.md`](./billing.md)     | Billing provider port, Stripe + Paddle (← cashier)                   | `BILL-*`   |
+| [`servers.md`](./servers.md)     | Server management, SSH/local/cloud providers (← forge)               | `SRV-*`    |
+| [`oauth.md`](./oauth.md)         | Social login providers, OAuth 1.0a, stateless auth (← socialize)     | `OAUTH-*`  |
+| [`browser.md`](./browser.md)     | Browser automation, assertions, page objects (← nightwatch)          | `BROW-*`   |
 
-[`15-feature-parity-audit.md`](./15-feature-parity-audit.md) is the source-verification audit
+[`27-feature-parity-audit.md`](./27-feature-parity-audit.md) is the source-verification audit
 for the parity doc. It found the parity doc **under-reports** implementation status for six
 packages (cache tags/increment/remember, scout in-memory engine, cashier subscriptions/invoices,
 mail attachments, queue delayed/unique jobs, deploy custom domains). The audit is the evidence
 record; the parity doc's statuses should be updated from `[ ]`/`[~]` to `[x]`/`[~]` per its
 recommendations.
+
+### Phase 8 — Infrastructure hardening
+
+| File                                                                 | Covers                                                                                                                                   | Task range          |
+| -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------- |
+| [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md) | The `INF-001`…`INF-020` findings from the 2026-11-07 audit: dialect bugs, queue batch loss, `waitUntil`, hybrid unblocking, worker units | `INF-001`…`INF-020` |
+
+These tasks cut across packages on purpose. They are the ledger for
+[`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md)
+and [ADR-0030](../decisions/0030-hybrid-cloud-and-workload-substrates.md), and they borrow ids from
+no existing prefix — a fix that changes `@tsir/auth`, `@tsir/database` and `@tsir/deploy` at once
+does not belong in three tables.
 
 ### Admin app
 
@@ -135,3 +227,105 @@ recommendations.
 ## 4. Definition of done (per task)
 
 Copy from [`../01-roadmap.md § 6`](../roadmap/01-roadmap.md#6-definition-of-done). A task cannot be `[x]` unless every applicable row is satisfied. The reviewer checks the task file's acceptance criteria against the diff, not the other way round.
+
+---
+
+## 5. Execution order (dependency-driven, re-derived 2026-11-08)
+
+The phase tables above order **documents**; this section orders **work**. It is the section to read
+when the question is "what do I do next", and it is derived from the actual `Depends` columns in every
+ledger plus the `INF-*` sequencing graph, not from the phase numbering.
+
+### 5.1 Tier 0 — correctness blockers (do first, in this order)
+
+Nothing else is safe to build on top while these are open. Each is a stated prerequisite of at least
+two other ledgers.
+
+| Order | Task(s)   | Why it is first                                                                          | Blocks                                                                 |
+| ----- | --------- | ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1     | `INF-001` | The Postgres auth path emits `$1` twice; every P2/P3/P4 profile terminates in Postgres   | `DB-023`–`DB-026`, `MIG-016`, `INF-003`, `INF-010`, `INF-011`, `TEL-*` |
+| 2     | `INF-002` | `@tsir/database`'s barrel imports `bun:sqlite`/`node:fs`; no Workers bundle can carry it | `INF-003`, `INF-012`, `INF-016`                                        |
+| 3     | `INF-004` | The default queue driver drops messages on a multi-message batch                         | `INF-020`; any production queue claim                                  |
+| 4     | `INF-005` | The AWS emitter drops three trigger kinds and writes an invalid SAM/WS template          | Gate P8 criterion 6; `DPL-016`                                         |
+| 5     | `INF-003` | Postgres via `tsir.js`, request-scoped Hyperdrive, the MySQL status statement            | `INF-010`, `INF-011`, `INF-017`, `INF-019`                             |
+
+### 5.2 Tier 1 — seams that unblock feature work
+
+| Task(s)              | Unblocks                                                                                         |
+| -------------------- | ------------------------------------------------------------------------------------------------ |
+| `INF-006`            | `INF-009`, `INF-016`; `TEL-*` and `OBS-014` cannot be correct without `waitUntil`                |
+| `INF-007`            | Deployment profile P3 (hybrid); `QUEUE-16`'s SDK-free claim                                      |
+| `INF-008`            | R2 parity for `@tsir/storage`; presigned uploads used by the admin app (`ADM-*`)                 |
+| `INF-009`            | Any multi-instance real-time claim; `AUTH-13`'s cookie/session story is adjacent but independent |
+| `INF-012`            | Deployment profile P5; `INF-015`                                                                 |
+| `HTP-023`, `HTP-024` | `AUTH-13`–`AUTH-15` (CSRF and email verification need cookie primitives and honest client IPs)   |
+| `RTR-013`            | `AUTH-15` (a signed verification URL wants `route(name, params)`)                                |
+
+### 5.3 Tier 2 — features, in dependency order
+
+| Track                                        | Order                                                                        | Gate                       |
+| -------------------------------------------- | ---------------------------------------------------------------------------- | -------------------------- |
+| HTTP & routing                               | `HTP-022`, `HTP-023`, `HTP-024`, `RTR-013`, `RTR-014`, `RTR-015`             | Gate P2 completion         |
+| Data                                         | `DB-027`, `DB-028`, then the MySQL block `DB-023` → `DB-026` + `MIG-016`     | after `INF-001`/`INF-003`  |
+| Auth & security                              | `AUTH-13` → `AUTH-14` → `AUTH-15`, then `SEC-015` (rate limiting)            | after `HTP-023`, `RTR-013` |
+| Observability                                | `OBS-014` and `OBS-020`, then `OBS-024`, `OBS-026`–`OBS-028`                 | after `INF-006`            |
+| Telemetry                                    | `TEL-5`–`TEL-9`                                                              | after `INF-010`            |
+| Search / billing / servers / oauth / browser | `SRCH-4`–`SRCH-8`, `BILL-5`, `SRV-6`, `OAUTH-6`–`OAUTH-8`, `BROW-4`–`BROW-6` | all after Tier 0           |
+
+### 5.4 Tier 3 — hardening and release gates
+
+`INF-013` (PBKDF2 on Free), `INF-014` (stale constants), `INF-015` (native-binary attribution),
+`INF-016` (edge-native admin app), `INF-017`/`INF-018` (Redis and workflow decisions),
+`INF-019`/`INF-020` (replicas, queue policy), `SEC-006`, `SEC-007`, `SEC-017`, `SEC-018`,
+`TST-016`, `TST-020`.
+
+### 5.5 Safe parallelism
+
+These sets touch disjoint files and can be reviewed concurrently:
+
+- `INF-001` ‖ `INF-002` ‖ `INF-004` ‖ `INF-005` ‖ `INF-008` ‖ `INF-013` ‖ `INF-014`
+- `SRCH-*` ‖ `BROW-*` ‖ `BILL-*` ‖ `SRV-*` ‖ `OAUTH-*` (five independent packages, one new driver each)
+- `HTP-023` ‖ `RTR-013` ‖ `DB-027` ‖ `DB-028`
+- Docs-only work (`DOC-015`, `DOC-016`, `OBS-028`'s documentation half) ‖ anything
+
+### 5.6 Blocked, and by what
+
+| Task(s)                      | Blocked by                                                                                                  |
+| ---------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `DB-023`–`DB-026`, `MIG-016` | `INF-001` + `INF-003` — a MySQL adapter written first repeats the placeholder bug with `?`                  |
+| `TEL-5`–`TEL-9`              | `INF-010` — the telemetry package cannot run on D1 or Postgres as it stands                                 |
+| `AUTH-13`–`AUTH-15`          | `HTP-023` (cookie primitives), `AUTH-7` (session store)                                                     |
+| `OBS-014`–`OBS-028`          | `INF-006` for the request-scoped half; cloud drivers additionally need `07-deploy-cloud-checks` credentials |
+| `TST-016`                    | `DPL-024`; the three-target conformance suite needs one artifact per target                                 |
+| Phase 9 (all `RBR-*`)        | Gate P8 closure — decoupling is a rename, and renaming unstable packages is churn                           |
+| Phase 10 docs-only rows      | nothing — the parity tables are already being maintained inside Phase 8                                     |
+
+### 5.7 Reading a `[~]` row
+
+A `[~]` row in this directory means **a branch existed or part of the acceptance criteria is met**,
+never "nearly done". Where a row is `[~]`, the row itself states which half is done and which is
+outstanding — `DPL-013`–`DPL-018` (built and tested, cloud acceptance unproven), `VLT-023` (metrics
+emitted, exporter missing), `CFG-002` (`Bun.env` banned, `process.env` not), `TST-010`/`TST-014`/`TST-015`
+(harness built, matrix incomplete), `CLI-018` (generator built, Windows run unverified). If you find a
+`[~]` whose remaining work is not written down, that is a documentation bug: fix the row first.
+
+---
+
+## 4. Phase 0 — DX first
+
+`17-dx-data-layer.md` is tracked before Phase 1 because it changes the shape of every application
+rather than adding a capability to the framework. Two measured facts decided the order:
+
+- 182 of 256 parity features are verified, and the remaining 74 are concentrated in packages few
+  applications reach for first (`pulse` 4/23, `oauth` 5/8, `browser` 3/6).
+- Every one of those 256 is reached through the same wiring: a constructor parameter, a provider
+  entry, and a hand-built Drizzle instance. That is paid on every call site, in every module, in
+  every application.
+
+The rule this phase enforces, stated once: **a default comes from `tsir.js`, the type states the
+choice, and a driver that cannot honour the choice refuses at boot.** It applies to the database
+first because that is where the boilerplate is worst, and to every other capability afterwards for
+the same reason.
+
+`DX-013` (the admin app migrated) is the acceptance test for the whole phase: if the application
+still constructs a Drizzle instance when the tasks are marked done, the phase is not done.

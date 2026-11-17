@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/storage`**
 
-`AwsCredentials`, `BuildDisksOptions`, `ConfiguredDisk`, `CreateDisksOptions`, `Disk`, `DiskCapabilities`, `DiskDefinition`, `Disks`, `EnvRef`, `GetOptions`, `ListOptions`, `ListResult`, `LocalDriverOptions`, `MAX_KEY_BYTES`, `PresignInput`, `PutOptions`, `S3DriverOptions`, `STORAGE_DRIVERS`, `SignRequestInput`, `SigningContext`, `StorageDriver`, `StorageDriverName`, `StorageErrorCode`, `StoredBody`, `StoredObject`, `assertDurable`, `assertKey`, `createDisk`, `createDisks`, `defineDisk`, `disksFromConfig`, `driverFromConfig`, `localDriver`, `memoryDriver`, `presignUrl`, `s3Driver`, `signRequest`, `text`, `utf8`
+`AwsCredentials`, `BuildDisksOptions`, `ConfiguredDisk`, `CreateDisksOptions`, `Disk`, `DiskCapabilities`, `DiskDefinition`, `Disks`, `EnvRef`, `GetOptions`, `ListOptions`, `ListResult`, `LocalDriverOptions`, `MAX_KEY_BYTES`, `PresignInput`, `PutOptions`, `S3DriverOptions`, `STORAGE_DRIVERS`, `SignRequestInput`, `SigningContext`, `StorageBootstrap`, `StorageBootstrapOptions`, `StorageDriver`, `StorageDriverName`, `StorageErrorCode`, `StoredBody`, `StoredObject`, `Visibility`, `assertDurable`, `assertKey`, `createDisk`, `createDisks`, `createStorageBootstrap`, `defineDisk`, `disksFromConfig`, `driverFromConfig`, `localDriver`, `memoryDriver`, `presignUrl`, `s3Driver`, `signRequest`, `text`, `utf8`
 
 **`@tsir/storage/conformance`**
 
@@ -36,7 +36,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (12). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (13). Each one is described in the [error-code reference](../errors.md).
 
 - `STO_ALREADY_EXISTS`
 - `STO_CONFIG_INVALID`
@@ -44,6 +44,7 @@ Owned by this package (12). Each one is described in the [error-code reference](
 - `STO_FILESYSTEM_UNAVAILABLE`
 - `STO_FORBIDDEN_IN_PRODUCTION`
 - `STO_INVALID_KEY`
+- `STO_NOT_FOUND`
 - `STO_NO_DISKS`
 - `STO_REQUEST_FAILED`
 - `STO_SIGNING_FAILED`
@@ -86,6 +87,8 @@ console.log(body === undefined ? 'missing' : 'found');
   is not set.
 - `STO_UNSUPPORTED_OPERATION`: the disk's driver cannot do what was asked. Check `disk.capabilities`
   first; every false capability is fixed at build time.
+- `STO_NOT_FOUND`: `copy`, `move` or `setVisibility` named a source key that does not exist. Call
+  `head` or `exists` first — the alternative is a silent no-op that looks like a successful copy.
 - `STO_ALREADY_EXISTS`: a write asked not to replace an existing key, and the key exists.
 - `STO_FORBIDDEN_IN_PRODUCTION`: a disk on an ephemeral driver is the default in production. The data
   would not survive the process.

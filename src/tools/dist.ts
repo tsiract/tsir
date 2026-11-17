@@ -20,17 +20,42 @@
  * `import { token } from '@tsir/container'` cost ~1 KiB instead of the whole
  * container. `make verify-dist` proves that with a real bundler run.
  *
- * Usage: bun src/tools/dist.ts [--out dist] [--no-frontpage]
+ * `--packages` cuts the build short after the packages themselves: no application copy, no docs
+ * site, no launcher, no root manifest, no `bun install`. That is the core engineering build
+ * (`make build`) — proving the framework compiles and emits — while the full run is the
+ * distribution assembly (`make dist`). One tool, one compile, two products, so the two can never
+ * disagree about how a package is emitted.
+ *
+ * Usage: bun src/tools/dist.ts [--out dist] [--no-frontpage] [--packages]
  */
 
 import { chmod, cp, mkdir, readdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, dirname, join, relative, resolve } from 'node:path';
 import { buildDocs } from './docs-site.ts';
+import { readDistConfigOrDefault, type DistConfig } from './dist-config.ts';
+import {
+  emitFrontendTemplates,
+  FRONTEND_PORTS,
+  type EmittedTemplate,
+  type FrontendIntegration,
+} from './frontend-templates.ts';
 
 const ROOT = resolve(import.meta.dir, '..', '..');
 const FRAMEWORK_DIR = join(ROOT, 'src', 'framework');
 const DIST = resolve(ROOT, argValue(Bun.argv.slice(2), '--out', 'dist'));
 const WITH_FRONTPAGE = !Bun.argv.includes('--no-frontpage');
+/** Emit the packages only: the core build. The full run assembles the distribution. */
+const PACKAGES_ONLY = Bun.argv.includes('--packages');
+
+/**
+ * What this build should ship.
+ *
+ * `tsir.dist.config.json` is the contract (`dist-config.ts`): the wizard writes it, this reads it.
+ * An invalid committed file is a hard failure rather than a silent fall back to defaults — the
+ * difference between the two is a release that quietly stops shipping something it used to ship.
+ * With no file at all, the documented defaults apply, so a fresh checkout still builds.
+ */
+const CONFIG: DistConfig = readDistConfigOrDefault(ROOT);
 
 function argValue(argv: readonly string[], flag: string, fallback: string): string {
   const index = argv.indexOf(flag);
@@ -71,6 +96,24 @@ interface SourceManifest {
 }
 
 const KB = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
+
+/**
+ * Files a package needs at run time that the TypeScript compiler does not emit.
+ *
+ * Keyed by **directory name** (`buildPackage` is called with the directory, not the manifest
+ * name); values are paths relative to that package's root. Keep the list small and
+ * justified — every entry is an asset someone can forget to update. `@tsir/console` is the one
+ * package with such an asset: `tsir new` renders its project templates from `stubs/new/*.slug`,
+ * which are data, not code. Without them the distribution ships a `tsir new` that fails with
+ * `ENOENT: … framework/console/stubs/new/tsir.js.slug`, and nothing upstream notices, because a
+ * missing template is not a type error.
+ */
+const RUNTIME_ASSETS: Readonly<Record<string, readonly string[]>> = {
+  console: ['src/stubs'],
+};
+
+/** Directories inside a package that exist only for framework development. */
+const ENGINEERING_ONLY_DIRECTORIES: readonly string[] = ['commands/fixtures'];
 
 async function listFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
@@ -204,6 +247,29 @@ async function buildPackage(
   }
   await rm(emitted, { recursive: true, force: true });
 
+  // **Non-TypeScript runtime assets.** `tsc` emits JavaScript and declarations, so anything a
+  // package reads at run time that is not TypeScript disappears here. `@tsir/console` is the one
+  // such package: `tsir new` renders its project templates from `src/stubs/**/*.slug`, which are
+  // data. Without them the distribution ships a `tsir new` that fails with
+  // `ENOENT: ... framework/console/stubs/new/tsir.js.slug` — the command is half the point of the
+  // distribution, and a missing template is not a type error, so nothing upstream notices.
+  for (const asset of RUNTIME_ASSETS[name] ?? []) {
+    // `asset` is `src/stubs` in the source tree; the distribution has no `src/` level, so the copy
+    // lands beside the emitted JavaScript (`stubs/`), which is where `stub.ts` resolves it from.
+    await cp(join(sourceDir, asset), join(target, asset.replace(/^src\//u, '')), {
+      recursive: true,
+    });
+  }
+
+  // **Engineering-only emitted output.** `tsconfig.dist.json` compiles every `.ts` under a
+  // package, which includes the fixtures and the tests' helpers — those exist so the framework can
+  // be *developed*, and a distribution that ships them ships a product containing its own test
+  // harness (`make dist-check` catches it, and this is what removes it). `*.test.ts` is already
+  // excluded from the compile; these directories are the part tsc cannot know about.
+  for (const engineeringOnly of ENGINEERING_ONLY_DIRECTORIES) {
+    await rm(join(target, engineeringOnly), { recursive: true, force: true });
+  }
+
   const files = await listFiles(target);
   // Preserve the source package's export keys (e.g. `@tsir/queue/memory` maps
   // to `drivers/memory.js`); only the paths get rewritten for the flattened
@@ -241,7 +307,11 @@ async function buildPackage(
     // packages runs on import.
     sideEffects: false,
     exports: exportMap,
-    files: ['**/*.js', '**/*.d.ts', '**/*.map', 'README.md', 'LICENSE', 'package.json'],
+    // `**/*.txt` is not padding: `@tsir/console` inlines its templates as text imports
+    // (`stubs/*.slug.txt`), so the emitted JavaScript resolves them at load time. A `files` list
+    // without them packs a console whose `import './stubs/command.ts.slug.txt'` fails the moment
+    // anything imports it — which the tarball-install step of `release-pack` caught.
+    files: ['**/*.js', '**/*.d.ts', '**/*.map', '**/*.txt', 'README.md', 'LICENSE', 'package.json'],
     ...(bin === undefined ? {} : { bin }),
     engines: { bun: '>=1.2', node: '>=22' },
     publishConfig: { access: 'public' },
@@ -368,7 +438,25 @@ async function main(): Promise<void> {
   const results: { name: string; bytes: number; exports: string[] }[] = [];
   for (const name of names) results.push(await buildPackage(name));
 
+  if (PACKAGES_ONLY) {
+    const width = Math.max(...results.map((result) => result.name.length));
+    process.stdout.write('\n  framework packages\n\n');
+    for (const result of results) {
+      process.stdout.write(
+        `  ${result.name.padEnd(width)}  ${KB(result.bytes).padStart(9)}   ${String(result.exports.length)} export(s)\n`,
+      );
+    }
+    process.stdout.write(
+      `\n  ✓ ${DIST}/framework/ — packages only (\`make dist\` assembles the distribution)\n\n`,
+    );
+    return;
+  }
+
   const frontpageBytes = WITH_FRONTPAGE ? await bakeFrontpage() : 0;
+
+  // The frontends the configuration says this distribution supports. An empty list writes nothing:
+  // the wizard having offered a choice that produces no files is exactly the gap this closes.
+  const templates: readonly EmittedTemplate[] = await emitFrontendTemplates(DIST, CONFIG.frontends);
 
   // Ship the actual applications. They are runnable TypeScript examples, not
   // published framework packages.
@@ -376,8 +464,29 @@ async function main(): Promise<void> {
   for (const name of ['admin.product.com']) {
     await cp(join(ROOT, 'src', 'apps', name), join(apps, name), {
       recursive: true,
+      /**
+       * What a *runnable* application needs, not what developing it needs.
+       *
+       * `e2e/` and `playwright.config.ts` are development-only: they drive a browser against a
+       * running server. Shipping them made `tsir test` inside the archive pick up Playwright
+       * specs and fail with "Playwright Test did not expect test.describe() to be called here" —
+       * a distribution that cannot run its own test command. `migrations/meta/` is Drizzle's
+       * local bookkeeping and is regenerated, so it stays behind with the rest.
+       */
       filter: (path) =>
-        !['node_modules', '.tsir', 'dist', 'coverage', '.env', '.build'].includes(basename(path)),
+        ![
+          'node_modules',
+          '.tsir',
+          'dist',
+          'coverage',
+          '.env',
+          '.build',
+          // Development-only test runners and browser suites.
+          'e2e',
+          'playwright.config.ts',
+          // Editor / tooling state.
+          '.eslintcache',
+        ].includes(basename(path)),
     });
     await writeFile(
       join(apps, name, 'README.md'),
@@ -420,12 +529,24 @@ The distribution is generated. Copy an example elsewhere before making changes: 
     }
   }
 
+  // No timestamp: two runs over the same sources must produce the same tree, or `make dist` cannot
+  // be checked and a release cannot be reproduced. What a consumer needs from this file is *which*
+  // packages and how big, all of which are inputs already. The build time is available from the
+  // filesystem (`stat dist/manifest.json`) and would only differ between otherwise-identical runs.
   const summary = {
-    generatedAt: new Date().toISOString(),
     packages: results.map((result) => ({
       name: result.name,
       bytes: result.bytes,
       exports: result.exports,
+    })),
+    // Which frontends this distribution ships, and what each one contains. A consumer can read
+    // this instead of guessing from a directory listing, and `check-dist` cross-checks it.
+    templates: templates.map((template) => ({
+      framework: template.framework,
+      files: template.files,
+      bytes: template.bytes,
+      styling: template.styling,
+      router: template.router,
     })),
     frontpage: frontpageBytes,
   };
@@ -476,6 +597,22 @@ The distribution is generated. Copy an example elsewhere before making changes: 
     )}\n`,
   );
   await cp(join(ROOT, 'LICENSE'), join(DIST, 'LICENSE'));
+  // The README names what the configuration says will ship. `emitFrontendTemplates` runs after this
+  // point, and `check-dist` compares the result against what actually landed on disk — so a mismatch
+  // is a failed gate rather than a README that quietly describes a different product.
+  const frameworks = CONFIG.frontends.map((integration) => integration.framework);
+  // `router` in the configuration names a choice, not an implementation: reading it back as
+  // "router routing" is what a template list says when it is written from field names instead of
+  // from what the template does. This is the same wording the template's own README uses.
+  const describeTemplate = (integration: FrontendIntegration): string => {
+    const router =
+      integration.router === 'router'
+        ? 'SPA router'
+        : integration.router === 'native'
+          ? 'native navigation'
+          : 'no router';
+    return `\`templates/${integration.framework}\` — ${integration.styling.join(' + ')}, ${router}, dev on ${String(FRONTEND_PORTS[integration.framework])}`;
+  };
   await writeFile(
     join(DIST, 'README.md'),
     `# Tsir distribution
@@ -493,8 +630,27 @@ This generated directory is rebuilt by \`make dist\`. Do not keep your own work 
 │   ├── frontpage/               # compatibility copy of the static site
 │   └── docs/                    # static documentation
 ├── framework/<package>/         # emitted @tsir packages, not application modules
+├── templates/                   # one Vite frontend per configured framework
+│   ├── ${frameworks.join('/\n│   ├── ')}/
 ├── package.json  bun.lock       # distribution workspace
 └── manifest.json  README.md  LICENSE
+\`\`\`
+
+## Frontends
+
+Each \`templates/<framework>/\` is a working Vite project, not a sketch. Copy one beside your
+application, \`bun install\`, then \`bun run dev\`:
+
+${CONFIG.frontends.map((integration) => `- ${describeTemplate(integration)}`).join('\n')}
+
+The dev server proxies \`/api\` to your \`tsir dev\`, so the template's one fetch reaches your backend.
+It is a frontend, not a second application: no \`@tsir/*\` dependency, and exactly one environment
+variable — \`VITE_API_BASE_URL\`, which defaults to that proxy.
+
+\`\`\`sh
+/path/to/distribution/tsir new my-app   # outside this directory
+cp -r /path/to/distribution/templates/${frameworks[0] ?? 'svelte'} ./my-app/web
+cd my-app/web && bun install && bun run dev
 \`\`\`
 
 The maintained examples live in this distribution, not in your application. A new application
@@ -569,6 +725,11 @@ exec "$(dirname -- "$0")/bin/tsir" "$@"
   }
   if (frontpageBytes > 0) {
     process.stdout.write(`  ${'frontpage'.padEnd(width)}  ${KB(frontpageBytes).padStart(9)}\n`);
+  }
+  for (const template of templates) {
+    process.stdout.write(
+      `  ${`templates/${template.framework}`.padEnd(width)}  ${KB(template.bytes).padStart(9)}   ${String(template.files)} file(s)\n`,
+    );
   }
   process.stdout.write(`\n  ✓ ${DIST}/ (gitignored — rebuild with \`make dist\`)\n`);
   process.stdout.write(

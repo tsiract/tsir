@@ -1,0 +1,238 @@
+import { describe, expect, test } from 'bun:test';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+import { emptySectionsIn, countExamples } from './doc-inventory.ts';
+import { buildReport, checklistsToWrite, render, renderChecklist, tasksIn } from './task-status.ts';
+
+/**
+ * The ledger tools, tested on fixtures rather than on the repository.
+ *
+ * Both exist to catch documents that lie about their own state, so a test that only asserted
+ * "the real plan directory parses" would pass while the parser got every column wrong. These
+ * build a table where the answer is known, and assert the answer.
+ */
+
+const table = (...rows: string[]): string => rows.join('\n');
+
+describe('task-status parses the notation the ledger actually uses', () => {
+  test('every state word becomes a state, wherever the status column sits', () => {
+    const source = table(
+      '| ID | Title | Status | Depends | Acceptance |',
+      '| --- | --- | --- | --- | --- |',
+      '| `DB-001` | done thing | `[x]` | — | a test exists |',
+      '| `DB-002` | half thing | `[~]` | DB-001 | a branch exists |',
+      '| `DB-003` | not started | `[ ]` | — | a test will exist |',
+      '| `DB-004` | waiting | `[!]` | DB-002 | blocked on the decision |',
+    );
+    const tasks = tasksIn('fixture.md', source);
+    expect(tasks.map((task) => [task.id, task.state])).toEqual([
+      ['DB-001', 'done'],
+      ['DB-002', 'partial'],
+      ['DB-003', 'open'],
+      ['DB-004', 'blocked'],
+    ]);
+  });
+
+  test('a file that puts the status in a different column still parses', () => {
+    // The ledgers are not uniform: `03-http.md` has Status in column three, `07-deploy-cloud-checks`
+    // has a `#` first. Finding the cell beats assuming the index.
+    const source = table(
+      '| # | Task | What it proves | Status |',
+      '| --- | --- | --- | --- |',
+      '| 1 | `DPL-008` | the adapter survives workerd | `[x]` |',
+    );
+    const tasks = tasksIn('fixture.md', source);
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.id).toBe('DPL-008');
+    expect(tasks[0]?.state).toBe('done');
+  });
+
+  test('a status with no id is reported, not silently dropped', () => {
+    // The parity ledger's 245 feature rows are exactly this: a status, no id. Dropping them made
+    // the ledger report 405 tasks when it has 650.
+    const source = table(
+      '| Feature | Laravel feature | Implementation | Evidence | Status |',
+      '| --- | --- | --- | --- | --- |',
+      '| Password hashing | bcrypt | `password.ts` | `password.test.ts` | `[x]` |',
+    );
+    const unidentified: { file: string; line: number; state: string; text: string }[] = [];
+    const tasks = tasksIn('fixture.md', source, unidentified as never);
+    expect(tasks).toHaveLength(0);
+    expect(unidentified).toHaveLength(1);
+    expect(unidentified[0]?.state).toBe('done');
+  });
+
+  test('the legacy ✅ is read as done', () => {
+    const source = table(
+      '| ID | Title | Status | Acceptance |',
+      '| --- | --- | --- | --- |',
+      '| `FND-001` | old row | ✅ | it shipped |',
+    );
+    expect(tasksIn('fixture.md', source)[0]?.state).toBe('done');
+  });
+
+  test('an open task with no acceptance text is a problem', () => {
+    const source = table(
+      '| ID | Title | Status | Depends | Acceptance |',
+      '| --- | --- | --- | --- | --- |',
+      '| `DB-009` | something | `[ ]` | — |  |',
+    );
+    const report = buildReportFrom('| ID | Title | Status | Depends | Acceptance |');
+    expect(report.problems.some((problem) => problem.includes('DB-009'))).toBe(true);
+    expect(source).toContain('DB-009');
+  });
+});
+
+/** `buildReport` reads a directory; this writes one fixture file into it and reports on that. */
+function buildReportFrom(header: string): ReturnType<typeof buildReport> {
+  const dir = mkdtempSync(join(tmpdir(), 'tsir-tasks-'));
+  try {
+    writeFileSync(
+      join(dir, 'fixture.md'),
+      table(
+        header,
+        '| --- | --- | --- | --- | --- |',
+        '| `DB-009` | something | `[ ]` | — |  |',
+        '',
+      ),
+    );
+    return buildReport(dir);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+}
+
+describe('the status page is generated, not written', () => {
+  test('totals and the open list agree with the rows', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsir-tasks-'));
+    try {
+      writeFileSync(
+        join(dir, 'a.md'),
+        table(
+          '| ID | Title | Status | Acceptance |',
+          '| --- | --- | --- | --- |',
+          '| `A-001` | done | `[x]` | a test |',
+          '| `A-002` | open | `[ ]` | a test to write |',
+          '',
+        ),
+      );
+      const page = render(buildReport(dir));
+      // Assert the row's meaning, not its padding: column widths are the generator's business,
+      // and a test that pins them fails the moment a longer task title widens a column.
+      const row = (label: string): string | undefined =>
+        page
+          .split('\n')
+          .find((line) => line.startsWith(`| ${label}`))
+          ?.split('|')[2]
+          ?.trim();
+      expect(row('done')).toBe('1');
+      expect(row('open')).toBe('1');
+      // The open list is the point of the page: an id and where it lives.
+      expect(page).toContain('`A-002`');
+      expect(page).not.toContain('`A-001` |');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('a parity row is read through its header (DOCS-016)', () => {
+  test('the feature name is never mistaken for an acceptance note', () => {
+    // The failure this pins: `| Notification preferences | — | — | — | [ ] |` looked documented
+    // because "the last cell before the status that is not a dash" was the title itself.
+    const source = table(
+      '| Id | Feature | Laravel feature | @tsir implementation | Evidence | Status |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| `PARITY-001` | Notification preferences | — | — | — | `[ ]` |',
+      '| `PARITY-002` | Signed URLs | `URL::signed` | `signUrl` | `url.ts` | `[x]` |',
+      '',
+    );
+    const tasks = tasksIn('parity.md', source);
+    expect(tasks.map((task) => task.acceptance)).toEqual(['', '`signUrl`']);
+    expect(tasks.map((task) => task.title)).toEqual(['Notification preferences', 'Signed URLs']);
+  });
+
+  test('a table with no implementation column reads its capability column instead', () => {
+    const source = table(
+      '| Id | @tsir package | Admin UI page(s) | UI capability | Status |',
+      '| --- | --- | --- | --- | --- |',
+      '| `PARITY-100` | `@tsir/mail` | EmailTemplates | Edit email templates | `[~]` |',
+      '| `PARITY-101` | `@tsir/vault` | — | No UI | `[ ]` |',
+      '',
+    );
+    expect(tasksIn('parity.md', source).map((task) => task.acceptance)).toEqual([
+      'Edit email templates',
+      'No UI',
+    ]);
+  });
+});
+
+describe('every ledger has a checklist an agent can read (DOCS-018)', () => {
+  test('each task appears once, in its own state section, with a line to jump to', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsir-checklists-'));
+    try {
+      writeFileSync(
+        join(dir, 'a.md'),
+        table(
+          '| ID | Title | Status | Acceptance |',
+          '| --- | --- | --- | --- |',
+          '| `A-001` | done one | `[x]` | a test |',
+          '| `A-002` | half one | `[~]` | a branch |',
+          '| `A-003` | open one | `[ ]` | a test to write |',
+          '',
+        ),
+      );
+      const report = buildReport(dir);
+      // `file` is repository-relative, so the key comes from the report rather than the fixture.
+      const key = report.files[0]?.file ?? '';
+      const page = renderChecklist(report, key);
+      expect(page).toContain('## Half done (1)');
+      // The fixture's fourth line is the third table row: a header, a rule, then the tasks.
+      expect(page).toContain('- [~] `A-002` half one — `a.md:4`');
+      expect(page).toContain('- [ ] `A-003` open one — `a.md:5`');
+      expect(page).toContain('- [x] `A-001` done one — `a.md:3`');
+      expect(page).toContain('## Done (1)');
+      // One line per task, and no task in two sections: a checklist that repeats a row is a
+      // checklist a reader has to reconcile.
+      expect(page.match(/`A-00\d`/gu)).toHaveLength(3);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  test('the page names the ledger it belongs to and links back to it', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'tsir-checklists-'));
+    try {
+      writeFileSync(
+        join(dir, 'b.md'),
+        table(
+          '| ID | Title | Status | Acceptance |',
+          '| --- | --- | --- | --- |',
+          '| `B-001` | x | `[ ]` | y |',
+          '',
+        ),
+      );
+      const pages = checklistsToWrite(buildReport(dir));
+      expect(pages).toHaveLength(1);
+      expect(pages[0]?.path.endsWith(join('checklists', 'b.md'))).toBe(true);
+      expect(pages[0]?.page).toContain('[`b.md`](../b.md)');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
+
+describe('doc-inventory measures what it claims to', () => {
+  test('a heading with no body is an empty section', () => {
+    const source = table('## One', '', '## Two', 'body', '', '### Three', '');
+    expect(emptySectionsIn(source)).toBe(2);
+    expect(countExamples(source)).toBe(0);
+  });
+
+  test('a fenced ts block is an example; a fence with no language is not', () => {
+    const source = table('## Example', '```ts', 'const x = 1;', '```', '```', 'prose', '```');
+    expect(countExamples(source)).toBe(1);
+  });
+});

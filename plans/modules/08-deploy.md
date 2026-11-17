@@ -294,9 +294,31 @@ entry, and `deploy:build` re-exports the class from the generated entry — the 
 names a class, the bundle has to contain it. A missing export is `DPL_CLASS_MISSING` at
 build time rather than a deploy-time surprise.
 
-- D1 is **not** a supported database target (`05-database.md § 2`); Hyperdrive (Postgres) is.
+- D1 **is** a supported database target. `wrangler.ts` emits `[[d1_databases]]` with `binding`,
+  `database_id` and `database_name` for every `d1` connection a unit uses, and `wrangler.test.ts`
+  asserts the block. `05-database.md § 2` makes D1 the engine default (ADR-0016), so this section
+  previously contradicted both the code and the driver matrix; corrected 2026-11-07 by `INF-014`.
+  What D1 is not is an interactive-transaction target — `db.transaction()` throws, `db.batch()` is
+  the primitive — and a D1 connection emits no migrate unit (`wrangler d1 migrations apply` is the
+  real command, § 3.4).
 - Durable Objects used for WS rooms and rate limiting; bindings declared per unit.
 - Bundle size budget per unit (default 1 MiB gzipped, warning at 800 KiB).
+
+> **Status (2026-11-07 audit).** The D1 emission is `[VERIFIED]`. Everything below in this section
+> is documented as designed but is not all true in the emitter today:
+>
+> | Claim in this section                                               | Status         | Finding                                                                   |
+> | ------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------- |
+> | `{ fetch, queue, scheduled }` exports per unit                      | `[VERIFIED]`   | —                                                                         |
+> | `[[d1_databases]]` emitted for a `d1` connection                    | `[VERIFIED]`   | —                                                                         |
+> | `[[durable_objects.bindings]]` + `[[migrations]]` + class re-export | `[VERIFIED]`   | —                                                                         |
+> | Private units (`workers_dev = false`, no routes)                    | `[VERIFIED]`   | —                                                                         |
+> | Queue consumer handles a multi-message batch correctly              | `[PARTIAL]`    | `INF-004`                                                                 |
+> | `@OnSns` / `@OnEventBridge` / `@OnStepTask` bundled per unit        | `[PARTIAL]`    | `INF-005`                                                                 |
+> | SAM `EventPattern` and WebSocket binding valid                      | `[PARTIAL]`    | `INF-005`                                                                 |
+> | CF→SQS hybrid allowed by `deploy:check`                             | `[PARTIAL]`    | `INF-007`                                                                 |
+> | 1 MiB gzipped Workers budget                                        | `[LIMITATION]` | `INF-014` — the platform limit is 64 MiB (Paid) / 3 MiB (Free); see § 3.4 |
+> | Long-running (`worker`) unit kind                                   | `[PLANNED]`    | `INF-012`                                                                 |
 
 ### 3.2 AWS Lambda
 
@@ -387,7 +409,13 @@ blocking graph problem all fail before the first byte, so `dist/` never contains
 half-build.
 
 **Budgets.** `deploy.targets.<target>.sizeBudget` (bytes, gzipped) or the platform's own
-limit: 1 MiB for Workers, 50 MiB for Lambda, none for `bun`. Over budget is exit 1 with the
+limit: 1 MiB for Workers (`DEFAULT_BUDGETS.cloudflare = 1_048_576` in `deploy-build.ts`),
+50 MiB for Lambda, none for `bun`. **That Workers default is stale** — the current platform
+limits are 64 MiB compressed on the Paid plan and 3 MiB on Free, so a legitimate unit can be
+rejected by a number from an older platform generation. `INF-014` owns the correction; apps can
+already override it per target. The 50 MiB Lambda budget is likewise a self-imposed number
+(the platform accepts a 50 MB zip / 10 GB image), which is fine as a policy as long as it is
+described as one. Over budget is exit 1 with the
 artifact still written, `--allow-size-regression` is the reviewed escape, and the numbers
 land in `build.json` so `deploy:validate` (`DPL-019`) reads a file instead of re-deriving the
 build.
@@ -405,6 +433,14 @@ migrations exit 1, a lock held by another runner exits 0. D1 connections are ref
 written _inside_ the unit directory because `main = "index.js"` is resolved relative to the
 config, and a flat layout would point it at nothing; the Bun target emits one `server.mjs`
 rather than one per unit, because a container is one process (§ 3.3).
+
+**Two more deviations found by the 2026-11-07 audit.** `adapterTriggers()` drops `sns`,
+`eventbridge` and `manual` triggers instead of emitting a unit for them, so an app that declares
+them gets a template that silently omits the handler (`INF-005`). And the `bun` target emits a
+single `fetch`-shaped `server.mjs` with no way to express a process that drains a queue or runs
+longer than a request (`INF-012`) — profile P5 in
+[`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md)
+§ 13 cannot be built until the worker unit kind exists.
 
 **What is not proven yet:** no artifact has been given to `wrangler dev`, `wrangler deploy
 --dry-run` or a real Lambda. What _is_ proven in the test suite is that the emitted
@@ -527,3 +563,14 @@ tsir deploy:invoke --unit http --event fixture.json   # local invocation against
 ## 10. Task index
 
 [`tasks/07-deploy.md`](../tasks/07-deploy.md) — `DPL-001` … `DPL-031`.
+
+The 2026-11-07 infrastructure audit added a second ledger for this module, because its findings cross
+`@tsir/deploy`, `@tsir/console`, `@tsir/queue` and the SAM emitter at once:
+[`tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) — `INF-004` (CF
+Queue batch), `INF-005` (dropped triggers, invalid EventPattern/WebSocket binding), `INF-007` (the
+CF→SQS hybrid), `INF-012` (target detection and the `worker` unit kind), `INF-014` (the stale size
+budget and the D1 prose this document used to carry), `INF-015` (native-binary attribution).
+
+Substrate choice, profiles and the queue/real-time comparison live in
+[`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md);
+this document owns only what the emitter produces.

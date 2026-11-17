@@ -8,6 +8,11 @@
 import { existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
+// The shared terminal layer, not a private set of escape codes: `make doctor` must print the same
+// glyphs, the same alignment and the same summary as every other Tsir command (ADR-0031). The root
+// entrypoint is the reporting path, so this imports no renderer and works in a pipe.
+import { INDENT, Reporter } from '../framework/tui/src/index.ts';
+
 /** `src/tools/doctor.ts` → repository root. */
 const ROOT = resolve(import.meta.dir, '..', '..');
 
@@ -19,15 +24,6 @@ interface Check {
   readonly detail: string;
   readonly hint?: string;
 }
-
-const paint = (code: string, text: string): string =>
-  Bun.enableANSIColors ? `\u001B[${code}m${text}\u001B[0m` : text;
-
-const SYMBOLS: Readonly<Record<Status, string>> = {
-  ok: paint('32', '✓'),
-  warn: paint('33', '!'),
-  fail: paint('31', '✗'),
-};
 
 const MIN_BUN: readonly [number, number] = [1, 2];
 
@@ -189,17 +185,27 @@ async function main(): Promise<void> {
     await checkPort(),
   ];
 
-  process.stdout.write(`\n  ${paint('1', 'tsir doctor')}\n\n`);
+  const reporter = new Reporter();
+  reporter.line('');
+  reporter.section('Doctor', { note: 'the local environment, checked and never changed' });
   for (const check of checks) {
-    process.stdout.write(`  ${SYMBOLS[check.status]} ${check.name.padEnd(18)} ${check.detail}\n`);
-    if (check.hint !== undefined) process.stdout.write(`    ${paint('2', `↳ ${check.hint}`)}\n`);
+    reporter.check({ status: check.status, label: check.name, detail: check.detail });
+    if (check.hint !== undefined) {
+      reporter.line(`${INDENT}  ${reporter.palette.paint('dim', `↳ ${check.hint}`)}`);
+    }
   }
 
   const failures = checks.filter((check) => check.status === 'fail').length;
   const warnings = checks.filter((check) => check.status === 'warn').length;
-  process.stdout.write(
-    `\n  ${String(checks.length - failures - warnings)} ok · ${String(warnings)} warnings · ${String(failures)} failures\n\n`,
-  );
+  reporter.summary({
+    ok: checks.length - failures - warnings,
+    warnings,
+    failures,
+    // A failing check is what a person has to act on; the hint under it already says how, so the
+    // "what next" line only appears when nothing failed.
+    ...(failures === 0 ? { next: ['make dev'] } : {}),
+  });
+  reporter.flush();
   process.exit(failures > 0 ? 1 : 0);
 }
 

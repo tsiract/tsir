@@ -200,4 +200,4 @@ suite itself part of the security surface:
 
 ## 11. Task index
 
-[`tasks/10-testing.md`](../tasks/10-testing.md) — `TST-001` … `TST-020`.
+[`tasks/22-testing.md`](../tasks/22-testing.md) — `TST-001` … `TST-020`.

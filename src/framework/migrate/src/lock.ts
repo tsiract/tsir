@@ -21,7 +21,7 @@
 import { TsirError } from '@tsir/container';
 import { statement, type Database } from '@tsir/database';
 
-import { bind, type Engine } from './state.ts';
+import { bind, migrationEngine, type Engine } from './state.ts';
 
 /** FNV-1a, 64-bit, returned as a signed bigint (Postgres `bigint` range). */
 export function advisoryLockKey(name: string): bigint {
@@ -68,7 +68,7 @@ export async function acquireMigrationLock(
     readonly now?: () => number;
   },
 ): Promise<LockHandle> {
-  const engine: Engine = database.capabilities.engine;
+  const engine = migrationEngine(database.capabilities);
 
   if (engine !== 'postgres') {
     return {

@@ -82,6 +82,24 @@ describe('createTestApp', () => {
     }
   });
 
+  test('routes() and routes(name) answer from the same module set', async () => {
+    // Regression: `routes(name)` used to be a method on the returned object, whose body read the
+    // object's *own* `named`/`scope` properties. `named` is assigned after `scope`, so the lookup
+    // always missed and threw `TEST_UNKNOWN_MODULE` with "declared modules: (none)" — while
+    // `routes()` answered `[]`. A per-module test therefore proved nothing, silently.
+    const harness = await createTestApp(fixture(), { env: { APP_ENV: 'test' } });
+    try {
+      expect(harness.routes('users').routes).toHaveLength(1);
+      expect(harness.routes('billing').routes).toHaveLength(1);
+      // The union of the named tables must match the unnamed one, controller for controller.
+      const named = [...harness.routes('users').routes, ...harness.routes('billing').routes];
+      expect(harness.routes().routes.length).toBe(named.length);
+      expect(harness.routes().routes.length).toBeGreaterThan(0);
+    } finally {
+      await harness.dispose();
+    }
+  });
+
   test('only narrows the module set without inventing modules', async () => {
     const harness = await createTestApp(fixture(), {
       env: { APP_ENV: 'test' },

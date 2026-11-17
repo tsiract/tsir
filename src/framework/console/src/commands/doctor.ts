@@ -9,12 +9,13 @@ import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { probeCapabilities } from '@tsir/core';
+import { databaseConfigSchema } from '@tsir/database/config';
 
 import { boolFlag, parseArgs } from '../args.ts';
 import { loadProject } from '../project.ts';
 import { loadProjectCommands, unknownConsoleCommands } from './project-command.ts';
 import { repairDeployRegion } from './bootstrap.ts';
-import { info, jsonDocument, style, CliError } from '../output.ts';
+import { info, jsonDocument, style, CliError, symbols } from '../output.ts';
 
 type Status = 'ok' | 'warn' | 'fail';
 
@@ -100,6 +101,50 @@ export function checkDependencies(root: string): Check[] {
 }
 
 /**
+ * `DX-015` · the slow-query threshold, as configured.
+ *
+ * `slowQueryMs` decides what is logged and what reaches the monitor, and until this check existed
+ * the only way to learn it was to read `config/database.ts` and know which key actually applied. A
+ * threshold that is reported by the tool that is supposed to explain the application is worth one
+ * import; a `warn` when a connection is at `off` is worth more, because that is the setting people
+ * set during an incident and forget to change back.
+ */
+export async function checkDatabase(root: string): Promise<Check | undefined> {
+  const path = join(root, 'config', 'database.ts');
+  if (!existsSync(path)) return undefined;
+  try {
+    const loaded = (await import(path)) as { default?: unknown };
+    const parsed = databaseConfigSchema.parse(loaded.default);
+    const parts = Object.entries(parsed.connections).map(([name, connection]) => {
+      const threshold =
+        connection.logging === 'off'
+          ? `off (slow ≥ ${String(connection.slowQueryMs)} ms still reported)`
+          : `${connection.logging} ≥ ${String(connection.slowQueryMs)} ms`;
+      return `${name}: ${threshold}`;
+    });
+    const allOff = Object.values(parsed.connections).every(
+      (connection) => connection.logging === 'off',
+    );
+    return {
+      name: 'database',
+      status: allOff ? 'warn' : 'ok',
+      detail: parts.join(' · '),
+      ...(allOff
+        ? {
+            hint: 'every connection is at `logging: off`; slow queries and failures are still reported',
+          }
+        : {}),
+    };
+  } catch (error: unknown) {
+    return {
+      name: 'database',
+      status: 'fail',
+      detail: `config/database.ts: ${error instanceof Error ? (error.message.split('\n')[0] ?? 'invalid') : 'invalid'}`,
+    };
+  }
+}
+
+/**
  * CLI-005 · ports: if the configuration names a port, check that it is free. Only the number is
  * read; this never reports anything else from the configuration.
  */
@@ -181,6 +226,7 @@ export async function doctorCommand(
       detail: `${project.configPath.slice(project.root.length + 1)} → app "${project.config.app.name}"`,
     });
     checks.push({ name: 'entry', status: 'ok', detail: project.config.app.entry });
+    const database = await checkDatabase(project.root);
     checks.push(...checkDependencies(project.root));
     const listed = project.config.console?.commands ?? [];
     if (listed.length > 0) {
@@ -206,6 +252,8 @@ export async function doctorCommand(
             },
       );
     }
+
+    if (database !== undefined) checks.push(database);
 
     try {
       const config = project.app.load({ mode: 'development' });
@@ -287,10 +335,10 @@ export async function doctorCommand(
   for (const check of checks) {
     const symbol =
       check.status === 'ok'
-        ? style.green('✓')
+        ? style.green(symbols.check)
         : check.status === 'warn'
-          ? style.yellow('!')
-          : style.red('✗');
+          ? style.yellow(symbols.warn)
+          : style.red(symbols.cross);
     info(`  ${symbol} ${check.name.padEnd(width)}  ${check.detail}`);
     if (check.hint !== undefined) info(`    ${style.dim(`↳ ${check.hint}`)}`);
   }

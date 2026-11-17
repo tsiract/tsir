@@ -3,23 +3,65 @@
 After [installation](../installation.md), add the package to your app with
 `bun add '@tsir/database@workspace:*'`.
 
-## Why there is no `Model.find()`
+## Why this is not an Active Record
 
-Tsir deliberately does **not** provide an Active Record base class. There is no `Model.find()`,
-no static query methods on your model, and no magic connection resolution. Instead, a "model" in
-Tsir is two things:
+Tsir deliberately does **not** provide an Active Record base class. There is no `user.save()`, no
+static query method that resolves its own connection, and no lazy relation that fires a query when
+you touch it. A "model" here is two things:
 
 1. A **Drizzle schema** — the typed table definition (columns, types, constraints).
-2. **Application-owned query functions** — plain functions that take a `Database` and run queries.
+2. A **model over that table** — `defineModel(users)` — or, below it, plain functions that take a
+   `Database`.
 
-Your schema describes the table, and you write explicit functions for the queries your app needs.
-The benefit is that queries are testable (pass a mock `Database`), traceable (no hidden static
-state), and never silently pick up the wrong connection.
+`defineModel` removes the part that was pure repetition: the same `where(eq(table.id, id))` in every
+service, and the row type restated at each call site.
 
-`@tsir/database` owns the drivers, lifecycle, and capability checks; Drizzle builds the typed
-SQL. You add `drizzle-orm` to your application before using it directly. The project schema
-recognizes `mysql`, but a MySQL driver and Drizzle integration are not yet shipped. Packages are
-pre-alpha and not published; see [installation](../installation.md).
+```ts verify
+import { createDatabaseBootstrap, defineModel } from '@tsir/database';
+import { integer, sqliteTable, text } from 'drizzle-orm/sqlite-core';
+
+export const users = sqliteTable('users', {
+  id: integer('id').primaryKey(),
+  email: text('email').notNull(),
+  name: text('name').notNull(),
+});
+
+export const Users = defineModel(users);
+export type User = typeof Users.$type;
+
+// `db` is the bound Drizzle instance — `bootstrap.db`, or `dbFor('analytics')` for another
+// connection. A model never resolves a connection itself, which is why `db` is an argument here
+// rather than an import: the caller decides which connection the query is for.
+export async function readsFor(db: ReturnType<typeof createDatabaseBootstrap>['db']) {
+  return {
+    found: await Users.find(db, 1),
+    fetched: await Users.where(db, { email: 'a@b.c' }),
+    one: await Users.first(db, { name: 'Ada' }),
+    total: await Users.count(db),
+    present: await Users.exists(db, { email: 'a@b.c' }),
+  };
+}
+```
+
+Two guarantees are worth more than the lines saved:
+
+- **`where` takes a column record, not a string.** `{ emial }` is a compile error, because a
+  mistyped string key becomes a predicate that matches every row — which reads as a working filter
+  and is a full-table scan. At runtime, where a key can arrive from a query string, an unknown key
+  throws `DB_MODEL_AMBIGUOUS` naming the table's real columns instead of being ignored.
+- **The row type is the table's.** `User` is `typeof users.$inferSelect`, so `user.passwordHash` is a
+  compile error rather than `undefined`.
+
+`findOrFail` is the read for "a missing row is a bug": it throws `DB_MODEL_NOT_FOUND` with the table
+and the id. `find` and `first` are the reads for "a missing row is an answer". Which one you reach
+for is the decision; the framework does not make it for you.
+
+The benefit of keeping queries explicit is that they stay testable (pass a client), traceable (no
+hidden static state) and never silently pick up the wrong connection. `@tsir/database` owns the
+drivers, lifecycle and capability checks; Drizzle builds the typed SQL. Add `drizzle-orm` to your
+application before using it directly. The project schema recognizes `mysql`, but a MySQL driver and
+Drizzle integration are not yet shipped. Packages are pre-alpha and not published; see
+[installation](../installation.md).
 
 ## Generate a model
 

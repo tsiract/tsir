@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "frontends": [
+    {
+      "framework": "svelte",
+      "styling": ["tailwind", "daisyui"],
+      "router": "router"
+    },
+    {
+      "framework": "react",
+      "styling": ["tailwind"],
+      "router": "router"
+    },
+    {
+      "framework": "vue",
+      "styling": ["tailwind"],
+      "router": "router"
+    }
+  ],
+  "packageManagers": ["bun", "npm", "pnpm"],
+  "defaultPackageManager": "bun",
+  "testing": ["eslint", "prettier"],
+  "runtimes": ["bun", "cloudflare-workers", "aws-lambda"],
+  "apiTooling": {
+    "openapi": true,
+    "protobuf": true
+  },
+  "includeFrontendTypes": true
+}

@@ -4,7 +4,7 @@
 > rule that shapes every module: **telemetry never fails a request**.
 >
 > **Plan:** [`13-observability.md`](../operations/13-observability.md) · **Related:**
-> [`11-observability.md`](./11-observability.md) (`OBS-*`), [`12-security.md`](./12-security.md)
+> [`23-observability.md`](./23-observability.md) (`OBS-*`), [`24-security.md`](./24-security.md)
 > (logs as a leak vector), [`0017-error-and-log-sinks.md`](../decisions/0017-error-and-log-sinks.md).
 
 **Status: complete for this phase — 2026-10-29.** Nine modules, six test files, one type-test file.

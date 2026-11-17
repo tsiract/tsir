@@ -24,6 +24,8 @@ export type DatabaseErrorCode =
   | 'DB_CODEC_DUPLICATE_COLUMN'
   | 'DB_CODEC_UNDEFINED_VALUE'
   | 'DB_CONNECTION_PIN_UNSUPPORTED'
+  | 'DB_MODEL_NOT_FOUND'
+  | 'DB_MODEL_AMBIGUOUS'
   | 'DB_UNKNOWN_CONNECTION'
   | 'DB_NO_CONNECTIONS'
   | 'DB_UNKNOWN_DEFAULT'
@@ -34,7 +36,12 @@ export type DatabaseErrorCode =
   | 'DB_ROTATION_INVALID_IDENTIFIER'
   | 'DB_D1_NO_BINDING'
   | 'DB_POSTGRES_BOOTSTRAP_UNWIRED'
-  | 'DB_TX_STATEMENT_UNSUPPORTED';
+  | 'DB_TX_STATEMENT_UNSUPPORTED'
+  | 'DB_URL_REQUIRED'
+  | 'DB_SQLITE_NO_HANDLE'
+  | 'DB_POSTGRES_HTTP_FAILED'
+  | 'DB_MYSQL_HTTP_FAILED'
+  | 'DB_TX_NESTED_UNSUPPORTED';
 
 /**
  * The configured engine cannot run on this target.
@@ -222,6 +229,47 @@ export function databaseClosed(): TsirError {
  * typo or a `tsir.js` edited without a rebuild — and both are fixed by looking at
  * the names, not by reading the stack.
  */
+/**
+ * A `findOrFail` / `firstOrFail` that matched no row (`DX-004`).
+ *
+ * Carries the table **and** the id, because the two questions after this error are always "which
+ * table" and "which row", and a message that answers one of them sends the reader back to the code
+ * that threw.
+ */
+export function modelNotFound(table: string, id: unknown, hint?: string): TsirError {
+  return new TsirError('DB_MODEL_NOT_FOUND', `no row in "${table}" with id ${String(id)}`, {
+    // `404` is a mapping the HTTP layer makes from the code, not a kind of its own: a missing row
+    // is a database fact, and the status belongs to whoever is serving a request.
+    kind: 'database',
+    hint: hint ?? 'use `find`/`first` when a missing row is expected and `*OrFail` when it is not',
+    context: { table, id: String(id) },
+  });
+}
+
+/**
+ * A `where` key that is not a column of the table (`DX-004`).
+ *
+ * TypeScript catches this at the call site, so reaching it means the key arrived as data — a filter
+ * built from a query string, which is exactly the case where a silent `undefined` column becomes a
+ * predicate that matches every row. Refusing is the only safe answer: a filter that matches
+ * everything looks like a working filter.
+ */
+export function modelUnknownColumn(
+  table: string,
+  key: string,
+  columns: readonly string[],
+): TsirError {
+  return new TsirError(
+    'DB_MODEL_AMBIGUOUS',
+    `"${key}" is not a column of "${table}" (columns: ${columns.join(', ')})`,
+    {
+      kind: 'database',
+      hint: 'a filter key that is not a column would match every row — check the name against the schema',
+      context: { table, key, columns: columns.join(', ') },
+    },
+  );
+}
+
 export function unknownConnection(name: string, declared: readonly string[]): TsirError {
   return new TsirError(
     'DB_UNKNOWN_CONNECTION',
@@ -294,6 +342,25 @@ export function connectionRequirementsMissing(
         connections: unsatisfied.map((entry) => entry.connection).join(', '),
         components: unsatisfied.map((entry) => entry.component).join(', '),
       },
+    },
+  );
+}
+
+/**
+ * A statement failed at the provider (`DB-028`, `DB-029`).
+ *
+ * The message carries what the provider said, because that is the part an operator can act on — a
+ * missing table, a bad key, a paused database. The *code* is Tsir's, so a caller can branch on
+ * "the database rejected this" without parsing a vendor's prose.
+ */
+export function providerRejected(engine: 'postgres' | 'mysql', detail: string): TsirError {
+  return new TsirError(
+    engine === 'postgres' ? 'DB_POSTGRES_HTTP_FAILED' : 'DB_MYSQL_HTTP_FAILED',
+    `${engine}: ${detail}`,
+    {
+      kind: 'database',
+      hint: 'the provider answered a statement with an error — check the table exists, the credentials are current, and the database is not paused',
+      context: { engine },
     },
   );
 }

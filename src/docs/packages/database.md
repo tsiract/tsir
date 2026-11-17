@@ -16,7 +16,23 @@ The packages are not yet published to npm.
 
 **`@tsir/database`**
 
-`BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `TransactionLogEvent`, `TransactionOptions`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `connectionConfigSchema`, `connectionNames`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDrizzle`, `createRotationStore`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `errorCode`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `postgresOnlyKeys`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
+`BindingsSource`, `CloseOptions`, `CodedColumn`, `CodedColumns`, `ColumnCodec`, `ColumnRef`, `ConnectionConfig`, `ConnectionDefinition`, `ConnectionRequirement`, `Connections`, `ConnectionsOptions`, `D1DriverOptions`, `D1Like`, `D1ResultLike`, `D1StatementLike`, `D1_CAPABILITIES`, `DATABASE_ENGINES`, `Database`, `DatabaseBootstrap`, `DatabaseBootstrapOptions`, `DatabaseConfig`, `DatabaseEngine`, `DatabaseErrorCode`, `DatabaseLogEvent`, `DatabaseOptions`, `DatabaseRequirement`, `DbCapabilities`, `DbDriver`, `DbHealth`, `DbResult`, `DbStatement`, `DrizzleFor`, `HttpMysqlOptions`, `HttpMysqlResponse`, `HttpPostgresOptions`, `HttpPostgresResponse`, `Model`, `ModelClient`, `ModelOptions`, `ModelTable`, `OptimisticResult`, `OptimisticUpdate`, `ParamType`, `QueryLogEvent`, `QueryLogLevel`, `QueryLogger`, `RegistryCloseOptions`, `RetryOptions`, `RotationStoreOptions`, `RowFormat`, `RuntimeBindings`, `SENSITIVE_COLUMNS`, `SQLITE_CAPABILITIES`, `SqliteDriverOptions`, `SqliteLike`, `TransactionLogEvent`, `TransactionOptions`, `Where`, `advisoryLockKey`, `applyOptimistic`, `assertConnectionRequirements`, `assertRequirements`, `columnsOf`, `connectionConfigSchema`, `connectionNames`, `countExpression`, `createConnections`, `createConnectionsFromConfig`, `createD1Driver`, `createDatabase`, `createDatabaseBootstrap`, `createDrizzle`, `createHttpMysqlDriver`, `createHttpPostgresDriver`, `createRotationStore`, `createSqliteBinding`, `createSqliteDriver`, `databaseConfigSchema`, `declare`, `defineCodedColumns`, `defineModel`, `errorCode`, `isSensitiveColumn`, `isSerializationFailure`, `optimisticUpdate`, `paramType`, `parsePostgresUrl`, `postgresOnlyKeys`, `redactSql`, `retryOnConflict`, `rootCause`, `scrubSql`, `shouldLog`, `statement`
+
+**`@tsir/database/bun`**
+
+`SqliteOpeningOptions`, `openSqliteFiles`
+
+**`@tsir/database/config`**
+
+`ConnectionConfig`, `DATABASE_ENGINES`, `DatabaseConfig`, `DatabaseEngine`, `connectionConfigSchema`, `connectionNames`, `databaseConfigSchema`, `postgresOnlyKeys`
+
+**`@tsir/database/drizzle`**
+
+`createDrizzle`, `errorCode`, `rootCause`
+
+**`@tsir/database/from-config`**
+
+`BindingsSource`, `ConnectionsFromConfigOptions`, `RuntimeBindings`, `createConnectionsFromConfig`
 
 **`@tsir/database/postgres`**
 
@@ -26,9 +42,13 @@ The packages are not yet published to npm.
 
 `createPgDrizzle`
 
+**`@tsir/database/redaction`**
+
+`SENSITIVE_COLUMNS`, `columnName`, `isSensitiveColumn`, `redactSql`
+
 ## Error codes
 
-Owned by this package (25). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (32). Each one is described in the [error-code reference](../errors.md).
 
 - `DB_BATCH_EMPTY`
 - `DB_BATCH_UNSUPPORTED`
@@ -42,19 +62,26 @@ Owned by this package (25). Each one is described in the [error-code reference](
 - `DB_D1_NO_BINDING`
 - `DB_DRIVER_UNAVAILABLE`
 - `DB_HEALTH_FAILED`
+- `DB_MODEL_AMBIGUOUS`
+- `DB_MODEL_NOT_FOUND`
+- `DB_MYSQL_HTTP_FAILED`
 - `DB_NO_CONNECTIONS`
 - `DB_POSTGRES_BOOTSTRAP_UNWIRED`
+- `DB_POSTGRES_HTTP_FAILED`
 - `DB_RAW_UNSUPPORTED`
 - `DB_REQUIRES_INTERACTIVE_TX`
 - `DB_REQUIRES_TX_CONNECTION`
 - `DB_ROTATION_INVALID_IDENTIFIER`
 - `DB_ROTATION_TARGET_MISMATCH`
+- `DB_SQLITE_NO_HANDLE`
 - `DB_TX_DEPTH_EXCEEDED`
 - `DB_TX_INTERACTIVE_UNSUPPORTED`
+- `DB_TX_NESTED_UNSUPPORTED`
 - `DB_TX_OPTION_UNSUPPORTED`
 - `DB_TX_STATEMENT_UNSUPPORTED`
 - `DB_UNKNOWN_CONNECTION`
 - `DB_UNKNOWN_DEFAULT`
+- `DB_URL_REQUIRED`
 
 ## Example
 
@@ -82,6 +109,36 @@ console.log(result.rows);
 ```
 
 ## Failure modes
+
+- `DB_POSTGRES_HTTP_FAILED` / `DB_MYSQL_HTTP_FAILED`: the provider rejected a statement. The message
+  carries what the provider said, because that is the operable part — a missing table, a stale
+  password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
+  this" without parsing vendor prose.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. Nothing opens a file implicitly:
+  pass `openSqlite: openSqliteFiles` from `@tsir/database/bun` to `createDatabaseBootstrap`, or hand the
+  driver a handle yourself. A Worker that never does this is correct — it has no filesystem — and the
+  error names the connection rather than failing with an unhandled `EBADF`. See "Two entrypoints" below.
+- `DB_MODEL_NOT_FOUND`: a `findOrFail` matched no row. The message names the table **and** the id,
+  because the two questions after this error are always which table and which row. Use `find`/`first`
+  when a missing row is expected — the failure is in the caller's expectation, not the query.
+- `DB_MODEL_AMBIGUOUS`: a `where` key is not a column of the table. TypeScript rejects it at the call
+  site; this is the runtime path, where the key arrived as data — a filter built from a query string.
+  Ignoring it would match every row, which reads as a working filter, so it throws and lists the real
+  columns instead.
+- `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
+  nested transactions and no savepoints in this driver; flatten the work into one transaction, or
+  run the statements as a batch.
+- `DB_URL_REQUIRED`: a `postgres` or `mysql` connection has no `url`. Both engines reach a pooler
+  over HTTP, so the URL is the connection — there is no pool object to fall back on, and a
+  connection that built without one would fail on its first statement instead of at boot.
+- `DB_D1_NO_BINDING`: a `d1` connection has no `binding` in `config/database.ts`. D1 is reached through
+  a Worker binding, never a connection string, so the binding name is required even though the rest of
+  the entry looks complete.
+- `DB_POSTGRES_BOOTSTRAP_UNWIRED`: `bootstrap` was asked to wire PostgreSQL but no `postgres()` client
+  factory was supplied. Tsir does not pick a Postgres client for you (ADR-0009), so the application
+  supplies one; the error names the missing factory rather than failing on the first query.
+- `DB_TX_STATEMENT_UNSUPPORTED`: `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` reached a D1 connection. D1 has
+  no interactive transactions; use `batch([...])` for atomic multi-statement writes (ADR-0016).
 
 - `DB_UNKNOWN_CONNECTION`: a connection name was used that is not declared. The message lists the
   declared connections.

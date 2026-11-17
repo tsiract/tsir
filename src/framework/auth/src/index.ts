@@ -95,4 +95,16 @@ export {
   type Principal,
 } from './guards.ts';
 
+export {
+  apiKeyStoreFromConfig,
+  sessionStoreFromConfig,
+  API_KEY_DRIVERS,
+  PERSISTENT_AUTH_DRIVERS,
+  SESSION_DRIVERS,
+  type AuthQuery,
+  type AuthStoreBuildOptions,
+  type ConfiguredAuthStore,
+} from './config.ts';
+
+export { driverMissing, forbiddenInProduction } from './errors.ts';
 export type { AuthErrorCode } from './errors.ts';

@@ -18,7 +18,7 @@
  *     implementation serves D1 and Postgres and this package gains no dependency.
  */
 
-import { deliveryFailed, invalidPayload, notifiableMissing } from '../errors.ts';
+import { deliveryFailed, engineUnsupported, invalidPayload, notifiableMissing } from '../errors.ts';
 import type { Channel } from '../channel.ts';
 import type { InboxLevel, InboxPayload } from '../payloads.ts';
 
@@ -35,7 +35,13 @@ export interface InboxSqlResult {
 /** The slice of `@tsir/database` this channel needs. `Database` satisfies it structurally. */
 export interface InboxSql {
   readonly capabilities: {
-    readonly engine: 'd1' | 'postgres';
+    /**
+     * Any SQL engine. These channels branch on `placeholder`, never on the engine name, so
+     * narrowing to `d1 | postgres` would reject a `mysql` or `sqlite` connection that works
+     * (`CAP-009`). `@tsir/migrate` keeps the narrow pair: its state table really does have two
+     * dialects.
+     */
+    readonly engine: 'd1' | 'postgres' | 'mysql' | 'sqlite';
     readonly placeholder: 'question' | 'dollar';
   };
   query(statement: InboxSqlStatement): Promise<InboxSqlResult>;
@@ -101,6 +107,12 @@ export function inboxTableDdl(options: {
 export function createInboxStore(sql: InboxSql, options: InboxStoreOptions = {}): InboxStore {
   const table = options.table ?? 'notification_inbox';
   const engine = sql.capabilities.engine;
+
+  // At construction. `mysql` reaches this with a working connection, so the refusal is about the
+  // statement, and it belongs before the first delivery rather than after one was dropped.
+  if (engine !== 'd1' && engine !== 'postgres' && engine !== 'sqlite') {
+    throw engineUnsupported(engine);
+  }
 
   /** `?` on D1, `$1` on Postgres — resolved once, from the backend's own declaration. */
   const placeholders = (count: number): string => {

@@ -10,13 +10,19 @@
  * query, so constructing these at boot is safe.
  */
 import {
+  apiKeyStoreFromConfig,
+  createApiKeys,
   createSessions,
-  databaseSessionStore,
+  sessionStoreFromConfig,
   sessionGuard,
+  type ApiKeys,
   type PasswordHasher,
   type Principal,
   type Sessions,
 } from '@tsir/auth';
+import { TsirError } from '@tsir/container';
+import { isProduction } from '@tsir/core';
+import authConfig from '../../../config/auth.ts';
 import type { Guard } from '@tsir/auth';
 import { token } from '@tsir/container';
 import type { Database } from '@tsir/database';
@@ -34,13 +40,50 @@ export interface AuthPrincipal {
 
 export type AppPrincipal = Principal<AuthPrincipal>;
 
-/** Build a sessions store backed by the database. */
+/**
+ * Build the session store `config/auth.ts` names.
+ *
+ * `CAP-018`: the table used to be the string `'tsir_sessions'` written here, and the driver was
+ * whatever this file imported. Both now come from the section, so the store is reportable and the
+ * production guard — which refuses a `memory` store — is reachable by editing config rather than
+ * code. A missing section is a boot failure, not a fallback, because a fallback is how an app ends
+ * up with a store it never chose.
+ */
 export function createSessionsFromDb(db: Database): Sessions {
+  const store = sessionStoreFromConfig({
+    store: authConfig.sessions.store,
+    sql: db,
+    production: isProduction(),
+  });
+  if (store === undefined) throw authConfigMissing('sessions');
   return createSessions({
-    store: databaseSessionStore(db, { table: 'tsir_sessions' }),
+    store,
     ttlMs: sessionConfig.absoluteMs,
     idleTtlMs: sessionConfig.idleMs,
   });
+}
+
+/** The API-key store `config/auth.ts` names, on the same terms. */
+export function createApiKeysFromDb(db: Database): ApiKeys {
+  const store = apiKeyStoreFromConfig({
+    store: authConfig.apiKeys.store,
+    sql: db,
+    production: isProduction(),
+  });
+  if (store === undefined) throw authConfigMissing('apiKeys');
+  return createApiKeys({ store });
+}
+
+function authConfigMissing(concern: string): TsirError {
+  return new TsirError(
+    'AUTH_CONFIG_INVALID',
+    `this app requires \`auth.${concern}.store\`, and the project has none`,
+    {
+      kind: 'capability',
+      hint: "add `config/auth.ts` with a `store: { driver: 'database' }` for each concern",
+      context: { concern },
+    },
+  );
 }
 
 /** Build the session guard from a sessions instance. */

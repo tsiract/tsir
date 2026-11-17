@@ -4,7 +4,7 @@
   "license": "MIT",
   "private": true,
   "type": "module",
-  "description": "policy package",
+  "description": "Guards, policies and rate limits: one place for the decisions an action needs before it runs, expressed as data rather than branches in the controller.",
   "exports": {
     ".": {
       "types": "./src/index.ts",

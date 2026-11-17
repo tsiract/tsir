@@ -334,6 +334,7 @@ export function createDatabase<Names extends string = string>(
       durationMs,
       rows,
       ok,
+      slow: durationMs >= slowQueryMs,
       ...(ok ? {} : { error: error instanceof Error ? error.message : 'unknown error' }),
     });
   }
@@ -418,6 +419,7 @@ export function createDatabase<Names extends string = string>(
               durationMs,
               rows,
               ok: true,
+              slow: durationMs >= slowQueryMs,
             });
           }
         }

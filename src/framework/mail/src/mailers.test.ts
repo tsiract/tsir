@@ -282,14 +282,16 @@ describe('`mail.mailers` in tsir.js', () => {
   test('an unknown driver lists the ones this build ships', () => {
     let thrown: { code?: string; hint?: string } | undefined;
     try {
-      mailersFromConfig({ mail: { mailers: { m: { driver: 'sendgrid', from: 'a@tsir.local' } } } });
+      mailersFromConfig({
+        mail: { mailers: { m: { driver: 'mailchimp', from: 'a@tsir.local' } } },
+      });
     } catch (error: unknown) {
       thrown = error as { code?: string; hint?: string };
     }
     expect(thrown?.code).toBe('MAIL_DRIVER_MISSING');
     // The hint is where the list of real drivers lives — the message names only what was wrong.
     expect(thrown?.hint).toBe(
-      'available drivers: log, memory, cloudflare, resend, postmark, ses, smtp',
+      'available drivers: log, memory, cloudflare, resend, postmark, sendgrid, ses, smtp',
     );
   });
 

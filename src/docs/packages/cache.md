@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/cache`**
 
-`BuildCachesOptions`, `CACHE_DRIVERS`, `Cache`, `CacheBackend`, `CacheBindings`, `CacheCapabilities`, `CacheDriver`, `CacheDriverName`, `CacheEntryOptions`, `CacheErrorCode`, `Caches`, `CachesOptions`, `Codec`, `ConfiguredStore`, `ConformanceCase`, `ConformanceOptions`, `JsonEnvelope`, `StoreDefinition`, `StoreOptions`, `StoreRequirement`, `StoreValue`, `StoredValue`, `assertRequirements`, `cacheTableDdl`, `cachesFromConfig`, `checkRequirements`, `conformanceCases`, `createCache`, `createCaches`, `defineStore`, `driverFor`, `guardCodec`, `json`, `text`
+`BuildCachesOptions`, `CACHE_DRIVERS`, `Cache`, `CacheBackend`, `CacheBindings`, `CacheBootstrap`, `CacheBootstrapOptions`, `CacheCapabilities`, `CacheDriver`, `CacheDriverName`, `CacheEntryOptions`, `CacheErrorCode`, `CacheLock`, `Caches`, `CachesOptions`, `Codec`, `ConfiguredStore`, `ConformanceCase`, `ConformanceOptions`, `JsonEnvelope`, `StoreDefinition`, `StoreOptions`, `StoreRequirement`, `StoreValue`, `StoredValue`, `assertRequirements`, `cacheTableDdl`, `cachesFromConfig`, `checkRequirements`, `conformanceCases`, `createCache`, `createCacheBootstrap`, `createCaches`, `defineStore`, `driverFor`, `guardCodec`, `json`, `text`
 
 **`@tsir/cache/cloudflare-kv`**
 
@@ -44,10 +44,11 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (7). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (8). Each one is described in the [error-code reference](../errors.md).
 
 - `CAP_CODEC_FAILED`
 - `CAP_DRIVER_MISSING`
+- `CAP_ENGINE_UNSUPPORTED`
 - `CAP_FORBIDDEN_IN_PRODUCTION`
 - `CAP_NO_STORES`
 - `CAP_UNKNOWN_DEFAULT`
@@ -83,6 +84,10 @@ console.log(await store.get('u:1'));
 
 ## Failure modes
 
+- `CAP_ENGINE_UNSUPPORTED`: the `database` store was given a `mysql` connection. Writing a value is
+  one upsert — `ON CONFLICT … RETURNING` — which MySQL does not speak; the alternative would be a
+  read-then-write with a race in it, and a cache that stores the wrong bytes is worse than one that
+  refuses to build.
 - `CAP_UNKNOWN_STORE`: a store name was used that was never declared. There is no fallback to the
   default store, so the code asks for a store it cannot have.
 - `CAP_UNKNOWN_DEFAULT`: the default names a store that is not declared.

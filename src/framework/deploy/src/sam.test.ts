@@ -207,6 +207,10 @@ describe('EventBridge units (DPL-026)', () => {
     // The rule filters by detail-type on the default bus; the Lambda dispatches inside.
     expect(template).toContain('EventBusName: default');
     expect(template).toContain('detail-type: ["order.placed"]');
+    // `EventPattern` is a JSON document, and `detail-type` is a **top-level** key in it.
+    // Nesting it under `source:` produced a pattern CloudFormation rejects, and an empty
+    // `source:` mapping, which is a rule that matches nothing — a silent no-op after deploy.
+    expect(template).not.toMatch(/EventPattern:\s*\n\s+source:/u);
     // The function is the rule's target, with a Lambda permission to be invoked.
     expect(template).toContain('- Arn: !GetAtt EventsFunction.Arn');
     expect(template).toContain('OrdersPermission:');

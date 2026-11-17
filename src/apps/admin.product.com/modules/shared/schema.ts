@@ -236,14 +236,20 @@ export type Group = typeof groups.$inferSelect;
 
 /* ── telemetry: owned by @tsir/telemetry (Telescope + Horizon-style) ───────── */
 
-export { requestLogs, queueJobs, queueDead } from '@tsir/telemetry';
+import { telemetryTables } from '@tsir/telemetry';
 
-import type {
-  requestLogs as _requestLogs,
-  queueJobs as _queueJobs,
-  queueDead as _queueDead,
-} from '@tsir/telemetry';
+// The tables are built for a dialect, not exported as constants (`INF-010`). This app ships on D1
+// and on Postgres, and a `sqliteTable` would hand the Postgres connection SQLite SQL.
+const telemetry = telemetryTables('d1');
 
-export type RequestLog = typeof _requestLogs.$inferSelect;
-export type QueueJob = typeof _queueJobs.$inferSelect;
-export type QueueDeadJob = typeof _queueDead.$inferSelect;
+export const requestLogs = telemetry.requestLogs;
+export const queueJobs = telemetry.queueJobs;
+export const queueDead = telemetry.queueDead;
+// One row per statement the connection reported (`DX-014`). The app does not write it: the sink
+// `createQueryMonitor` returns is what inserts, so a module cannot forget to log a query.
+export const queryLogs = telemetry.queryLogs;
+
+export type RequestLog = typeof requestLogs.$inferSelect;
+export type QueueJob = typeof queueJobs.$inferSelect;
+export type QueueDeadJob = typeof queueDead.$inferSelect;
+export type QueryLog = typeof queryLogs.$inferSelect;

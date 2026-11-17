@@ -21,7 +21,7 @@ import { pathToFileURL } from 'node:url';
 import { disksFromConfig, utf8, type Disk, type Disks } from '@tsir/storage';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, jsonDocument, symbols } from '../output.ts';
 import { loadProject, type LoadedProject } from '../project.ts';
 
 /** Duck-types the exported registry, so a wrong export is a message and not a crash. */
@@ -209,7 +209,7 @@ export async function storageProbeCommand(argv: readonly string[]): Promise<numb
     info(`  ${style.bold('storage:probe')} ${style.dim(`· ${source}`)}`);
     info('');
     for (const result of results) {
-      const mark = result.ok ? style.green('✓') : style.red('✗');
+      const mark = result.ok ? style.green(symbols.check) : style.red(symbols.cross);
       const detail =
         result.detail === undefined
           ? style.dim(`${result.driver} · ${String(result.bytes)} bytes round-tripped`)

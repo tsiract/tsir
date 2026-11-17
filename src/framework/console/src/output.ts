@@ -7,24 +7,41 @@
  */
 
 import { TsirError } from '@tsir/container';
+import { colorDisabled, createPalette, glyphs } from '@tsir/tui';
 
-const color = (): boolean => process.stdout.isTTY === true && process.env['NO_COLOR'] === undefined;
-
-function paint(code: string, text: string): string {
-  return color() ? `\u001B[${code}m${text}\u001B[0m` : text;
-}
+/**
+ * Colour is a property of the *terminal*, decided in one place.
+ *
+ * This used to be its own `paint('32', …)` table, which meant the CLI and every other Tsir command
+ * answered "may I use colour?" differently: this one required a TTY and honoured `NO_COLOR`, and
+ * `@tsir/tui` additionally honoured `TERM=dumb`. Two answers to one question is how a product ends
+ * up with a coloured line in the middle of a plain report. The palette is now `@tsir/tui`'s; what
+ * stays here is the CLI's own requirement that `--json` and pipes are never coloured.
+ */
+const palette = createPalette({
+  color: process.stdout.isTTY === true && !colorDisabled(),
+});
 
 export const style = {
-  bold: (text: string): string => paint('1', text),
-  dim: (text: string): string => paint('2', text),
-  green: (text: string): string => paint('32', text),
-  red: (text: string): string => paint('31', text),
-  yellow: (text: string): string => paint('33', text),
-  cyan: (text: string): string => paint('36', text),
+  bold: (text: string): string => palette.paint('bold', text),
+  dim: (text: string): string => palette.paint('dim', text),
+  green: (text: string): string => palette.paint('success', text),
+  red: (text: string): string => palette.paint('danger', text),
+  yellow: (text: string): string => palette.paint('warning', text),
+  cyan: (text: string): string => palette.paint('brand', text),
 };
 
+/**
+ * The glyph set, so `TSIR_TUI=ascii` reaches the CLI too.
+ *
+ * Exported because the commands print their own marks (`✓ created …`, `✗ DPL_…`) and every one of
+ * them used to hard-code the character. A glyph that cannot be swapped for an ASCII fallback on a
+ * terminal that mangles box drawing is a glyph that appears as `?` in somebody's log.
+ */
+export const symbols: ReturnType<typeof glyphs> = glyphs();
+
 export const ok = (message: string): void => {
-  process.stdout.write(`${style.green('✓')} ${message}\n`);
+  process.stdout.write(`${style.green(symbols.check)} ${message}\n`);
 };
 
 export const info = (message: string): void => {
@@ -32,7 +49,7 @@ export const info = (message: string): void => {
 };
 
 export const warn = (message: string): void => {
-  process.stderr.write(`${style.yellow('!')} ${message}\n`);
+  process.stderr.write(`${style.yellow(symbols.warn)} ${message}\n`);
 };
 
 /** Exit codes are part of the CLI contract. */
@@ -81,7 +98,7 @@ export function fail(error: unknown, json: boolean): number {
     if (json) {
       process.stderr.write(`${jsonDocument({ ok: false, ...error.toLogObject() })}\n`);
     } else {
-      process.stderr.write(`${style.red('✗')} ${error.message}\n`);
+      process.stderr.write(`${style.red(symbols.cross)} ${error.message}\n`);
       if (error.hint !== undefined) process.stderr.write(`  ${style.dim(`↳ ${error.hint}`)}\n`);
       process.stderr.write(`  ${style.dim(`code: ${error.code}`)}\n`);
     }
@@ -94,7 +111,7 @@ export function fail(error: unknown, json: boolean): number {
         `${jsonDocument({ ok: false, message: error.message, ...(error.code === undefined ? {} : { code: error.code }) })}\n`,
       );
     } else {
-      process.stderr.write(`${style.red('✗')} ${error.message}\n`);
+      process.stderr.write(`${style.red(symbols.cross)} ${error.message}\n`);
       if (error.hint !== undefined) process.stderr.write(`  ${style.dim(`↳ ${error.hint}`)}\n`);
       if (error.code !== undefined) process.stderr.write(`  ${style.dim(`code: ${error.code}`)}\n`);
     }
@@ -105,7 +122,7 @@ export function fail(error: unknown, json: boolean): number {
   if (json) {
     process.stderr.write(`${jsonDocument({ ok: false, message })}\n`);
   } else {
-    process.stderr.write(`${style.red('✗')} ${message}\n`);
+    process.stderr.write(`${style.red(symbols.cross)} ${message}\n`);
   }
   return EXIT.failure;
 }

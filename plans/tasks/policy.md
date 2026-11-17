@@ -4,7 +4,7 @@
 > RPC all skip. This package is the one `authorize()` that every caller uses, with no HTTP in it.
 >
 > **Plan:** [`04-http.md § 8`](../modules/04-http.md) · [`14-security.md § 2`](../operations/14-security.md) ·
-> **Related:** [`12-security.md`](./12-security.md) (`SEC-2xx`), [`auth.md`](./auth.md) (who the
+> **Related:** [`24-security.md`](./24-security.md) (`SEC-2xx`), [`auth.md`](./auth.md) (who the
 > principal is), [`03-http.md`](./03-http.md) (guards and the 403).
 
 **Status: complete — 2026-10-29.** Six modules, two test files, one type-test file. Tests: **26**,

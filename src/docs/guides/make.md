@@ -12,11 +12,15 @@ make install
 make doctor
 make dist
 make verify-dist
-make check
-make test
+make verify      # every gate plus the test suite — the one to trust
 ```
 
-`make dist` compiles the 24 framework packages, ships runnable examples and static apps, and installs
+`make check` is the gates alone, and it must pass offline: no database, no Docker, no network. The
+tests that need those therefore are not in it, so **`make check` can be green while `bun test` is
+red**. `make verify` is `check` + `test`, and it is what to run before pushing.
+
+`make dist` compiles every directory in `src/framework/` (34 today — read the count from `ls
+src/framework` rather than from this page), ships runnable examples and static apps, and installs
 the generated distribution dependencies in ignored `dist/`. The source checkout must already have
 its own workspace dependencies installed; building may need npm registry access. Run
 `./dist/tsir --help` after the build, or read `dist/README.md` for its layout. Rebuilding removes
@@ -34,8 +38,9 @@ runtime records; stop the dev server first.
 | `help`, `doctor`, `install`                                                                               | Discover targets, check the machine, install dependencies; install needs registry access.                                                                                                                                            |
 | `dev`, `kill-owned`, `kill-ports-dry`                                                                     | Start the site, stop recorded dev processes, or inspect port owners. `dev` and `test-watch` keep running until stopped.                                                                                                              |
 | `kill`, `kill-ports`                                                                                      | **Potentially disruptive:** sweep unprotected listening ports, including other user-owned servers. Prefer `kill-owned`; use `kill-ports-dry` first. macOS uses `lsof`, Linux uses `ss`.                                              |
-| `check`, `typecheck`, `lint`, `format-check`, `test`, `coverage`, `logs`                                  | Local quality checks; `format` writes changes. Some checks run the full test suite and can take minutes.                                                                                                                             |
+| `verify`, `check`, `typecheck`, `lint`, `format-check`, `test`, `coverage`, `logs`                        | Local quality checks. `verify` = `check` + `test` and is the honest "is my branch sane?"; `check` is the gates only and must pass offline, so it can be green with a failing suite. `format` writes changes.                         |
 | `frontpage-build`, `docs-site`, `docs-packages[-write]`, `links`, `surface[-write]`, `readme[-check]`     | Build or check docs and generated files; `-write`/`readme` modifies tracked files.                                                                                                                                                   |
+| `llms[-check]`                                                                                            | Regenerate or verify `llms.txt`, the documentation index written for a model. `check` fails when a page was added, moved or retitled without regenerating it.                                                                        |
 | `dist`, `build`, `verify-dist`, `release-pack[-fast]`                                                     | Build, test and package generated artifacts. Verify uses Node when present; release packaging needs `tar`, registry access and Bun. On macOS verify checksums with `shasum -a 256 -c SHA256SUMS.txt`; Linux also has `sha256sum -c`. |
 | `proto`, `proto-check`                                                                                    | Regeneration needs `buf`; `proto-check` explicitly skips without it.                                                                                                                                                                 |
 | `db-up`, `db-down`, `test-integration`, `migrate`, `migrate-status`, `seed`                               | Database operations; Compose needs Docker and `POSTGRES_PASSWORD`. Integration tests need `DATABASE_URL`; migration/seed targets need `APP=path`. Check the destination before running writes.                                       |
@@ -45,3 +50,22 @@ runtime records; stop the dev server first.
 Use `make help` and inspect the Makefile for all targets and flags. Paths and platform tools may
 vary. macOS/Linux CI checks the build on both operating systems; it is not a guarantee for every
 local setup, external service, Docker version or shell customization.
+
+The table above is prose, and prose about targets goes stale the moment one is renamed — which is
+the failure `check-make` was written for. `parseMakefile` is the same parser the gate uses, so you
+can ask the Makefile what it actually defines rather than trusting this page:
+
+```ts verify
+import { parseMakefile } from '../../src/tools/check-make.ts';
+
+const parsed = parseMakefile(await Bun.file('Makefile').text());
+const names = [...parsed.phony].sort();
+
+console.log('phony targets:', names.length);
+console.log('defines `verify`:', names.includes('verify'));
+console.log('defines `check`:', names.includes('check'));
+```
+
+If `defines \`check\``prints`false`, this page is describing a Makefile that no longer exists.
+`parseMakefile`is pure — it reads text, not the process — which is why the gate can unit-test the
+parser against broken Makefiles instead of running`make` to find out.

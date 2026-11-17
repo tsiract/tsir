@@ -48,6 +48,25 @@ export interface ConfigLifecycle {
 
 const RESERVED_PREFIX = 'TSIR_';
 
+/**
+ * `TSIR_`-prefixed names the CLI sets for its own purposes rather than for the application.
+ *
+ * The prefix is reserved so a typo in an application key is caught (`TSIR_PORT` for `PORT` warns
+ * instead of being silently ignored). These particular names are not application configuration at
+ * all — they are how the toolchain tells itself where something lives — so reporting them as
+ * unknown application keys is a false alarm in every app the toolchain itself creates. `TSIR_DIST`
+ * is exported by the distribution's `tsir new`, and the warning appeared in a freshly scaffolded
+ * application's `tsir doctor` before the developer had configured anything.
+ */
+const TOOLCHAIN_ENV = new Set([
+  'TSIR_DIST',
+  // `TSIR_TUI=ascii` switches the shared terminal layer to ASCII glyphs (`@tsir/tui`), and
+  // `TSIR_NO_INTERACTIVE=1` forbids prompts. Both are read by the toolchain, never by the
+  // application, so an application's `tsir doctor` must not report them as unknown keys.
+  'TSIR_TUI',
+  'TSIR_NO_INTERACTIVE',
+]);
+
 function defaultEnv(): EnvRecord {
   const bun = (globalThis as { Bun?: { env: EnvRecord } }).Bun;
   if (bun !== undefined && typeof bun.env === 'object') return bun.env;
@@ -159,7 +178,7 @@ export function loadConfig<S extends ConfigSpec>(
   }
 
   for (const key of Object.keys(env)) {
-    if (!(key in spec) && key.startsWith(RESERVED_PREFIX)) {
+    if (!(key in spec) && key.startsWith(RESERVED_PREFIX) && !TOOLCHAIN_ENV.has(key)) {
       const message = `unknown configuration key "${key}"`;
       if (options.strictEnv === true) {
         issues.push({ key, message, source: 'env', code: 'unknown' });

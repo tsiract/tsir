@@ -37,7 +37,7 @@ import {
 } from '@tsir/queue';
 
 import { boolFlag, parseArgs, stringFlag, type ParsedArgs } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, jsonDocument, symbols } from '../output.ts';
 import { loadProject, type LoadedProject } from '../project.ts';
 
 /** Duck-types the exported registry, so a wrong export is a message and not a crash. */
@@ -381,9 +381,9 @@ export async function queueWorkCommand(argv: readonly string[]): Promise<number>
       for (const result of results) {
         const mark =
           result.outcome === 'completed'
-            ? style.green('✓')
+            ? style.green(symbols.check)
             : result.outcome === 'dead'
-              ? style.red('✗')
+              ? style.red(symbols.cross)
               : style.yellow('↻');
         const detail = result.error === undefined ? '' : ` ${style.dim(result.error)}`;
         info(`  ${mark} ${result.name}#${result.id} (attempt ${String(result.attempt)})${detail}`);
@@ -426,7 +426,9 @@ export async function queueWorkCommand(argv: readonly string[]): Promise<number>
     for (const detachOne of detach) detachOne();
   }
 
-  info(`  ${style.green('✓')} worker stopped · ${String(worker.inFlight)} job(s) still in flight`);
+  info(
+    `  ${style.green(symbols.check)} worker stopped · ${String(worker.inFlight)} job(s) still in flight`,
+  );
   return EXIT.ok;
 }
 
@@ -471,14 +473,14 @@ export async function queueFailedCommand(argv: readonly string[]): Promise<numbe
     info(`  ${style.bold('queue:failed')} ${style.dim(`· ${connection}`)}`);
     if (dead.length === 0) {
       info('');
-      info(`  ${style.green('✓')} the dead-letter store is empty`);
+      info(`  ${style.green(symbols.check)} the dead-letter store is empty`);
       return EXIT.ok;
     }
 
     for (const message of dead) {
       info('');
       info(
-        `  ${style.red('✗')} ${message.name}#${message.id} ${style.dim(`(${String(message.attempts)}/${String(message.maxAttempts)} attempts)`)}`,
+        `  ${style.red(symbols.cross)} ${message.name}#${message.id} ${style.dim(`(${String(message.attempts)}/${String(message.maxAttempts)} attempts)`)}`,
       );
       info(`    ${style.dim(message.lastError ?? 'no error recorded')}`);
     }
@@ -545,7 +547,7 @@ export async function queueRetryCommand(argv: readonly string[]): Promise<number
         return EXIT.ok;
       }
       info(
-        `  ${style.green('✓')} replayed ${String(id)} on ${connection} ${style.dim('(fresh attempt budget)')}`,
+        `  ${style.green(symbols.check)} replayed ${String(id)} on ${connection} ${style.dim('(fresh attempt budget)')}`,
       );
       return EXIT.ok;
     }
@@ -562,7 +564,7 @@ export async function queueRetryCommand(argv: readonly string[]): Promise<number
       return EXIT.ok;
     }
     info(
-      `  ${style.green('✓')} replayed ${String(replayed.length)} of ${String(dead.length)} dead letter(s) on ${connection}`,
+      `  ${style.green(symbols.check)} replayed ${String(replayed.length)} of ${String(dead.length)} dead letter(s) on ${connection}`,
     );
     return EXIT.ok;
   } catch (error: unknown) {

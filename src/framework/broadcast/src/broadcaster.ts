@@ -11,6 +11,17 @@
  * client-side `Echo`-style helper is also provided for browser use.
  */
 
+/**
+ * The broadcasters this build ships, by the name a `tsir.js` writes.
+ *
+ * `memory` and `redis`/`pusher` are process- and vendor-shaped; `durable-object` is Cloudflare's
+ * fan-out point and the only one that works on Workers at all, because there is no process there
+ * to hold a listener list.
+ */
+export const BROADCAST_DRIVERS = ['memory', 'redis', 'pusher', 'durable-object'] as const;
+
+export type BroadcastDriverName = (typeof BROADCAST_DRIVERS)[number];
+
 export interface BroadcastMessage {
   channel: string;
   event: string;

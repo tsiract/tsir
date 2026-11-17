@@ -321,6 +321,35 @@ describe('databaseApiKeyStore', () => {
     expect(await keys.revoke('nosuchkey')).toBe(false);
   });
 
+  test('a Postgres UPDATE numbers its placeholders per statement (INF-001)', async () => {
+    // The fake routes parameters positionally, so it cannot see the bug this pins: `SET a = $1
+    // WHERE id = $1` is a *valid* statement with two parameters, and it compares the id to itself.
+    // Postgres matched no rows and `revoke()` reported `changes: 0` — a revoke that did nothing, on
+    // the one path where nothing happening is reported as "already revoked".
+    const { sql, recorded } = fakeSql({ engine: 'postgres', placeholder: 'dollar' });
+    const store = databaseApiKeyStore(sql);
+    await store.revoke('abcdef012345', NOW);
+    await store.touch('abcdef012345', NOW);
+
+    for (const statement of recorded) {
+      const used = [...statement.sql.matchAll(/\$(\d+)/gu)].map((match) => Number(match[1]));
+      // `$1, $2, …` with no repeats: one parameter per position, in order.
+      expect(used).toEqual(used.map((_value, index) => index + 1));
+      expect(new Set(used).size).toBe(used.length);
+    }
+  });
+
+  test('an UPDATE carries as many parameters as it has placeholders', async () => {
+    // The count is the other half: `SET a = $1 WHERE id = $2` with one parameter is a driver error,
+    // and the store built its `params` array separately from its SQL.
+    const { sql, recorded } = fakeSql({ engine: 'postgres', placeholder: 'dollar' });
+    const store = databaseApiKeyStore(sql);
+    await store.revoke('abcdef012345', NOW);
+    const update = recorded.find((statement) => statement.sql.startsWith('UPDATE'));
+    expect(update?.params).toHaveLength(2);
+    expect(update?.sql).toContain('$2');
+  });
+
   test('`revoke` is a single transition: a second call changes nothing', async () => {
     const { sql, recorded } = fakeSql();
     const store = databaseApiKeyStore(sql);

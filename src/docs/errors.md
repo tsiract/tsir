@@ -5,23 +5,25 @@
 Every `TsirError` code a framework package can raise. Codes are stable: a code is never
 renamed or reused. A caller may branch on the code; the message is for people and may change.
 
-279 codes across 27 packages.
+300 codes across 28 packages.
 
 ## `@tsir/auth`
 
-| Code                        |
-| --------------------------- |
-| `AUTH_API_KEY_INVALID`      |
-| `AUTH_API_KEY_REVOKED`      |
-| `AUTH_CONFIG_INVALID`       |
-| `AUTH_INVALID_CREDENTIALS`  |
-| `AUTH_INVALID_HASH`         |
-| `AUTH_INVALID_TOKEN`        |
-| `AUTH_SESSION_EXPIRED`      |
-| `AUTH_SESSION_REVOKED`      |
-| `AUTH_SESSION_STORE_FAILED` |
-| `AUTH_UNSUPPORTED_HASH`     |
-| `AUTH_WEAK_PASSWORD`        |
+| Code                           |
+| ------------------------------ |
+| `AUTH_API_KEY_INVALID`         |
+| `AUTH_API_KEY_REVOKED`         |
+| `AUTH_CONFIG_INVALID`          |
+| `AUTH_DRIVER_MISSING`          |
+| `AUTH_FORBIDDEN_IN_PRODUCTION` |
+| `AUTH_INVALID_CREDENTIALS`     |
+| `AUTH_INVALID_HASH`            |
+| `AUTH_INVALID_TOKEN`           |
+| `AUTH_SESSION_EXPIRED`         |
+| `AUTH_SESSION_REVOKED`         |
+| `AUTH_SESSION_STORE_FAILED`    |
+| `AUTH_UNSUPPORTED_HASH`        |
+| `AUTH_WEAK_PASSWORD`           |
 
 ## `@tsir/cache`
 
@@ -29,6 +31,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | ----------------------------- |
 | `CAP_CODEC_FAILED`            |
 | `CAP_DRIVER_MISSING`          |
+| `CAP_ENGINE_UNSUPPORTED`      |
 | `CAP_FORBIDDEN_IN_PRODUCTION` |
 | `CAP_NO_STORES`               |
 | `CAP_UNKNOWN_DEFAULT`         |
@@ -66,6 +69,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 | Code                   |
 | ---------------------- |
+| `CLI_STUB_MISSING`     |
 | `CLI_STUB_MISSING_VAR` |
 | `CLI_WSDL_INVALID`     |
 
@@ -116,19 +120,26 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DB_D1_NO_BINDING`               |
 | `DB_DRIVER_UNAVAILABLE`          |
 | `DB_HEALTH_FAILED`               |
+| `DB_MODEL_AMBIGUOUS`             |
+| `DB_MODEL_NOT_FOUND`             |
+| `DB_MYSQL_HTTP_FAILED`           |
 | `DB_NO_CONNECTIONS`              |
 | `DB_POSTGRES_BOOTSTRAP_UNWIRED`  |
+| `DB_POSTGRES_HTTP_FAILED`        |
 | `DB_RAW_UNSUPPORTED`             |
 | `DB_REQUIRES_INTERACTIVE_TX`     |
 | `DB_REQUIRES_TX_CONNECTION`      |
 | `DB_ROTATION_INVALID_IDENTIFIER` |
 | `DB_ROTATION_TARGET_MISMATCH`    |
+| `DB_SQLITE_NO_HANDLE`            |
 | `DB_TX_DEPTH_EXCEEDED`           |
 | `DB_TX_INTERACTIVE_UNSUPPORTED`  |
+| `DB_TX_NESTED_UNSUPPORTED`       |
 | `DB_TX_OPTION_UNSUPPORTED`       |
 | `DB_TX_STATEMENT_UNSUPPORTED`    |
 | `DB_UNKNOWN_CONNECTION`          |
 | `DB_UNKNOWN_DEFAULT`             |
+| `DB_URL_REQUIRED`                |
 
 ## `@tsir/deploy`
 
@@ -146,6 +157,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `DPL_EVENT_UNRECOGNISED`    |
 | `DPL_GRAPH_DRIFT`           |
 | `DPL_INVOKE_UNKNOWN`        |
+| `DPL_LISTENER_NOT_BUILT`    |
 | `DPL_LISTENER_NOT_FOUND`    |
 | `DPL_PRIVATE_EXPOSED`       |
 | `DPL_PUBLISH_UNKNOWN`       |
@@ -264,15 +276,16 @@ renamed or reused. A caller may branch on the code; the message is for people an
 
 ## `@tsir/migrate`
 
-| Code                            |
-| ------------------------------- |
-| `DB_MIGRATION_DRIFT`            |
-| `DB_MIGRATION_EMPTY`            |
-| `DB_MIGRATION_FAILED`           |
-| `DB_MIGRATION_LOCK_UNSUPPORTED` |
-| `DB_ROLLBACK_DESTRUCTIVE`       |
-| `DB_ROLLBACK_UNKNOWN_TARGET`    |
-| `DB_ROLLBACK_UNSAFE`            |
+| Code                              |
+| --------------------------------- |
+| `DB_MIGRATION_DRIFT`              |
+| `DB_MIGRATION_EMPTY`              |
+| `DB_MIGRATION_ENGINE_UNSUPPORTED` |
+| `DB_MIGRATION_FAILED`             |
+| `DB_MIGRATION_LOCK_UNSUPPORTED`   |
+| `DB_ROLLBACK_DESTRUCTIVE`         |
+| `DB_ROLLBACK_UNKNOWN_TARGET`      |
+| `DB_ROLLBACK_UNSAFE`              |
 
 ## `@tsir/notify`
 
@@ -282,6 +295,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `NOTIFY_DELIVERY_FAILED`         |
 | `NOTIFY_DUPLICATE_CHANNEL`       |
 | `NOTIFY_DUPLICATE_NOTIFICATION`  |
+| `NOTIFY_ENGINE_UNSUPPORTED`      |
 | `NOTIFY_FORBIDDEN_IN_PRODUCTION` |
 | `NOTIFY_INVALID_PAYLOAD`         |
 | `NOTIFY_NOTIFIABLE`              |
@@ -294,6 +308,17 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `NOTIFY_UNKNOWN_NOTIFICATION`    |
 | `NOTIFY_UNSUPPORTED_OPERATION`   |
 | `NOTIFY_WEBHOOK_BLOCKED`         |
+
+## `@tsir/pennant`
+
+| Code                              |
+| --------------------------------- |
+| `PENNANT_CONFIG_MISSING`          |
+| `PENNANT_DEFAULT_MISSING`         |
+| `PENNANT_DRIVER_MISSING`          |
+| `PENNANT_ENGINE_UNSUPPORTED`      |
+| `PENNANT_FORBIDDEN_IN_PRODUCTION` |
+| `PENNANT_NO_STORE`                |
 
 ## `@tsir/policy`
 
@@ -388,6 +413,7 @@ renamed or reused. A caller may branch on the code; the message is for people an
 | `STO_FILESYSTEM_UNAVAILABLE`  |
 | `STO_FORBIDDEN_IN_PRODUCTION` |
 | `STO_INVALID_KEY`             |
+| `STO_NOT_FOUND`               |
 | `STO_NO_DISKS`                |
 | `STO_REQUEST_FAILED`          |
 | `STO_SIGNING_FAILED`          |

@@ -25,6 +25,36 @@ console.log(result.rows);
 
 ## Failure modes
 
+- `DB_POSTGRES_HTTP_FAILED` / `DB_MYSQL_HTTP_FAILED`: the provider rejected a statement. The message
+  carries what the provider said, because that is the operable part — a missing table, a stale
+  password, a paused database; the code is Tsir's, so a caller can branch on "the database rejected
+  this" without parsing vendor prose.
+- `DB_SQLITE_NO_HANDLE`: the `sqlite` connection has no file handle. Nothing opens a file implicitly:
+  pass `openSqlite: openSqliteFiles` from `@tsir/database/bun` to `createDatabaseBootstrap`, or hand the
+  driver a handle yourself. A Worker that never does this is correct — it has no filesystem — and the
+  error names the connection rather than failing with an unhandled `EBADF`. See "Two entrypoints" below.
+- `DB_MODEL_NOT_FOUND`: a `findOrFail` matched no row. The message names the table **and** the id,
+  because the two questions after this error are always which table and which row. Use `find`/`first`
+  when a missing row is expected — the failure is in the caller's expectation, not the query.
+- `DB_MODEL_AMBIGUOUS`: a `where` key is not a column of the table. TypeScript rejects it at the call
+  site; this is the runtime path, where the key arrived as data — a filter built from a query string.
+  Ignoring it would match every row, which reads as a working filter, so it throws and lists the real
+  columns instead.
+- `DB_TX_NESTED_UNSUPPORTED`: a transaction was opened inside another on a SQLite file. SQLite has no
+  nested transactions and no savepoints in this driver; flatten the work into one transaction, or
+  run the statements as a batch.
+- `DB_URL_REQUIRED`: a `postgres` or `mysql` connection has no `url`. Both engines reach a pooler
+  over HTTP, so the URL is the connection — there is no pool object to fall back on, and a
+  connection that built without one would fail on its first statement instead of at boot.
+- `DB_D1_NO_BINDING`: a `d1` connection has no `binding` in `config/database.ts`. D1 is reached through
+  a Worker binding, never a connection string, so the binding name is required even though the rest of
+  the entry looks complete.
+- `DB_POSTGRES_BOOTSTRAP_UNWIRED`: `bootstrap` was asked to wire PostgreSQL but no `postgres()` client
+  factory was supplied. Tsir does not pick a Postgres client for you (ADR-0009), so the application
+  supplies one; the error names the missing factory rather than failing on the first query.
+- `DB_TX_STATEMENT_UNSUPPORTED`: `BEGIN`/`COMMIT`/`ROLLBACK`/`SAVEPOINT` reached a D1 connection. D1 has
+  no interactive transactions; use `batch([...])` for atomic multi-statement writes (ADR-0016).
+
 - `DB_UNKNOWN_CONNECTION`: a connection name was used that is not declared. The message lists the
   declared connections.
 - `DB_UNKNOWN_DEFAULT`: the default names a connection that is not declared.
@@ -66,3 +96,84 @@ Queries use bound parameters, and the names of tables and columns are checked as
 data never becomes SQL text. Logged SQL is scrubbed of parameter values before it is written. Keep
 connection strings and bindings in the platform's secret store, and pass them to the driver rather than
 writing them into code.
+
+## Two entrypoints
+
+`@tsir/database` is what a Worker imports. `@tsir/database/bun` is what a CLI or a local dev script
+imports, and it is the only one that may name `bun:sqlite`, `node:fs` or `node:path`.
+
+```ts
+// database.ts — a Workers app that also runs `tsir migrate` locally
+import { createDatabaseBootstrap } from '@tsir/database';
+import { openSqliteFiles } from '@tsir/database/bun';
+import config from './config/database.ts';
+import { join } from 'node:path';
+
+export const { db, dbFor, connection, drizzle } = createDatabaseBootstrap(config, {
+  migrationsDir: join(import.meta.dir, 'migrations'),
+  sqlitePath: join(import.meta.dir, '..', '.tsir', 'app.db'),
+  openSqlite: openSqliteFiles,
+});
+```
+
+`db` **is Drizzle**, bound to the connection `database.default` names — not a wrapper, so every
+method, extension and `sql` template works unchanged. `dbFor('analytics')` is the same thing for any
+other declared connection, checked against the config at compile time: a name that is not configured
+does not typecheck, and the instance is memoised per connection so two calls return the same object
+(two Drizzle instances over one driver are two column identities, and a join across them emits
+duplicate aliases).
+
+The raw connection has not gone away, because `select 1` in a health check should not need a table:
+`connection` is the default `Database`, `connectionFor(name)` any other. `dbToken` still resolves to
+that raw handle, which is what every existing provider list expects; `drizzleToken` is what a new
+controller wants.
+
+The split is not tidiness. Those three specifiers cannot be bundled for a Worker at all: a bundle
+that contains one fails when the module graph is evaluated, not when the fallback branch runs, so an
+`await import()` inside the function does not help. `deploy-bundle-targets.test.ts` builds the root
+entrypoint for a browser target and asserts none of the three appear in the emitted code. Omitting
+`openSqlite` is the Workers-only configuration and costs nothing.
+
+This is the subpath-scope decision applied to a runtime rather than a package: an optional
+dependency may live behind one entrypoint, and a bundle proof keeps the scope honest. `@tsir/link`
+does the same for gRPC and its XML parser.
+
+## A model over a table
+
+`defineModel(table)` carries the table, the row type and the insert type, and offers the reads every
+repository writes by hand. It is not an Active Record: nothing is mutable, nothing lazy, no
+`user.save()`, and a relation that was not asked for is not on the object (`ADR-0032` § 2).
+
+```ts
+export const Users = defineModel(users);
+
+await Users.find(db, 7); // User | undefined — a missing row is an answer
+await Users.findOrFail(db, 7); // User, or DB_MODEL_NOT_FOUND naming table and id
+await Users.where(db, { email }); // User[] — `{ emial }` is a compile error
+await Users.count(db); // number
+```
+
+`where` taking a **column record** rather than a string is the point. A mistyped string key becomes a
+predicate that matches every row, which reads as a working filter; at the type level it cannot be
+written, and at runtime — where a key can arrive from a query string — an unknown key throws
+`DB_MODEL_AMBIGUOUS` listing the real columns rather than being dropped.
+
+The client is an argument (`db`, `dbFor(name)`), never resolved inside the model: a model that held a
+connection would be a second place the default is decided.
+
+## Redacting a statement
+
+`redactSql` turns a statement into something safe to store. `scrubSql` (in the logging path) removes
+quoted literals; `redactSql` additionally drops the value of any comparison whose **column** is
+sensitive — `email`, `password*`, `*_hash`, `secret*`, `token*`, `api_key`, `phone`, `ssn`, `card*`,
+`session*`, `authorization`, `cookie` and a handful more.
+
+```ts
+redactSql('update users set email = lower(?) where id = ?'); // 'update users set email = ? where id = ?'
+```
+
+The column is the signal because the value frequently is not: `phone = 5551234` has no quotes to
+scrub, and `email = lower(?)` is a function call whose result is still an address. Matching is on
+name segments, so `pinned` is not `pin`. What survives is deliberate: `id = 7` and `token is not null`
+are kept, because a log where every value is `?` is a log nobody reads, and a redactor that is turned
+off leaks everything.

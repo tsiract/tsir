@@ -47,7 +47,7 @@ import {
 } from '@tsir/deploy';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { EXIT, fail, info, ok, style, UsageError, warn, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, ok, style, UsageError, warn, jsonDocument, symbols } from '../output.ts';
 import { loadProject, type LoadedProject, type ProjectConfig } from '../project.ts';
 import { tasksFrom } from './schedule.ts';
 
@@ -284,7 +284,9 @@ export async function plan(argv: readonly string[], cwd: string): Promise<number
 
   if (boolFlag(args, '--write')) {
     await writeFile(snapshotPath, serializeGraph(graph), 'utf8');
-    info(`  ${style.green('✓')} wrote ${GRAPH_FILE} (${String(graph.units.length)} unit(s))`);
+    info(
+      `  ${style.green(symbols.check)} wrote ${GRAPH_FILE} (${String(graph.units.length)} unit(s))`,
+    );
   }
 
   if (boolFlag(args, '--check')) {
@@ -293,15 +295,17 @@ export async function plan(argv: readonly string[], cwd: string): Promise<number
       : undefined;
     const diff = committed === undefined ? undefined : diffGraphs(committed, graph);
     if (committed === undefined) {
-      info(`  ${style.red('✗')} ${GRAPH_FILE} is missing — run \`tsir deploy:plan --write\``);
+      info(
+        `  ${style.red(symbols.cross)} ${GRAPH_FILE} is missing — run \`tsir deploy:plan --write\``,
+      );
       return EXIT.failure;
     }
     if (diff !== undefined && !diff.empty) {
-      info(`  ${style.red('✗')} ${GRAPH_FILE} is stale:`);
+      info(`  ${style.red(symbols.cross)} ${GRAPH_FILE} is stale:`);
       info(describeDiff(diff));
       return EXIT.failure;
     }
-    info(`  ${style.green('✓')} ${GRAPH_FILE} matches the resolved graph`);
+    info(`  ${style.green(symbols.check)} ${GRAPH_FILE} matches the resolved graph`);
   }
 
   if (json) {
@@ -316,7 +320,7 @@ export async function plan(argv: readonly string[], cwd: string): Promise<number
   if (strays.length > 0) return EXIT.failure;
   if (emptyUnits.length > 0) {
     for (const unit of emptyUnits) {
-      info(`  ${style.red('✗')} DPL_UNIT_EMPTY · unit "${unit.name}" has no triggers`);
+      info(`  ${style.red(symbols.cross)} DPL_UNIT_EMPTY · unit "${unit.name}" has no triggers`);
     }
     return EXIT.failure;
   }
@@ -346,7 +350,7 @@ export async function diff(argv: readonly string[], cwd: string): Promise<number
   if (!existsSync(snapshotPath)) {
     const message = `${GRAPH_FILE} is missing — run \`tsir deploy:plan --write\` to create it`;
     if (json) info(jsonDocument({ ok: false, message }));
-    else info(`  ${style.red('✗')} ${message}`);
+    else info(`  ${style.red(symbols.cross)} ${message}`);
     return EXIT.failure;
   }
 
@@ -364,7 +368,7 @@ export async function diff(argv: readonly string[], cwd: string): Promise<number
       }),
     );
   } else if (diff.empty) {
-    ok(`  ${style.green('✓')} ${GRAPH_FILE} matches the resolved graph`);
+    ok(`  ${style.green(symbols.check)} ${GRAPH_FILE} matches the resolved graph`);
   } else {
     info(`  ${style.yellow('~')} ${GRAPH_FILE} drift:`);
     info(describeDiff(diff));

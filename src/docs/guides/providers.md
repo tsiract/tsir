@@ -33,6 +33,28 @@ tests are not proof of a live cloud deployment.
 | Logs      | stdout, collected by Workers Logs                                        | stdout, collected by Lambda/CloudWatch Logs; optional `cloudwatch` JSON format       | Configure permissions, retention, dashboards and alerts; there is no direct CloudWatch Logs API sink here.                                               |
 | SNS       | No built-in equivalent                                                   | **No SNS publisher or SNS-trigger adapter is shipped**                               | Implement an application-owned integration or use an appropriate separate consumer; do not pass SNS events to the Lambda adapter expecting them to work. |
 
+Nothing above is a promise about a provider. It is a promise about a **graph**, and the graph is what
+you can inspect before spending anything. A route, a queue and a schedule resolve into units with a
+kind, an exposure and the triggers each target gives them — and the same declarations produce the
+same units on both clouds, which is the only sense in which the two targets are interchangeable.
+
+```ts verify
+import { buildGraph, formatGraph } from '@tsir/deploy';
+
+const { graph, problems } = buildGraph({
+  appName: 'example',
+  routes: [{ unit: 'http', method: 'GET', path: '/health' }],
+});
+
+console.log(formatGraph(graph, problems));
+console.log('problems:', problems.length);
+```
+
+That prints the unit table and `problems: 0`. A declaration the graph cannot resolve does not throw
+from `buildGraph` — it comes back in `problems`, each with the error code that names it, so
+`deploy:plan` can list every bad unit instead of dying on the first one. Read `problems` before
+reading the table.
+
 The Lambda adapter recognizes API Gateway v2, SQS and EventBridge event shapes, not arbitrary AWS
 events. For SQS it reports only errors explicitly marked `retryable: true` or with a retryable
 `kind`; an ordinary thrown error is reported but **not** returned as a failed item. Generated SAM

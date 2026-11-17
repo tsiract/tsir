@@ -22,7 +22,9 @@ export type AuthErrorCode =
   | 'AUTH_SESSION_STORE_FAILED'
   | 'AUTH_API_KEY_INVALID'
   | 'AUTH_API_KEY_REVOKED'
-  | 'AUTH_CONFIG_INVALID';
+  | 'AUTH_CONFIG_INVALID'
+  | 'AUTH_DRIVER_MISSING'
+  | 'AUTH_FORBIDDEN_IN_PRODUCTION';
 
 const KIND = 'capability';
 
@@ -104,4 +106,38 @@ export function configInvalid(problem: string): TsirError {
     kind: KIND,
     hint: 'check the `auth` block in `tsir.js`; it is validated at boot, not at the first login',
   });
+}
+
+/**
+ * A store driver this build does not ship (`CAP-018`).
+ *
+ * The name is usually a near-miss (`postgres`, `redis`), so the message lists what exists rather
+ * than only what was wrong.
+ */
+export function driverMissing(driver: string, shipped: readonly string[]): TsirError {
+  return new TsirError('AUTH_DRIVER_MISSING', `auth has no "${driver}" store`, {
+    kind: KIND,
+    hint: `this build ships: ${shipped.join(', ')}`,
+    context: { driver, shipped: shipped.join(',') },
+  });
+}
+
+/**
+ * A `memory` session or API-key store in production (`CAP-018`).
+ *
+ * Both stores are a `Map` in one process. A session in one means the next request — on another
+ * instance, or after the process is recycled — is logged out, which the user experiences as being
+ * kicked out at random. An API key in one means a key that works on one instance and is `401` on
+ * the next. Neither throws. Both are the exact failure the store exists to prevent.
+ */
+export function forbiddenInProduction(store: string): TsirError {
+  return new TsirError(
+    'AUTH_FORBIDDEN_IN_PRODUCTION',
+    `the "${store}" store holds credentials in one process, so production would log people out when the process is recycled and accept a key on one instance only`,
+    {
+      kind: KIND,
+      hint: 'use the `database` store — sessions and keys belong in the store the rest of the app uses',
+      context: { store },
+    },
+  );
 }

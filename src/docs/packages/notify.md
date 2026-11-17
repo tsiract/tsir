@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/notify`**
 
-`BUILT_IN_CHANNELS`, `BuildChannelsOptions`, `BuiltInChannel`, `CHANNEL_DRIVERS`, `CHAT_DRIVERS`, `Channel`, `ChannelBuilder`, `ChannelCapabilities`, `ChannelDelivery`, `ChannelDriverName`, `ChannelName`, `ChannelPayloads`, `ChannelRecord`, `ChannelResult`, `Channels`, `ChatChannelOptions`, `ChatDriver`, `ChatPayload`, `ConfiguredChannel`, `CreateNotifierOptions`, `DatabaseChannelOptions`, `DefineNotificationInput`, `DeliveryEnvelope`, `EnvRef`, `InboxLevel`, `InboxPayload`, `InboxRow`, `InboxSql`, `InboxSqlResult`, `InboxSqlStatement`, `InboxStore`, `InboxStoreOptions`, `MailChannelOptions`, `MailPayload`, `MailPort`, `Notifiable`, `NotificationDefinition`, `NotificationReport`, `Notifications`, `Notifier`, `NotifyErrorCode`, `NotifyQueue`, `PreviewRecord`, `QueuedRecord`, `SendOptions`, `SmsChannelOptions`, `SmsPayload`, `SmsProvider`, `TwilioOptions`, `WebhookChannelOptions`, `WebhookPayload`, `assertCarriable`, `channelFromConfig`, `channelsFromConfig`, `chatBody`, `chatChannel`, `checkUrl`, `createChannels`, `createInboxStore`, `createNotifications`, `createNotifier`, `databaseChannel`, `defineChannel`, `defineNotification`, `deliveryId`, `deliveryJobName`, `hostAllowed`, `inboxTableDdl`, `isDeliveryEnvelope`, `mailChannel`, `parseInboxPayload`, `parseMailPayload`, `parseSignature`, `parseSms`, `runChannel`, `signBody`, `smsChannel`, `twilioProvider`, `verifySignature`, `webhookBody`, `webhookChannel`
+`BUILT_IN_CHANNELS`, `BuildChannelsOptions`, `BuiltInChannel`, `CHANNEL_DRIVERS`, `CHAT_DRIVERS`, `Channel`, `ChannelBuilder`, `ChannelCapabilities`, `ChannelDelivery`, `ChannelDriverName`, `ChannelName`, `ChannelPayloads`, `ChannelRecord`, `ChannelResult`, `Channels`, `ChatChannelOptions`, `ChatDriver`, `ChatPayload`, `ConfiguredChannel`, `CreateNotifierOptions`, `DatabaseChannelOptions`, `DefineNotificationInput`, `DeliveryEnvelope`, `EnvRef`, `InboxLevel`, `InboxPayload`, `InboxRow`, `InboxSql`, `InboxSqlResult`, `InboxSqlStatement`, `InboxStore`, `InboxStoreOptions`, `MailChannelOptions`, `MailPayload`, `MailPort`, `Notifiable`, `NotificationDefinition`, `NotificationReport`, `Notifications`, `Notifier`, `NotifyBootstrap`, `NotifyBootstrapOptions`, `NotifyErrorCode`, `NotifyQueue`, `PreviewRecord`, `QueuedRecord`, `SendOptions`, `SmsChannelOptions`, `SmsPayload`, `SmsProvider`, `TwilioOptions`, `WebhookChannelOptions`, `WebhookPayload`, `assertCarriable`, `channelFromConfig`, `channelsFromConfig`, `chatBody`, `chatChannel`, `checkUrl`, `createChannels`, `createInboxStore`, `createNotifications`, `createNotifier`, `createNotifyBootstrap`, `databaseChannel`, `defineChannel`, `defineNotification`, `deliveryId`, `deliveryJobName`, `hostAllowed`, `inboxTableDdl`, `isDeliveryEnvelope`, `mailChannel`, `parseInboxPayload`, `parseMailPayload`, `parseSignature`, `parseSms`, `runChannel`, `signBody`, `smsChannel`, `twilioProvider`, `verifySignature`, `webhookBody`, `webhookChannel`
 
 **`@tsir/notify/conformance`**
 
@@ -28,12 +28,13 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (16). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (17). Each one is described in the [error-code reference](../errors.md).
 
 - `NOTIFY_CONFIG_INVALID`
 - `NOTIFY_DELIVERY_FAILED`
 - `NOTIFY_DUPLICATE_CHANNEL`
 - `NOTIFY_DUPLICATE_NOTIFICATION`
+- `NOTIFY_ENGINE_UNSUPPORTED`
 - `NOTIFY_FORBIDDEN_IN_PRODUCTION`
 - `NOTIFY_INVALID_PAYLOAD`
 - `NOTIFY_NOTIFIABLE`
@@ -83,6 +84,10 @@ console.log(report.channels);
 
 ## Failure modes
 
+- `NOTIFY_ENGINE_UNSUPPORTED`: the database inbox was given a `mysql` connection. Its insert is
+  `ON CONFLICT DO NOTHING`, which is what makes a retried delivery a no-op; MySQL's
+  `INSERT IGNORE` also swallows a truncated column and a bad foreign key, so an inbox using it
+  would silently drop notifications. Refused rather than approximated.
 - `NOTIFY_NO_CHANNELS`: no channels are declared.
 - `NOTIFY_UNKNOWN_CHANNEL`: a channel name was used that is not declared.
 - `NOTIFY_DUPLICATE_CHANNEL`: two channels have the same name. A duplicate would send two different

@@ -145,3 +145,25 @@ Each VPS target gets a conformance matrix:
 
 This matrix lives in `@tsir/deploy`'s conformance suite; each provider is a
 CI matrix entry (or a manual runbook for providers without free tiers).
+
+---
+
+## Status scope (added 2026-11-08)
+
+This document answers **"which providers can host a Tsir application"**. It is not the authority on
+**"which capability works on which provider"** — that is the capability status register established by
+**ADR-0030** and the 2026-11-07 infrastructure audit, whose findings carry `INF-NNN` ids (see the
+_Remaining issues_ row for the ids that matter on AWS).
+
+The two documents can be read together without contradiction, but only if the distinction is kept:
+
+- a row here saying a provider is **supported** means the deployment targets and packaging exist;
+- a capability in the status register marked `[PARTIAL]` still means **do not ship it as production
+  parity**, on that same provider.
+
+Concretely, on 2026-11-08: Cloudflare and AWS are both Tier 1 targets here, while `aws` correctness
+has four open findings — `INF-005` (the SAM template's event patterns and WebSocket binding,
+SNS/EventBridge trigger bundling), `INF-007` (the SQS client's SDK dependency and the blocked
+Workers→SQS hybrid), `INF-001` (the Postgres session/key SQL on the RDS path) and `INF-003`
+(Postgres via `tsir.js`). The **target** is supported; those **capabilities** are not yet verified.
+Read both documents and treat the weaker of the two verdicts as the truth.

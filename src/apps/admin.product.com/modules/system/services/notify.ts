@@ -10,6 +10,7 @@
  */
 import { createNotifyBootstrap, defineNotification } from '@tsir/notify';
 import { token, valueProvider } from '@tsir/container';
+import { isProduction } from '@tsir/core';
 import appConfig from '../../../config/notify.ts';
 import { logger } from './pulse.ts';
 
@@ -27,6 +28,9 @@ export const { notifier, notifierToken, notifierProvider } = createNotifyBootstr
   notify: appConfig,
   notifications: [userRegisteredNotification],
   log: (message) => logger.info(message),
+  // `CAP-007`: the `memory` channel records a notification in the isolate that sent it. Refused in
+  // production, where the inbox has to be the one the app already has.
+  production: isProduction(),
 });
 
 export const userRegisteredNotificationToken = token<typeof userRegisteredNotification>(

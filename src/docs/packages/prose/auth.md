@@ -15,6 +15,12 @@ console.log(await hasher.verify('wrong guess', stored));
 
 ## Failure modes
 
+- `AUTH_DRIVER_MISSING`: `sessions.store` or `apiKeys.store` names a store this build does not ship.
+  The hint lists the ones it does, because the name is usually a near-miss.
+- `AUTH_FORBIDDEN_IN_PRODUCTION`: a `memory` session or API-key store with `APP_ENV=production`. A
+  session in one process logs the user out when their next request lands on another instance, and a
+  key in one process is `401` on the instance that has not seen it — neither throws, which is why it
+  is refused at boot instead.
 - `AUTH_WEAK_PASSWORD`: the password does not meet the policy. The check runs before hashing, so it costs
   nothing. Raise `minLength` or require more character classes in the hasher options.
 - `AUTH_INVALID_CREDENTIALS`: the email and password do not match an account. The message is the same

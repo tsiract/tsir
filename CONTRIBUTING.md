@@ -30,7 +30,7 @@ You need [Bun](https://bun.sh) 1.2 or newer, Node.js 21 or newer (for tooling th
 
 ```bash
 make install   # install workspace dependencies (bun install --frozen-lockfile)
-make check     # run every gate that CI runs; this is "is my branch sane?"
+make verify    # every gate CI runs *plus* the test suite; this is "is my branch sane?"
 make dev       # start the example application for local work
 ```
 
@@ -202,7 +202,7 @@ src/framework/<name>/
    packages should say why in the pull request.
 4. **Add or update tests with the change.** A behaviour change without a test needs a reason in the
    pull request.
-5. **Run `make check`** before you push. CI runs the same gates.
+5. **Run `make verify`** before you push. CI runs the same gates, then the suite.
 6. **Record a changeset** for anything users will notice: `make changeset SUMMARY="..." BUMP=patch`.
 7. **Open a pull request** and fill in every section of the template. A section that does not
    apply says so in one line.
@@ -251,8 +251,13 @@ that users cannot see (a test, a comment, a refactor with no behaviour change) d
 
 ## Quality gates
 
-`make check` runs every gate CI runs, and the table below lists the main ones. Run it before you
-push. `make help` lists all targets.
+`make check` runs every gate CI runs and the table below lists the main ones. `make verify` is
+`check` plus the test suite.
+
+Run `make verify` before you push. The split is deliberate and worth knowing: `check` must pass
+offline, with no database and no Docker, so it cannot run the tests that need those. The practical
+consequence is that **`make check` can be green while `bun test` is red** — use `make verify` as the
+final answer, and `bun test <file>` as the fast loop. `make help` lists all targets.
 
 | Gate                      | Target                                         | What it proves                                             |
 | ------------------------- | ---------------------------------------------- | ---------------------------------------------------------- |

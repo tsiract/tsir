@@ -27,7 +27,27 @@ export {
   type FeatureStore,
 } from './pennant.ts';
 
-export { memoryStore, databaseStore, nullStore } from './stores.ts';
+export {
+  configMissing,
+  defaultMissing,
+  driverMissing,
+  forbiddenInProduction,
+  noStore,
+  type PennantErrorCode,
+} from './errors.ts';
+
+export { featureTableDdl, memoryStore, databaseStore, nullStore } from './stores.ts';
+
+export {
+  createFeatureStore,
+  featureFlagsFromConfig,
+  PENNANT_DRIVERS,
+  PERSISTENT_PENNANT_DRIVERS,
+  type ConfiguredFeatureFlags,
+  type ConfiguredFeatureStore,
+  type FeatureStoreBuildOptions,
+  type PennantDriverName,
+} from './config.ts';
 
 export { createPennantBootstrap } from './bootstrap.ts';
 export type { PennantBootstrap, PennantBootstrapOptions } from './bootstrap.ts';

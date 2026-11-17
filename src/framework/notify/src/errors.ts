@@ -37,7 +37,8 @@ export type NotifyErrorCode =
   | 'NOTIFY_WEBHOOK_BLOCKED'
   | 'NOTIFY_FORBIDDEN_IN_PRODUCTION'
   | 'NOTIFY_CONFIG_INVALID'
-  | 'NOTIFY_UNKNOWN_DRIVER';
+  | 'NOTIFY_UNKNOWN_DRIVER'
+  | 'NOTIFY_ENGINE_UNSUPPORTED';
 
 const KIND = 'capability';
 
@@ -253,4 +254,25 @@ export function unknownDriver(driver: string, known: readonly string[]): TsirErr
     hint: `declared drivers: ${known.join(', ')}`,
     context: { driver, known: known.join(',') },
   });
+}
+
+/**
+ * The connection's engine cannot run the inbox's idempotent insert (`CAP-009`).
+ *
+ * `INSERT … ON CONFLICT (id) DO NOTHING` is what makes a retried delivery a no-op. MySQL's
+ * `INSERT IGNORE` is *not* the same statement: it also swallows a truncated column and a bad
+ * foreign key, which for an inbox means silently dropping a notification nobody will ever see.
+ * Refused rather than approximated.
+ */
+export function engineUnsupported(engine: string): TsirError {
+  return new TsirError(
+    'NOTIFY_ENGINE_UNSUPPORTED',
+    `the notification inbox cannot use a "${engine}" connection: its insert is \
+\`ON CONFLICT DO NOTHING\`, which that engine does not speak`,
+    {
+      kind: KIND,
+      hint: 'use a d1, sqlite or postgres connection for the inbox table',
+      context: { engine },
+    },
+  );
 }

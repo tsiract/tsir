@@ -130,3 +130,22 @@ modules are dashboard/tooling that belong in `admin.product.com`.
 - **Implemented framework packages**: 34 (auth, policy, vault, cache, database, migrate, seed, events, queue, schedule, mail, notify, storage, validate, pulse, config, container, http, router, console, deploy, socialize, pennant, scout, broadcast, cashier, forge, nightwatch, media, telemetry, link, testing, core)
 - **Implemented admin modules**: 8 (users, rbac, i18n, mail, auth, setup, system/telemetry, feature-flags, search)
 - **Planned**: 4 (passport, tinker, sanctum enhancement, CSRF)
+
+---
+
+## Superseded (2026-11-08)
+
+This audit's mapping (which Laravel service becomes which `@tsir/*` package) is complete and was used
+to build the current tree — every package it names exists in `src/framework/`. Its **per-feature
+status** is out of date and has been superseded:
+
+- the feature-by-feature status of each package now lives in the feature-parity ledger, whose
+  summary is mechanically counted from its own rows (`PARITY` series, `[x]`/`[~]`/`[ ]` per feature);
+- the cross-provider status of each capability now follows the label taxonomy in **ADR-0030**
+  (`[VERIFIED]`, `[PARTIAL]`, `[PLANNED]`, `[PROPOSED]`, `[LIMITATION]`, `[PROVIDER-SPECIFIC]`), with
+  the `INF-NNN` findings as the evidence;
+- the operational status of each package is its own `src/framework/<pkg>/README.md`.
+
+The useful part of this document is the **placement decision** — framework package vs admin module —
+which is still the rule the codebase follows and which no other document states. Keep it for that;
+do not use its status column.

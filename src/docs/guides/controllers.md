@@ -76,8 +76,8 @@ Two things happen at startup:
 
 1. The side-effect imports run the `@Controller` decorators, which register routes into each module's
    registry. Skip an import and that controller's routes simply won't exist.
-2. `modules: [...]` tells `defineApp` which modules make up this app and their lifecycle. Skip a module
-   and its routes, jobs, and schedules won't run.
+2. `modules: [...]` lists the modules this application is built from, and with them the lifecycle
+   hooks each one runs. A module left out of that list contributes no routes, jobs, or schedules.
 
 Both are necessary; the generators do not edit `app.ts` for you. Restart the server after edits:
 

@@ -16,7 +16,7 @@ The packages are not yet published to npm.
 
 **`@tsir/deploy`**
 
-`BindingKind`, `BindingRef`, `BuildGraphResult`, `CompileListenersOptions`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `InternalTransport`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ListenerContext`, `ListenerController`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `compileListeners`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `invokeUnit`, `listenerNotFound`, `logicalName`, `parseGraph`, `privateExposed`, `publish`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `setInternalTransport`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
+`BindingKind`, `BindingRef`, `BuildGraphResult`, `CompileListenersOptions`, `ConnectionInput`, `DEFAULT_LAMBDA`, `DEFAULT_TOPOLOGY`, `DeployErrorCode`, `DeployOptions`, `DeploymentInput`, `GRAPH_FILE`, `GRAPH_SCHEMA_VERSION`, `GraphChange`, `GraphDiff`, `GraphOptions`, `GraphProblem`, `InternalTransport`, `LAMBDA_ENV_LIMIT_BYTES`, `LAMBDA_ENV_LIMIT_COUNT`, `ListenerApp`, `ListenerContext`, `ListenerController`, `ModuleInput`, `QUEUE_TRIGGER_MATRIX`, `QueueConnectionInput`, `QueueInput`, `QueueTriggerKind`, `RouteInput`, `SECRET_SHAPES`, `SamOptions`, `ScheduleInput`, `SecretFinding`, `SecretPattern`, `SocketInput`, `SourceFile`, `TargetConfig`, `TopologyResolution`, `TriggerKind`, `UNIT_KINDS`, `Unit`, `UnitGraph`, `UnitKind`, `UnitOverride`, `UnitReason`, `UnitTrigger`, `applyTopology`, `assertTarget`, `bindingMissing`, `buildGraph`, `capabilityMissing`, `checkGraph`, `checkQueueConnections`, `classMissing`, `compileListeners`, `describeDiff`, `describeFindings`, `diffGraphs`, `duplicateRoute`, `envBytes`, `envLimit`, `explainGraph`, `findingContext`, `formatGraph`, `graphDrift`, `graphJson`, `hasLeak`, `invalidDeployConfig`, `invokeUnit`, `listenerNotBuilt`, `listenerNotFound`, `listenerUnitFor`, `logicalName`, `parseGraph`, `privateExposed`, `publish`, `queueOutboxMissing`, `queueTriggerMissing`, `queueUnitFor`, `resolveUnits`, `samTemplate`, `samTemplates`, `scanSources`, `scanText`, `secretLeak`, `secretPatterns`, `serializeGraph`, `setInternalTransport`, `sizeBudget`, `toAwsSchedule`, `triggerFor`, `triggersForConnection`, `unitEmpty`, `unsupportedTarget`
 
 **`@tsir/deploy/cloudflare`**
 
@@ -25,6 +25,10 @@ The packages are not yet published to npm.
 **`@tsir/deploy/lambda`**
 
 `ApiGatewayV2Event`, `EventBridgeEvent`, `LambdaContextLike`, `LambdaHandler`, `LambdaOptions`, `LambdaResponse`, `LambdaUnit`, `SnsEvent`, `SnsRecord`, `SqsEvent`, `SqsRecord`, `deadlineSignal`, `decodeBase64`, `encodeBase64`, `isRetryable`, `requestFromApiGatewayV2`, `responseToApiGatewayV2`, `toLambdaHandler`
+
+**`@tsir/deploy/listeners`**
+
+`CompileListenersOptions`, `ListenerApp`, `ListenerContext`, `ListenerController`, `ListenerUnitOptions`, `compileListeners`, `listenerUnitFor`
 
 **`@tsir/deploy/sam`**
 
@@ -36,7 +40,7 @@ The packages are not yet published to npm.
 
 ## Error codes
 
-Owned by this package (21). Each one is described in the [error-code reference](../errors.md).
+Owned by this package (22). Each one is described in the [error-code reference](../errors.md).
 
 - `DPL_BINDING_MISSING`
 - `DPL_CAPABILITY_MISSING`
@@ -50,6 +54,7 @@ Owned by this package (21). Each one is described in the [error-code reference](
 - `DPL_EVENT_UNRECOGNISED`
 - `DPL_GRAPH_DRIFT`
 - `DPL_INVOKE_UNKNOWN`
+- `DPL_LISTENER_NOT_BUILT`
 - `DPL_LISTENER_NOT_FOUND`
 - `DPL_PRIVATE_EXPOSED`
 - `DPL_PUBLISH_UNKNOWN`
@@ -87,6 +92,29 @@ console.log(
 );
 ```
 
+A `@OnSns` / `@OnEventBridge` / `@OnStepTask` method is turned into a callable by the **bundler**, so
+the generated Lambda entry cannot import a symbol the application exports — it imports the app and
+asks it for its modules. `@tsir/deploy/listeners` is that bridge, and `deploy:build` calls it for
+every unit with a listener trigger:
+
+```ts
+import { listenerUnitFor } from '@tsir/deploy/listeners';
+
+// What the generated entry does, once per listener unit.
+const listeners = listenerUnitFor(app, {
+  unit: 'notify',
+  expect: ['sns', 'eventbridge', 'invoke'],
+});
+
+export const handler = toLambdaHandler({ unit: 'notify', ...listeners });
+```
+
+`expect` is the unit graph's answer, and it is the difference between a loud failure and an inert
+function: if the bundle contains no handler for one of those triggers, `listenerUnitFor` throws
+`DPL_LISTENER_NOT_BUILT` at module init, where the platform reports it. The usual cause is
+`"sideEffects": false` in a package that also does `import './x.controller.ts'` — a bundler may drop
+that import, and with it the decorator that registers the controller.
+
 ## Failure modes
 
 - `DPL_CONFIG_INVALID`: the deploy configuration is invalid. The check runs before anything is built.
@@ -118,6 +146,20 @@ console.log(
 - `DPL_GRAPH_DRIFT`: the unit graph has changed since it was last accepted. Review the change, then run
   `tsir deploy:plan --write` to accept it.
 - `DPL_EVENT_UNRECOGNISED`: a Lambda invocation carried an event shape the unit does not handle.
+- `DPL_LISTENER_NOT_FOUND`: an SNS, EventBridge or Step Functions event arrived for a key no
+  `@OnSns` / `@OnEventBridge` / `@OnStepTask` listener on this unit subscribes to. It is a routing bug
+  in the template, not a bad message, so it fails instead of being silently dropped.
+- `DPL_LISTENER_NOT_BUILT`: a unit is deployed for an SNS topic, an EventBridge rule or a Step
+  Functions task, but the bundle has no handler for it. Two moments raise it, because there are two
+  ways to lose the wiring: at build time when the entry exports no `defineApp` handle to read the
+  listener controllers from, and at module init when it does but the built bundle contains no
+  listeners — the usual cause being `"sideEffects": false` letting a bundler drop the
+  `import "./x.controller.ts"` that registers them. Either way it fails loudly: the alternative is a
+  function that accepts every event and ignores all of them.
+- `DPL_PUBLISH_UNKNOWN`: `publish` named a topic that no `@OnSns` listener reads. The message would go
+  to a topic nobody consumes — the quietest way to lose work — so the call is refused at the call site.
+- `DPL_INVOKE_UNKNOWN`: `invokeUnit` named a unit or task that no `@OnStepTask` listener handles. The
+  invoke would land on a function with no matching task name and fail after a round trip.
 
 ## Security notes
 

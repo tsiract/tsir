@@ -12,6 +12,10 @@
  *   3. **Bundles for Workers and Lambda** (`target: 'browser'` / `'node'`) and
  *      fails on any `node:*` external, which is what "runtime-neutral" means in
  *      practice rather than in a README.
+ *   4. **Compiles the CLI to a single file** (`bun build --compile`) and runs
+ *      `tsir new` out of it. A compiled binary has no `package.json` and no
+ *      `stubs/` directory, so this is the proof that the templates and the
+ *      version reach the bundle instead of being read from disk (Q71).
  *
  * Budgets are *measured baselines plus headroom*, not aspirations: a change that
  * doubles the payload fails here, which is the point.
@@ -19,7 +23,7 @@
  * Usage: bun src/tools/verify-dist.ts
  */
 
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { cp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { basename, join, resolve } from 'node:path';
 
@@ -339,7 +343,11 @@ function builtinImports(code: string): string[] {
   return [...found];
 }
 
-const KB = (bytes: number): string => `${(bytes / 1024).toFixed(1)} KiB`;
+/** A size a reader can act on: KiB for bundles, MiB for a compiled binary, which is ~120 of them. */
+const KB = (bytes: number): string =>
+  bytes >= 1024 * 1024
+    ? `${(bytes / (1024 * 1024)).toFixed(1)} MiB`
+    : `${(bytes / 1024).toFixed(1)} KiB`;
 
 async function prepareSandbox(): Promise<string> {
   await rm(WORK, { recursive: true, force: true });
@@ -363,11 +371,21 @@ async function prepareSandbox(): Promise<string> {
   // as a consumer would resolve them. Bun hoists per-workspace-package copies, so
   // both locations are tried; a package that is not installed here fails the
   // budget loudly rather than silently bundling nothing.
-  for (const name of ['zod', 'drizzle-orm', '@bufbuild/protobuf', '@grpc/grpc-js']) {
+  // `@opentui/core` is here for the compiled launcher: `@tsir/tui` imports it at the top level, so a
+  // bundle cannot be produced without it resolved — and its per-platform native libraries are the
+  // reason the compile has to pass `--external` (a `.so` is not inlineable).
+  for (const name of [
+    'zod',
+    'drizzle-orm',
+    '@bufbuild/protobuf',
+    '@grpc/grpc-js',
+    '@opentui/core',
+  ]) {
     const candidates = [
       join(ROOT, 'node_modules', name),
       join(ROOT, 'src', 'framework', 'database', 'node_modules', name),
       join(ROOT, 'src', 'framework', 'link', 'node_modules', name),
+      join(DIST, 'node_modules', name),
     ];
     const source = candidates.find((candidate) => existsSync(candidate));
     if (source === undefined) continue;
@@ -575,12 +593,136 @@ async function checkBudget(sandbox: string, budget: Budget): Promise<void> {
   );
 }
 
+/**
+ * The compiled single-file launcher (Q71).
+ *
+ * `make dist` ships a `bun`-driven script, so every earlier proof in this file exercises a layout
+ * with a `package.json` and a `stubs/` directory on disk. `bun build --compile` has neither — the
+ * module graph is inside the binary and `import.meta.dir` points into the bundled filesystem — and
+ * three separate things broke when it was first tried: `tsir new` read templates from a directory
+ * that is not there, `--version` and `about` answered "unknown", and the packed manifest's `files`
+ * list left the inlined templates out of the tarball.
+ *
+ * What is proven here is the *distribution*, not the source tree: the entry is the built
+ * `node_modules/@tsir/console/cli.js` a developer actually runs. The per-platform OpenTUI libraries
+ * stay external (a `.so` or `.dylib` is not something a bundler can inline), so the compile passes
+ * `--external` for every platform package the console does not install.
+ */
+async function compiledLauncherProof(sandbox: string): Promise<void> {
+  const out = join(sandbox, 'tsir-compiled');
+  const entry = join(sandbox, 'node_modules', '@tsir', 'console', 'cli.js');
+  if (!existsSync(entry)) {
+    failures.push(`compiled launcher: ${entry} is missing — nothing to compile`);
+    return;
+  }
+
+  const externals = [
+    '@opentui/core-linux-x64-musl',
+    '@opentui/core-linux-arm64-musl',
+    '@opentui/core-linux-arm64',
+    '@opentui/core-darwin-x64',
+    '@opentui/core-darwin-arm64',
+    '@opentui/core-win32-x64',
+    '@opentui/core-win32-arm64',
+  ].flatMap((name) => ['--external', name]);
+
+  const version = JSON.parse(readFileSync(join(entry, '..', 'package.json'), 'utf8')) as {
+    version?: string;
+  };
+  const expected = version.version ?? 'unknown';
+
+  const compile = Bun.spawnSync(
+    [
+      process.execPath,
+      'build',
+      '--compile',
+      '--define',
+      `TSIR_BUILT_VERSION="${expected}"`,
+      ...externals,
+      '--outfile',
+      out,
+      entry,
+    ],
+    { cwd: sandbox, stdout: 'pipe', stderr: 'pipe' },
+  );
+  if (compile.exitCode !== 0) {
+    failures.push(`compiled launcher: bun build --compile failed\n${tail(compile.stderr)}`);
+    return;
+  }
+
+  // The binary must report a real version. `unknown` is the exact string the CLI printed before the
+  // define existed, so it is asserted against rather than merely preferred.
+  const reported = Bun.spawnSync([out, '--version'], {
+    cwd: sandbox,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  const line = reported.stdout.toString().trim();
+  if (reported.exitCode !== 0 || !line.startsWith(expected)) {
+    failures.push(
+      `compiled launcher: --version answered "${line || tail(reported.stderr)}", expected "${expected} …"`,
+    );
+    return;
+  }
+
+  // Scaffolding reads every template. A missing one is an ENOENT naming the bundled filesystem.
+  const project = join(sandbox, 'compiled-app');
+  await mkdir(project, { recursive: true });
+  // `TSIR_DIST` is removed rather than blanked: an empty string is still *set*, and `tsir new`
+  // would (correctly) refuse to scaffold inside the directory it names. A compiled binary must not
+  // need the distribution it was built from, so the variable is absent here on purpose.
+  const scaffoldEnv = { ...process.env };
+  delete scaffoldEnv['TSIR_DIST'];
+  const scaffold = Bun.spawnSync([out, 'new', 'compiled-app', '--no-interactive'], {
+    cwd: project,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: scaffoldEnv,
+  });
+  if (scaffold.exitCode !== 0) {
+    failures.push(
+      `compiled launcher: tsir new failed\n${tail(scaffold.stderr) || tail(scaffold.stdout)}`,
+    );
+    return;
+  }
+  const created = join(project, 'apps', 'compiled-app', 'app.ts');
+  if (!existsSync(created)) {
+    failures.push(`compiled launcher: tsir new wrote no ${created}`);
+    return;
+  }
+
+  rows.push(
+    '  ✓ compiled launcher   ' +
+      `${KB(readFileSync(out).byteLength).padStart(9)}  one file · ` +
+      `--version ${expected} · tsir new scaffolds`,
+  );
+}
+
+/** The last few lines of a failed subprocess, for a failure that names its cause. */
+function tail(output: Uint8Array | string | undefined): string {
+  return (output === undefined ? '' : output.toString()).trim().split('\n').slice(-4).join('\n');
+}
+
+/**
+ * `--only compiled-launcher` runs one proof.
+ *
+ * The compile proof is the slowest single step here and the one most likely to need iterating on, so
+ * `make compile-cli` runs it alone. Every other proof is unaffected: the flag narrows this run, it
+ * does not skip anything by default.
+ */
+const only = process.argv.includes('--only')
+  ? process.argv[process.argv.indexOf('--only') + 1]
+  : undefined;
+
 async function main(): Promise<void> {
   verifyLayout();
   const sandbox = await prepareSandbox();
-  await smokeTest(sandbox);
-  await nodeVaultProof(sandbox);
-  for (const budget of BUDGETS) await checkBudget(sandbox, budget);
+  if (only === undefined) {
+    await smokeTest(sandbox);
+    await nodeVaultProof(sandbox);
+    for (const budget of BUDGETS) await checkBudget(sandbox, budget);
+  }
+  await compiledLauncherProof(sandbox);
   await rm(WORK, { recursive: true, force: true });
 
   // The frontpage shows these numbers. Hand-typed statistics rot; a file that a
@@ -605,7 +747,9 @@ async function main(): Promise<void> {
     process.stderr.write('\n');
     process.exit(1);
   }
-  process.stdout.write('  ✓ dist/ boots, tree-shakes, and bundles for Workers and Lambda\n\n');
+  process.stdout.write(
+    '  ✓ dist/ boots, tree-shakes, bundles for Workers and Lambda, and compiles to one file\n\n',
+  );
 }
 
 await main();

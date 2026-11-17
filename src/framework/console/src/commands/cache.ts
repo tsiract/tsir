@@ -29,7 +29,7 @@ import {
 } from '@tsir/cache';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { EXIT, fail, info, style, UsageError, jsonDocument } from '../output.ts';
+import { EXIT, fail, info, style, UsageError, jsonDocument, symbols } from '../output.ts';
 import { loadProject, type LoadedProject } from '../project.ts';
 
 /** Duck-types the exported registry, so a wrong export is a message and not a crash. */
@@ -147,7 +147,7 @@ export async function cacheProbeCommand(argv: readonly string[]): Promise<number
   for (const result of results) {
     const name = String(result.store);
     const driver = caches.store(result.store).driver;
-    const mark = result.ok ? style.green('✓') : style.red('✗');
+    const mark = result.ok ? style.green(symbols.check) : style.red(symbols.cross);
     const note = name === caches.default ? style.dim(' (default)') : '';
     const detail = result.ok ? '' : ` ${style.dim(result.detail ?? 'failed')}`;
     info(`  ${mark} ${name.padEnd(16)} ${driver.padEnd(14)}${note}${detail}`);
@@ -161,7 +161,7 @@ export async function cacheProbeCommand(argv: readonly string[]): Promise<number
   }
 
   info('');
-  info(`  ${style.green('✓')} ${String(results.length)} store(s) answered`);
+  info(`  ${style.green(symbols.check)} ${String(results.length)} store(s) answered`);
   return EXIT.ok;
 }
 
@@ -208,7 +208,7 @@ export async function cacheClearCommand(argv: readonly string[]): Promise<number
       info(jsonDocument({ ok: true, store, driver: cache.driver }));
       return EXIT.ok;
     }
-    info(`  ${style.green('✓')} cleared ${store} (driver ${cache.driver})`);
+    info(`  ${style.green(symbols.check)} cleared ${store} (driver ${cache.driver})`);
     return EXIT.ok;
   } catch (error: unknown) {
     return fail(error, json);

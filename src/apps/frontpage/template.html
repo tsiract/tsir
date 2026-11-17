@@ -716,9 +716,10 @@
           <div class="steps-grid">
             <div class="start-step">
               <span>01</span>
-              <h3>Install the distribution</h3>
-              <p>Tsir is pre-alpha. Install Bun and follow the distribution setup guide.</p>
-              <a class="text-link" href="docs/"
+              <h3>Build the distribution</h3>
+              <p>Nothing is on npm. Clone the repository and build it with Bun.</p>
+              <code>make dist</code
+              ><a class="text-link" href="docs/installation.html"
                 >Read installation <span aria-hidden="true">→</span></a
               >
             </div>
@@ -726,15 +727,15 @@
               <span>02</span>
               <h3>Create an application</h3>
               <p>Use the distributed CLI, then install the app dependencies.</p>
-              <code>tsir new hello</code><code>cd hello &amp;&amp; bun install</code>
+              <code>tsir new hello</code><code>cd apps/hello &amp;&amp; bun install</code>
             </div>
             <div class="start-step">
               <span>03</span>
               <h3>Start building</h3>
-              <p>Serve your application and explore the guides.</p>
+              <p>Serve it, then add the next piece you need.</p>
               <code>tsir dev</code
-              ><a class="text-link" href="docs/"
-                >Open the documentation <span aria-hidden="true">→</span></a
+              ><a class="text-link" href="docs/guides/controllers.html"
+                >Add a controller <span aria-hidden="true">→</span></a
               >
             </div>
           </div>
@@ -848,6 +849,11 @@
               </details>
               <p class="status-timestamp">
                 Server started <time>__TSIR_STARTED__</time>. Values are injected by the dev server.
+              </p>
+              <p class="phase-note">
+                Working in the repository?
+                <a href="https://github.com/tsiract/tsir/blob/main/AGENTS.md">AGENTS.md</a> is the
+                one-page orientation: gates, commit scopes, file map.
               </p>
             </div>
           </details>

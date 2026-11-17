@@ -18,7 +18,37 @@ export {
   type SearchResult,
 } from './scout.ts';
 
+export { SEARCH_DRIVERS, type SearchDriverName } from './scout.ts';
 export { sqliteEngine, postgresEngine } from './drivers.ts';
+export { databaseQuery } from './database-query.ts';
+export type { QueryableDatabase } from './database-query.ts';
+
+export {
+  HOSTED_SEARCH_PROVIDERS,
+  HostedSearchError,
+  hostedSearch,
+  type HostedSearchOptions,
+  type HostedSearchProvider,
+} from './hosted.ts';
+
+export {
+  engineFor,
+  searchFromConfig,
+  type ConfiguredSearch,
+  type EnvRef,
+  type QueryFn,
+  type SearchBindings,
+} from './config.ts';
 
 export { createScoutBootstrap } from './bootstrap.ts';
 export type { ScoutBootstrap, ScoutBootstrapOptions } from './bootstrap.ts';
+
+export { searchableIndexer, SEARCH_INDEX_JOB, SEARCH_REMOVE_JOB } from './indexer.ts';
+export type {
+  IndexJobPayload,
+  RemoveJobPayload,
+  SearchIndexerOptions,
+  SearchJobDispatcher,
+} from './indexer.ts';
+export { conformanceCases } from './conformance.ts';
+export type { ConformanceCase, ConformanceOptions } from './conformance.ts';

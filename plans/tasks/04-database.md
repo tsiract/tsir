@@ -84,6 +84,11 @@ Notes on the items not yet `[x]`:
 - `MIG-012` was the one deploy-shaped row here, and it closed with `DPL-021` (2026-10-28):
   the emitted script calls the same `migrate()` the CLI does, so the idempotence and
   lock-verified behaviour the concurrency test proves is what runs in a deploy.
+- `DB-023`…`DB-026` and `MIG-016` are the MySQL block and they all depend on the same missing adapter:
+  `@tsir/database/mysql` does not exist. They are **not** independently schedulable, and the Postgres
+  correctness work in [`16-infrastructure-hardening.md`](./16-infrastructure-hardening.md)
+  (`INF-001`, `INF-003`) must land first — a MySQL adapter written before the `$1`/`?` placeholder
+  discipline is proven would reproduce the same class of bug with a different placeholder.
 - `DB-018` was not in the original list; it exists because `MIG-003` is unsound
   without it. `pg_try_advisory_lock` is session-scoped, so on a pooled client the
   lock and the DDL can land on different connections — a lock that excludes
@@ -161,19 +166,19 @@ Notes on the items not yet `[x]`:
 
 ## Seeders (`@tsir/seed`)
 
-| ID        | Title                                                             | Status | Depends         | Acceptance criteria (summary)                                                                                     |
-| --------- | ----------------------------------------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------- |
-| `SED-001` | `Seeder` contract (`name`, `order`, `idempotent`, `environments`) | `[x]`  | DB-002          | Type errors on missing members                                                                                    |
-| `SED-002` | Runner: ordering, tie detection (`SED_ORDER_AMBIGUOUS`)           | `[x]`  | SED-001         | Ties fail before any insert                                                                                       |
-| `SED-003` | Deterministic context (`Clock`, `Random`)                         | `[x]`  | SED-001         | Two runs produce identical rows                                                                                   |
-| `SED-004` | Idempotency test harness (run twice, counts stable)               | `[x]`  | SED-002         | Fails for non-idempotent seeders                                                                                  |
-| `SED-005` | Transaction per seeder (opt-out justified)                        | `[x]`  | SED-002         | Failure rolls back the seeder only                                                                                |
-| `SED-006` | Environment gating + production refusal                           | `[x]`  | SED-001         | `APP_ENV=production` → `SED_PRODUCTION_REFUSED`                                                                   |
-| `SED-007` | `--class` selection and `--all`                                   | `[x]`  | SED-002         | Selecting unknown class → clear error                                                                             |
-| `SED-008` | Fixture helpers (builders with overrides)                         | `[x]`  | SED-003         | Fixtures are typed and reusable in tests                                                                          |
-| `SED-009` | Reference-data vs development-fixture separation                  | `[x]`  | SED-006         | `production: true` only for reference seeders                                                                     |
-| `SED-010` | `make seed` target wiring                                         | `[x]`  | SED-002         | `make seed` runs dev fixtures                                                                                     |
-| `SED-011` | `--connection` scoping on seeders                                 | `[x]`  | SED-002, DB-019 | Seeder declares `connections`; undeclared target is refused before the first insert; `ctx.db` is the bound handle |
+| ID        | Title                                                             | Status | Depends         | Acceptance criteria (summary)                                                                                                                                     |
+| --------- | ----------------------------------------------------------------- | ------ | --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SED-001` | `Seeder` contract (`name`, `order`, `idempotent`, `environments`) | `[x]`  | DB-002          | Type errors on missing members                                                                                                                                    |
+| `SED-002` | Runner: ordering, tie detection (`SED_ORDER_AMBIGUOUS`)           | `[x]`  | SED-001         | Ties fail before any insert                                                                                                                                       |
+| `SED-003` | Deterministic context (`Clock`, `Random`)                         | `[x]`  | SED-001         | Two runs produce identical rows                                                                                                                                   |
+| `SED-004` | Idempotency test harness (run twice, counts stable)               | `[x]`  | SED-002         | Fails for non-idempotent seeders                                                                                                                                  |
+| `SED-005` | Transaction per seeder (opt-out justified)                        | `[x]`  | SED-002         | Failure rolls back the seeder only                                                                                                                                |
+| `SED-006` | Environment gating + production refusal                           | `[x]`  | SED-001         | `APP_ENV=production` → `SED_PRODUCTION_REFUSED`                                                                                                                   |
+| `SED-007` | `--class` selection and `--all`                                   | `[x]`  | SED-002         | Selecting unknown class → clear error                                                                                                                             |
+| `SED-008` | Fixture helpers (builders with overrides)                         | `[x]`  | SED-003         | Fixtures are typed and reusable in tests                                                                                                                          |
+| `SED-009` | Reference-data vs development-fixture separation                  | `[x]`  | SED-006         | `production: true` only for reference seeders                                                                                                                     |
+| `SED-010` | ~~`make seed` target wiring~~                                     | `[x]`  | SED-002         | **Withdrawn by ADR-0031** — seeding is an application verb, so it is `tsir db:seed` in the distribution, not a root target. The wiring it asked for exists there. |
+| `SED-011` | `--connection` scoping on seeders                                 | `[x]`  | SED-002, DB-019 | Seeder declares `connections`; undeclared target is refused before the first insert; `ctx.db` is the bound handle                                                 |
 
 ---
 
@@ -197,3 +202,12 @@ Notes on the items not yet `[x]`:
 - [x] `db:seed` refuses production without declaration.
       `SED_PRODUCTION_REFUSED` before the first insert; console test covers
       `APP_ENV=production` with and without `--reference-data`.
+
+---
+
+## Data-layer DX (`DX-*`) — prioritised ahead of this file
+
+The zero-boilerplate work — bound Drizzle, `defineModel`, one capability-resolution rule, and query
+monitoring — is tracked in [`17-dx-data-layer.md`](./17-dx-data-layer.md) and **runs before the
+remaining `[ ]` rows here**. It changes the API this file describes, so implementing a `DB-*` row
+first would mean writing it twice. See [`05-database.md`](../modules/05-database.md) § 3.3–3.8.

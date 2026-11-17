@@ -15,6 +15,18 @@ describe('rewriteLinks (DOC-009)', () => {
     expect(broken).toEqual([]);
   });
 
+  test('a link to an index page resolves to its directory, not a subdirectory of it', () => {
+    // `packages/index.md` is served at `packages/`. Rewriting it as `packages/index/` produced a
+    // link to a directory that was never written — and the landing page was the page doing it.
+    const { html, broken } = rewriteLinks(
+      '<a href="../packages/index.md">p</a>',
+      'guides/queues.md',
+      (t) => t === 'packages/index.md',
+    );
+    expect(html).toBe('<a href="../../packages/">p</a>');
+    expect(broken).toEqual([]);
+  });
+
   test('a fragment survives the rewrite', () => {
     const { html } = rewriteLinks('<a href="errors.md#codes">e</a>', 'index.md', exists);
     expect(html).toBe('<a href="errors/#codes">e</a>');
@@ -83,6 +95,17 @@ describe('renderPage (DOC-009)', () => {
     const page = { path: 'x.md', title: '<b>x</b>', html: '' };
     expect(renderPage(page, [page])).toContain('&lt;b&gt;x&lt;/b&gt;');
   });
+});
+
+test('the landing page is a page of its own, and leads the navigation', () => {
+  // It used to be `installation.md` rendered a second time as `index.md`, so the docs home — and
+  // every "Documentation" link in the header — showed the install instructions, and the one page a
+  // reader needs to find "installation" from was itself installation.
+  const index = { path: 'index.md', title: 'Tsir documentation', html: '' };
+  const installation = { path: 'installation.md', title: 'Installation', html: '' };
+  const out = renderPage(index, [index, installation]);
+  expect(out.indexOf('Tsir documentation')).toBeLessThan(out.indexOf('Installation'));
+  expect(out).toContain('aria-current="page"');
 });
 
 test('navigation starts with installation and orders the application guides', () => {

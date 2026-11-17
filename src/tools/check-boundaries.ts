@@ -11,6 +11,9 @@
  *   2. No deep imports: `@tsir/core/src/...` is always a violation.
  *   3. Runtime-restricted packages may not import `node:` or `bun:` modules,
  *      unless the file is an explicitly declared adapter (see ADAPTER_FILES).
+ *   4. Every `@tsir/*` import in an application under `src/apps/` (and in an
+ *      example under `src/apps/examples/`) is declared in that application's
+ *      `package.json`. See `checkDeclaredDependencies`.
  *
  * Usage: bun src/tools/check-boundaries.ts [--json]
  */
@@ -91,8 +94,17 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
   // `nightwatch` is the observability backend (tracing/spans): a port, an in-memory
   // backend, and a bootstrap. Leaf on `container`.
   nightwatch: ['container'],
-  // `telemetry` is the structured logging/metrics bootstrap. Leaf on `container`.
-  telemetry: ['container'],
+  // `tui` is the terminal interface (ADR-0031). It depends on no @tsir package: a prompt must not
+  // be able to reach the router, and a runtime package must never acquire a UI dependency. It is
+  // deliberately **not** runtime-neutral: it reads package.json and owns stdin/stdout.
+  tui: [],
+  // `telemetry` is the structured logging/metrics bootstrap: request logs, queue state, and the
+  // query monitor (`DX-014`). It imports `@tsir/database` for two things and no more — the
+  // `QueryLogEvent` it receives, and `redactSql`, which is the function that must run before a
+  // statement is stored. Redacting at the writer only works if the writer is the redactor, so this
+  // arrow is the alternative to a second redaction rule that could disagree with the first. It is
+  // one-way: `database` does not know `telemetry` exists, so there is no cycle.
+  telemetry: ['container', 'database'],
   // `broadcast` is the realtime channel port: a port, an in-memory broadcaster, and a
   // bootstrap. Leaf on `container`.
   broadcast: ['container'],
@@ -117,6 +129,9 @@ const ALLOWED: Readonly<Record<string, readonly string[]>> = {
     'container',
     'core',
     'config',
+    // The CLI is what draws: `tsir about`, the `tsir new` name prompt and any future wizard use the
+    // shared terminal interface rather than printing their own way (ADR-0031).
+    'tui',
     // `tsir cache:*` builds the registry from `cache.stores` and probes it (`CACHE-9`).
     'cache',
     // `tsir queue:work|failed|retry` builds `queue.connections` and drains a connection
@@ -199,7 +214,12 @@ const ADAPTER_FILES: readonly RegExp[] = [/\/adapters?\/[^/]+\.ts$/, /\/bun\.ts$
 export interface Violation {
   readonly file: string;
   readonly importer: string;
-  readonly rule: 'unknown-package' | 'forbidden-dependency' | 'deep-import' | 'runtime-import';
+  readonly rule:
+    | 'unknown-package'
+    | 'forbidden-dependency'
+    | 'deep-import'
+    | 'runtime-import'
+    | 'undeclared-dependency';
   readonly specifier: string;
   readonly detail: string;
 }
@@ -335,6 +355,85 @@ async function checkPackage(name: string, dir: string, violations: Violation[]):
   }
 }
 
+/**
+ * Rule 4 — an application must declare every `@tsir/*` package it imports.
+ *
+ * This is the check that was missing when CI went red: `admin.product.com` imported
+ * `@tsir/telemetry`, `@tsir/pennant`, `@tsir/scout` and `@tsir/media` while its manifest listed
+ * none of them. Bun anchors workspace dependencies per package, so the symlink only exists when
+ * the importer declares it — and TypeScript then reports `TS2307: Cannot find module` in CI while
+ * a developer whose `node_modules` was installed under an older manifest sees nothing wrong.
+ *
+ * The failure mode is worth a check rather than a convention because it is **invisible locally
+ * and fatal in CI**: `tsc` fails for a reason that has nothing to do with the code being edited.
+ * A missing declaration is a missing dependency, whether the package is internal or not.
+ */
+export async function checkDeclaredDependencies(
+  violations: Violation[],
+  root: string = ROOT,
+): Promise<void> {
+  const appsDir = join(root, 'src', 'apps');
+  const importers = [
+    ...(await readdir(appsDir, { withFileTypes: true }).catch(() => [])).map((entry) =>
+      join(appsDir, entry.name),
+    ),
+    ...(await readdir(join(appsDir, 'examples'), { withFileTypes: true }).catch(() => [])).map(
+      (entry) => join(appsDir, 'examples', entry.name),
+    ),
+  ];
+
+  for (const dir of importers) {
+    const manifestFile = join(dir, 'package.json');
+    if (!(await Bun.file(manifestFile).exists())) continue;
+
+    const manifest = (await Bun.file(manifestFile).json()) as {
+      readonly name?: string;
+      readonly dependencies?: Readonly<Record<string, string>>;
+      readonly devDependencies?: Readonly<Record<string, string>>;
+      readonly peerDependencies?: Readonly<Record<string, string>>;
+      readonly optionalDependencies?: Readonly<Record<string, string>>;
+    };
+    const declared = new Set([
+      ...Object.keys(manifest.dependencies ?? {}),
+      ...Object.keys(manifest.devDependencies ?? {}),
+      ...Object.keys(manifest.peerDependencies ?? {}),
+      ...Object.keys(manifest.optionalDependencies ?? {}),
+    ]);
+
+    for (const file of await listAppSourceFiles(dir)) {
+      const source = await Bun.file(file).text();
+      for (const specifier of collectSpecifiers(source)) {
+        // `@tsir/<pkg>` or `@tsir/<pkg>/<subpath>` → `@tsir/<pkg>`.
+        const parts = specifier.split('/');
+        const packageName = parts.slice(0, 2).join('/');
+        if (parts[0] !== '@tsir' || parts.length < 2 || declared.has(packageName)) continue;
+        violations.push({
+          file: relative(root, file),
+          importer: manifest.name ?? relative(root, dir),
+          rule: 'undeclared-dependency',
+          specifier: packageName,
+          detail: `imported here but not declared in ${relative(root, manifestFile)} — add "${packageName}": "workspace:*" (Bun links a workspace package per importer, so an undeclared one resolves locally and fails in CI)`,
+        });
+      }
+    }
+  }
+}
+
+/** Source files of an application: the whole app dir, minus generated and installed trees. */
+async function listAppSourceFiles(dir: string): Promise<readonly string[]> {
+  const entries = await readdir(dir, { withFileTypes: true, recursive: true }).catch(() => []);
+  const skip = new Set(['node_modules', '.build', 'dist', 'public', 'e2e', 'test-results']);
+  const files: string[] = [];
+  for (const entry of entries) {
+    if (!entry.isFile() || !entry.name.endsWith('.ts')) continue;
+    const parts = relative(dir, entry.parentPath).split(/[\\/]/u);
+    if (parts.some((part) => skip.has(part))) continue;
+    if (entry.name.endsWith('.test.ts')) continue;
+    files.push(join(entry.parentPath, entry.name));
+  }
+  return files;
+}
+
 async function main(): Promise<void> {
   const json = Bun.argv.includes('--json');
   const entries = await readdir(PACKAGES_DIR, { withFileTypes: true }).catch(() => []);
@@ -350,6 +449,8 @@ async function main(): Promise<void> {
     seen.push(entry.name);
     await checkPackage(entry.name, join(dir, 'src'), violations);
   }
+
+  await checkDeclaredDependencies(violations);
 
   const unknown = seen.filter((name) => !(name in ALLOWED));
   for (const name of unknown) {

@@ -12,9 +12,9 @@ import { token } from '@tsir/container';
 import { registry } from '../registry.ts';
 import { type DrizzleDb } from '../../../database.ts';
 import { installState, users } from '../../shared/schema.ts';
-import { type AuthService } from '../../auth/services/auth.service.ts';
+import { type AuthService } from '../../auth/index.ts';
 import { type AuditService } from '../../shared/audit.ts';
-import { type I18nService } from '../../i18n/services/i18n.service.ts';
+import { type I18nService } from '../../i18n/index.ts';
 
 export const SetupBody = z.object({
   email: z.email(),

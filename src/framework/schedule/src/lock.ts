@@ -138,7 +138,13 @@ export interface LockSqlResult {
 
 export interface LockSql {
   readonly capabilities: {
-    readonly engine: 'd1' | 'postgres';
+    /**
+     * Any SQL engine. These channels branch on `placeholder`, never on the engine name, so
+     * narrowing to `d1 | postgres` would reject a `mysql` or `sqlite` connection that works
+     * (`CAP-009`). `@tsir/migrate` keeps the narrow pair: its state table really does have two
+     * dialects.
+     */
+    readonly engine: 'd1' | 'postgres' | 'mysql' | 'sqlite';
     readonly placeholder: 'question' | 'dollar';
   };
   query(statement: LockSqlStatement): Promise<LockSqlResult>;
@@ -187,7 +193,10 @@ export function databaseLock(options: DatabaseLockOptions): LockProvider {
   const engine = sql.capabilities.engine;
   const now = options.now ?? ((): number => Date.now());
 
-  if (engine !== 'd1' && engine !== 'postgres') {
+  // `d1` and `sqlite` are one dialect — SQLite's `ON CONFLICT … WHERE … RETURNING` — so a
+  // file-backed connection takes the same lock a binding-backed one does. `mysql` is refused
+  // because `ON DUPLICATE KEY UPDATE` has no `WHERE`, which is the whole reason this guard exists.
+  if (engine !== 'd1' && engine !== 'sqlite' && engine !== 'postgres') {
     throw lockRefused(
       'database',
       `the "${String(engine)}" engine cannot express a conditional upsert, so acquire would take a live lock`,

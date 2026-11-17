@@ -18,6 +18,10 @@
       "types": "./src/lambda.ts",
       "default": "./src/lambda.ts"
     },
+    "./listeners": {
+      "types": "./src/listeners.ts",
+      "default": "./src/listeners.ts"
+    },
     "./wrangler": {
       "types": "./src/wrangler.ts",
       "default": "./src/wrangler.ts"

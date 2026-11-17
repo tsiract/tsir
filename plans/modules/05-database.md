@@ -17,6 +17,13 @@
 Tsir ships **no** query-builder replacement, no model class hierarchy, and no second schema description language. Tables are Drizzle tables; rows are `InferSelectModel<T>`. Because D1 is the default engine, tables are
 `sqliteTable` by default and `pgTable` on the Postgres driver — see § 2.
 
+**Amended 2026-11-14 by [ADR-0032](../decisions/0032-zero-boilerplate-data-layer.md).** A typed model
+layer ships in § 3.4, and it does not contradict the paragraph above: `defineModel` is a frozen record
+of functions over a Drizzle table, not a class hierarchy, and it never re-declares a column type. The
+reason it now exists is that the alternative — every service repeating the same `where(eq(table.id, id))`
+and re-deriving the row type — was measurable boilerplate rather than simplicity. The earlier "no
+model" position was correct about Active Record and wrong about accessors.
+
 ---
 
 ## 2. Driver matrix (D1 is the default; Postgres is the escape hatch)
@@ -343,6 +350,16 @@ Rules:
   MariaDB 11 in CI; known divergences (JSON, `CHECK`, `RETURNING`, generated columns) are
   covered by tests and listed here rather than discovered in production (`Q49`).
 
+> **Status (2026-11-07 audit, `INF-003`): `[PLANNED]`, not shipped.** `@tsir/database/mysql`
+> does not exist in `src/framework/database/`, so the table above describes the intended engine,
+> not a selectable one. A `mysql` connection today fails at config validation with a driver-missing
+> error, which is at least honest; the risk is a reader of this table assuming the adapter is
+> importable. The adapter ships as `INF-003`'s follow-up in
+> [`../tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md), after the
+> Postgres path is fixed. The Postgres column of this table is `[PARTIAL]` for the same task: the
+> `$1` placeholder bug in `@tsir/auth` (`INF-001`) is a Postgres-only defect that a MySQL adapter
+> must not reproduce (`?` placeholders count differently).
+
 ---
 
 ## 3. Connection & lifecycle
@@ -482,6 +499,116 @@ interactiveTx: true } }` fails at boot with `DB_CAPABILITY_UNSUPPORTED` naming b
 - **Query logging never emits a bound value**: `logging: 'all'` prints SQL with placeholders plus
   parameter _types_ and count (§ 2.3). There is no level, and no environment, in which a value
   reaches the log.
+
+> **Status (2026-11-07 audit, `INF-002` and `INF-003`).**
+>
+> | Behaviour described above                       | Status         | Why                                                                                                                                                                                                                                               |
+> | ----------------------------------------------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Lazily connected, eagerly validated             | `[PARTIAL]`    | `createConnectionsFromConfig` builds drivers **eagerly at boot** and throws for `postgres`; the lazy path exists per connection but the config factory does not use it (`INF-003`)                                                                |
+> | Hyperdrive on Workers                           | `[PARTIAL]`    | `env.HYPERDRIVE.connectionString` changes **per request**, so a boot-time client cannot be correct. Request-scoped construction is `INF-003`                                                                                                      |
+> | Disposal drains every connection                | `[VERIFIED]`   | pool rules, ADR-0009                                                                                                                                                                                                                              |
+> | Per-connection health                           | `[VERIFIED]`   | `db.health()`                                                                                                                                                                                                                                     |
+> | `createDatabaseBootstrap` (Bun/SQLite topology) | `[LIMITATION]` | statically imports `bun:sqlite`, `node:fs`, `node:path` from the package barrel, caches the first `DbDriver` forever, and mutates a module-global binding per request (`INF-002`). It works for a single Bun process and is not usable on Workers |
+> | MySQL (`@tsir/database/mysql`)                  | `[PLANNED]`    | does not exist (§ 2.9)                                                                                                                                                                                                                            |
+
+### 3.3 The default connection is resolved, not named (`DX-001`, `DX-002`)
+
+The most repeated line in the framework's own application is a constructor parameter:
+
+```ts
+constructor(private readonly drizzle: DrizzleDb) {}
+```
+
+`DrizzleDb` is the **default** connection's instance. It is not a type error to pass the second
+connection's instance instead — the type is the same — so nothing in the language says which database
+a service queries. `DX-001` removes the guess: `db` is that instance (so the parameter, when it
+appears at all, is `typeof db`), and `dbFor(name)` is the only way to reach another one, with `name`
+checked against the connection names the config declares.
+
+Both are memoised per connection, and that is not an optimisation. `INF-010` established why: two
+Drizzle instances over one driver carry two sets of column objects, and a join across them emits
+duplicate table aliases with no error to explain it. A factory called once and reused is the fix; a
+factory called per access is the bug with a `useMemo` costume.
+
+### 3.4 Models: declared, typed, and strict on purpose (`DX-004` … `DX-008`)
+
+```ts
+export const Users = defineModel(users, { timestamps: true });
+export type User = typeof Users.$type;
+```
+
+`defineModel` is not an Active Record. There is no `Model` class to inherit from, no mutable
+prototype, no `save()` on a row that may be stale, and no lazy relation that fires a query when a
+property is read. It is a frozen record of functions that already know their table:
+
+```ts
+await Users.find(id);              // User | null
+await Users.where({ email });      // User[]
+await Users.create({ email });     // User
+await Users.query().orderBy(...);  // straight to Drizzle
+```
+
+**The strictness is the feature**, and it is where this deliberately departs from the framework's
+Laravel lineage. Four rules, each one a bug class Eloquent permits:
+
+1. A field name is a key of the table's columns. A typo is a compile error rather than a query that
+   matches everything.
+2. A row is the table's inferred type. There is no index signature, so `user.anything` does not
+   compile — the failure Eloquent produces is `undefined`, at runtime, in production.
+3. A relation is declared and typed, and `with('posts')` types the result from what was fetched. No
+   proxy read that decides to query.
+4. A write takes the insert type minus generated columns, so assigning an `id` or overwriting
+   `createdAt` does not compile.
+
+`timestamps` and `softDeletes` are declared options that are **checked against the table**: enabling
+`timestamps` on a table without `createdAt`/`updatedAt` fails to compile. A convention that is
+verified is a feature; a convention that is assumed is a bug with good marketing.
+
+### 3.5 One model, both engines (`DX-008`)
+
+The model resolves its table from the connection's engine, so `defineModel` over a `sqliteTable` runs
+unchanged against the generated `pgTable`. The proof is the one `INF-010` used: render the same
+`find` through both proxies and compare the statements, `$1` against `?`.
+
+### 3.6 A duplicate schema is generated (`DX-009`, `DX-010`)
+
+```bash
+tsir schema:duplicate --to postgres src/shared/schema.ts
+```
+
+Emits a `pgTable` module, refuses to overwrite, and `--check` fails when it drifts. The generated
+file carries a column-parity test, so adding a column to one dialect and not the other fails in
+`bun test` before it reaches a migration. The application gets the mechanism the framework already
+uses for its own tables.
+
+### 3.7 One resolution rule for every capability (`DX-011`, `DX-012`)
+
+The database is not special. Cache, queue, storage, mail, broadcast, search, flags and locks each
+take a driver and each already resolve it from `tsir.js` in the app's bootstrap, differently. The
+rule becomes one:
+
+> A default is resolved from `tsir.js`; the type states the choice; a driver that cannot honour the
+> choice refuses at boot, naming the config key.
+
+`cacheFor('sessions')` is `dbFor('analytics')` with a different noun. A capability with nothing
+configured refuses at construction — it never falls back to `memory`, which is the same rule the
+capability acceptance bar already sets for mail and notify.
+
+### 3.8 Query time is measured where every statement passes (`DX-014` … `DX-018`)
+
+`logging: 'slow'` already exists and already redacts values (§ 2.3). What it does not do is reach the
+admin app: the events go to a logger, and there is no store to query afterwards. The additions:
+
+- **One measurement point.** Every statement goes through `Database`, including Drizzle-generated
+  ones, so timing there is complete by construction rather than by discipline.
+- **A slow-query record** with the connection, duration, row count and the scrubbed statement. A
+  failed statement is recorded at every level, however fast (§ 2.3).
+- **Redaction that knows what is sensitive.** Scrubbing quoted literals is necessary and not
+  sufficient: a token interpolated as a bare value, or an email inside a function call, survives it.
+  The scrubber therefore also reads **column names** — `email`, `password*`, `*_hash`, `secret*`,
+  `token*`, `authorization`, `cookie`, `phone`, `ssn`, `card*` — and replaces the corresponding
+  value whatever its syntactic form. The table of cases in `redaction.test.ts` is the specification.
+- **N+1 detection** for a request in development, where it is cheap.
 
 ---
 
@@ -735,3 +862,19 @@ await db.close(); // drop schema, end the pool
 ## 11. Task index
 
 [`tasks/04-database.md`](../tasks/04-database.md) — `DB-001` … `DB-026`, `MIG-001` … `MIG-016`, `SED-001` … `SED-011`.
+
+Infrastructure findings that belong to this module but are tracked centrally, because each one also
+touches `@tsir/auth`, `@tsir/console` or the deploy emitters:
+[`tasks/16-infrastructure-hardening.md`](../tasks/16-infrastructure-hardening.md) —
+
+- `INF-001` — the Postgres `$1`/`$1` placeholder bug (`@tsir/auth`, but it is the reason the Postgres
+  column of § 2 is `[PARTIAL]`);
+- `INF-002` — `bun:sqlite`/`node:fs` in the package barrel, and the mutable global binding in
+  `createDatabaseBootstrap`;
+- `INF-003` — `createConnectionsFromConfig` for Postgres, request-scoped Hyperdrive, and the
+  `[PLANNED]` MySQL subpath;
+- `INF-010` / `INF-011` — driver-level dialect leakage in `@tsir/telemetry` and `@tsir/pennant`.
+
+Substrate profiles and the hybrid story (Workers → RDS via Hyperdrive) are in
+[`../architecture/17-infrastructure-philosophy.md`](../architecture/17-infrastructure-philosophy.md)
+§ 12; this document owns the engine and connection semantics.

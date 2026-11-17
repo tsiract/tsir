@@ -1,10 +1,54 @@
+/** Injected by `bun build --compile --define …`; absent when the CLI runs from source. */
+declare const TSIR_BUILT_VERSION: string | undefined;
+
+/**
+ * The version of the framework the running CLI belongs to.
+ *
+ * Read from `package.json` rather than hard-coded: the manifests are kept in lockstep by
+ * `make version`, and a constant here would be one more place for a release to forget one.
+ *
+ * Two depths, because this same file is shipped in both layouts — the repository keeps the
+ * entry at `src/framework/console/src/index.ts` (manifest one level up), and `make dist` emits
+ * `framework/console/index.js` (manifest beside it). A path that only works in one of them makes
+ * `tsir --version` answer "unknown" exactly where a developer first meets it.
+ */
+function frameworkVersion(): string {
+  // A compiled single-file executable has no manifest to read: its module graph is inside the
+  // binary, so `readFileSync` below finds nothing and the CLI answers "unknown" — exactly where a
+  // developer first meets it. The version is therefore baked in at build time with
+  // `--define TSIR_BUILT_VERSION='"0.0.0"'` and read back here. That define rewrites an *identifier*,
+  // which is why this is `typeof` and not a `globalThis` lookup: on a source run the identifier is
+  // undeclared, `typeof` says so without throwing, and the two manifest layouts below still answer.
+  if (typeof TSIR_BUILT_VERSION === 'string' && TSIR_BUILT_VERSION !== '')
+    return TSIR_BUILT_VERSION;
+  for (const relative of ['../package.json', './package.json']) {
+    try {
+      const pkg = JSON.parse(readFileSync(new URL(relative, import.meta.url), 'utf8')) as {
+        version?: unknown;
+      };
+      if (typeof pkg.version === 'string') return pkg.version;
+    } catch {
+      // Try the next layout.
+    }
+  }
+  return 'unknown';
+}
+
 /**
  * @tsir/console — the CLI.
  *
  * Public surface: `runCli` (used by the bin and by tests) and `COMMANDS`.
  */
 
-import { buildCommand, configDumpCommand, devCommand, startCommand } from './commands/lifecycle.ts';
+import { readFileSync } from 'node:fs';
+
+import {
+  buildCommand,
+  cleanCommand,
+  configDumpCommand,
+  devCommand,
+  startCommand,
+} from './commands/lifecycle.ts';
 import { bootstrapCommand } from './commands/bootstrap.ts';
 import { cacheClearCommand, cacheProbeCommand, cacheTableCommand } from './commands/cache.ts';
 import {
@@ -28,9 +72,12 @@ import {
 } from './commands/schedule.ts';
 import { deployBuildCommand } from './commands/deploy-build.ts';
 import { deployValidateCommand } from './commands/deploy-validate.ts';
+import { deployVerifyCommand } from './commands/deploy-verify.ts';
 import { deployDiffCommand, deployInvokeCommand, deployPlanCommand } from './commands/deploy.ts';
+import { aboutCommand } from './commands/about.ts';
 import { doctorCommand } from './commands/doctor.ts';
 import { openapiGenerateCommand } from './commands/openapi.ts';
+import { protoGenerateCommand } from './commands/proto.ts';
 import { makeModuleCommand, newCommand } from './commands/generate.ts';
 import { makeControllerCommand } from './commands/make-controller.ts';
 import { makeModelCommand } from './commands/make-model.ts';
@@ -103,10 +150,22 @@ export const COMMANDS: readonly Command[] = [
   },
   { name: 'build', summary: 'generate the application manifest', phase: 1, run: buildCommand },
   {
+    name: 'clean',
+    summary: 'remove the build output (.tsir/, compiled routes) and nothing else',
+    phase: 1,
+    run: cleanCommand,
+  },
+  {
     name: 'start',
     summary: 'boot the built artifact (run tsir build first)',
     phase: 1,
     run: startCommand,
+  },
+  {
+    name: 'about',
+    summary: 'what this installation is: version, runtime, commands',
+    phase: 1,
+    run: aboutCommand,
   },
   {
     name: 'doctor',
@@ -139,6 +198,12 @@ export const COMMANDS: readonly Command[] = [
     summary: 'emit an OpenAPI 3.1 document',
     phase: 1,
     run: openapiGenerateCommand,
+  },
+  {
+    name: 'proto:generate',
+    summary: "compile this application's .proto contracts into typed TypeScript",
+    phase: 1,
+    run: protoGenerateCommand,
   },
   {
     name: 'make:controller',
@@ -436,6 +501,12 @@ export const COMMANDS: readonly Command[] = [
     phase: 6,
     run: deployValidateCommand,
   },
+  {
+    name: 'deploy:verify',
+    summary: 'what the AWS Emulator can prove about the AWS calls this tree makes',
+    phase: 6,
+    run: deployVerifyCommand,
+  },
 ];
 
 function helpText(): string {
@@ -495,7 +566,7 @@ export async function runProjectCommand(
   }
   const index = argv.findIndex((arg) => arg !== '--json');
   const first = index === -1 ? undefined : argv[index];
-  const META = ['help', '--help', '-h', '--version'];
+  const META = ['help', '--help', '-h', '--version', 'about'];
   if (
     listed !== undefined &&
     first !== undefined &&
@@ -580,10 +651,15 @@ export async function runCli(argv: readonly string[]): Promise<number> {
     first === 'help' ||
     first === '--help' ||
     first === '-h' ||
-    first === '--version'
+    first === '--version' ||
+    first === 'about'
   ) {
+    if (first === 'about') return await aboutCommand(argv);
     if (first === '--version') {
-      info(Bun.version);
+      // The framework's version, with the runtime beside it: a bug report needs both, and printing
+      // only `Bun.version` answered "1.4.4" for a Tsir command — a number that says nothing about
+      // which framework the developer is running.
+      info(`${frameworkVersion()} (bun ${Bun.version})`);
       return EXIT.ok;
     }
     info(helpText());

@@ -24,6 +24,7 @@ import { migrate } from '../framework/migrate/src/index.ts';
 import { buildDocs } from './docs-site.ts';
 import { renderFrontpage } from '../apps/frontpage/build.ts';
 import { extname, join, normalize, relative, resolve, sep } from 'node:path';
+import { banner, createPalette, glyphs, INDENT } from '../framework/tui/src/index.ts';
 
 // The admin application handler, imported lazily so `make dev` still boots when
 // the admin is not yet configured. When present, the admin app is served on its
@@ -206,24 +207,30 @@ interface RuntimeInfo {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Small terminal helpers (no dependencies)
+// Terminal output — the shared layer, not a private set of escape codes
 // ─────────────────────────────────────────────────────────────────────────────
+//
+// `make dev` used to carry its own `paint('32', …)` helpers, which is how a product ends up with
+// three greens and two ways of saying "failed". Every line below goes through `@tsir/tui`'s palette
+// and glyphs instead (ADR-0031), so `make dev`, `make doctor` and `tsir doctor` can be compared
+// without a reader learning three vocabularies. The root entrypoint is the reporting path: no
+// renderer, no native binary, and colour still degrades to plain text under `NO_COLOR`/`TERM=dumb`.
 
-const useColor = Bun.enableANSIColors;
-const paint = (code: string, text: string): string =>
-  useColor ? `\u001B[${code}m${text}\u001B[0m` : text;
-const bold = (text: string): string => paint('1', text);
-const dim = (text: string): string => paint('2', text);
-const green = (text: string): string => paint('32', text);
-const red = (text: string): string => paint('31', text);
-const cyan = (text: string): string => paint('36', text);
+const palette = createPalette();
+const glyph = glyphs();
+
+const bold = (text: string): string => palette.paintAll(['bold'], text);
+const dim = (text: string): string => palette.paint('dim', text);
+const green = (text: string): string => palette.paint('success', text);
+const red = (text: string): string => palette.paint('danger', text);
+const cyan = (text: string): string => palette.paint('brand', text);
 
 function log(message: string): void {
   process.stdout.write(`${message}\n`);
 }
 
 function fail(message: string, hint?: string): never {
-  process.stderr.write(`${red('✗')} ${message}\n`);
+  process.stderr.write(`${red(glyph.cross)} ${message}\n`);
   if (hint !== undefined) process.stderr.write(`  ${dim(hint)}\n`);
   process.exit(1);
 }
@@ -764,7 +771,7 @@ async function main(): Promise<void> {
       await Promise.all([mainServer.stop(), adminServer?.stop() ?? Promise.resolve()]);
       await removeRecord(options.root);
       clearTimeout(timer);
-      log(`${green('✓')} dev server stopped`);
+      log(`${green(glyph.check)} dev server stopped`);
       process.exit(0);
     } catch (error: unknown) {
       clearTimeout(timer);
@@ -789,21 +796,34 @@ async function main(): Promise<void> {
   const adminPort = adminServer?.port ?? options.adminPort;
 
   log('');
-  log(`  ${bold('tsir')} ${dim('· dev')}`);
-  log('');
-  log(`  ${green('➜')}  local    ${cyan(`http://${displayHost}:${String(mainPort)}/`)}`);
-  if (adminHandler !== null) {
-    log(`  ${green('➜')}  admin    ${cyan(`http://${displayHost}:${String(adminPort)}/`)}`);
-  } else {
-    log(`  ${dim('➜  admin    not loaded (' + (adminBootError ?? 'unknown error') + ')')}`);
-  }
+  // The version travels with the banner rather than in a row of its own: it is what a bug report
+  // needs first, and `banner` already right-aligns it against the title.
   log(
-    `  ${green('➜')}  health   ${cyan(`http://${displayHost}:${String(mainPort)}/__tsir/health`)}`,
+    banner({
+      palette,
+      title: 'tsir',
+      subtitle: 'Development environment',
+      version: info.version,
+    }),
   );
-  log(`  ${dim(`➜  runtime  bun ${Bun.version} · node ${info.node} · ${info.os}`)}`);
-  log(`  ${dim(`➜  version  ${info.version} · env ${info.env}`)}`);
   log('');
-  log(`  ${dim('press ctrl-c to stop · `make kill` stops owned processes only')}`);
+  const row = (label: string, value: string): void =>
+    log(`${INDENT}${green(glyph.arrow)} ${label.padEnd(9)}${cyan(value)}`);
+  row('local', `http://${displayHost}:${String(mainPort)}/`);
+  if (adminHandler !== null) {
+    row('admin', `http://${displayHost}:${String(adminPort)}/`);
+  } else {
+    log(
+      `${INDENT}${dim(`${glyph.arrow} ${'admin'.padEnd(9)}not loaded (${adminBootError ?? 'unknown error'})`)}`,
+    );
+  }
+  row('health', `http://${displayHost}:${String(mainPort)}/__tsir/health`);
+  log(
+    `${INDENT}${dim(`${glyph.arrow} ${'runtime'.padEnd(9)}bun ${Bun.version} · node ${info.node} · ${info.os}`)}`,
+  );
+  log(`${INDENT}${dim(`${glyph.arrow} ${'env'.padEnd(9)}${info.env}`)}`);
+  log('');
+  log(`${INDENT}${dim(`press ctrl-c to stop · \`make kill\` stops owned processes only`)}`);
   log('');
 }
 

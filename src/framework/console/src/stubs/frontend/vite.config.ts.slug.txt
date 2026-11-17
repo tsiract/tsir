@@ -1,0 +1,18 @@
+import { defineConfig } from 'vite';
+{{pluginImport}}
+
+// The frontend talks to the Tsir backend over HTTP. `server.proxy` forwards `/api` to the
+// application's own `tsir dev` server, so the browser sees one origin and the project needs no CORS
+// configuration — the frontend is an integration over the API contract, never a second backend.
+export default defineConfig({
+  plugins: [{{pluginCall}}{{tailwindPlugin}}],
+  server: {
+    port: {{port}},
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+      },
+    },
+  },
+});

@@ -156,7 +156,14 @@ export function compileRoutes(entries: readonly ControllerEntry[]): RouteTable {
   const byShape = new Map<string, string>();
 
   for (const entry of entries) {
-    if (entry.routes.length === 0) throw emptyController(entry.name);
+    // A controller with **listeners and no routes** is a supported shape (`DPL-026`): an
+    // event-only controller is exactly what `@OnSns`/`@OnEventBridge`/`@OnStepTask` are for,
+    // and it never appears in a route table. Only a controller with neither is the forgotten
+    // decorator this error is about.
+    if (entry.routes.length === 0) {
+      if (entry.listeners.length > 0) continue;
+      throw emptyController(entry.name);
+    }
 
     for (const declared of entry.routes) {
       const route = mergeRoute(entry, declared);

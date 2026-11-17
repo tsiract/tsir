@@ -35,7 +35,7 @@ import {
 } from '@tsir/config';
 
 import { boolFlag, parseArgs, stringFlag } from '../args.ts';
-import { CliError, EXIT, fail, info, style, UsageError, jsonDocument } from '../output.ts';
+import { CliError, EXIT, fail, info, style, UsageError, jsonDocument, symbols } from '../output.ts';
 import {
   BOOTSTRAP_RECORD,
   readBootstrapRecord,
@@ -626,7 +626,7 @@ export async function bootstrap(
   }
 
   if (plan.unchanged) {
-    info(`  ${style.green('✓')} ${name} already declares this deploy block`);
+    info(`  ${style.green(symbols.check)} ${name} already declares this deploy block`);
     return EXIT.ok;
   }
 
@@ -639,9 +639,10 @@ export async function bootstrap(
   }
 
   info(
-    `  ${style.green('✓')} updated ${name} (managed:${DEPLOY_REGION}${plan.created ? ', created' : ''})`,
+    `  ${style.green(symbols.check)} updated ${name} (managed:${DEPLOY_REGION}${plan.created ? ', created' : ''})`,
   );
-  if (ractCreated) info(`  ${style.green('✓')} created ract (run project commands with bun ract)`);
+  if (ractCreated)
+    info(`  ${style.green(symbols.check)} created ract (run project commands with bun ract)`);
   for (const step of nextSteps({ targets: plan.targets, ract: ractCreated })) {
     info(`  ${style.dim('next:')} ${step}`);
   }

@@ -12,10 +12,10 @@ import { token } from '@tsir/container';
 import { registry } from '../registry.ts';
 import { type DrizzleDb } from '../../../database.ts';
 import { users, userRoles, roles } from '../../shared/schema.ts';
-import type { AuthService } from '../../auth/services/auth.service.ts';
+import type { AuthService } from '../../auth/index.ts';
 import type { AuditService } from '../../shared/audit.ts';
 import type { AppPrincipal } from '../../auth/index.ts';
-import type { RbacService } from '../../rbac/services/rbac.service.ts';
+import type { RbacService } from '../../rbac/index.ts';
 
 export const UuidParam = z.string().uuid();
 

@@ -3,12 +3,13 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { DATABASE_ENGINES } from '@tsir/database';
 
 import { checkProjectFile } from '@tsir/config';
 
 import { EXIT } from '../output.ts';
 import { UsageError } from '../output.ts';
-import { declaredD1Bindings, makeConnectionCommand } from './make-connection.ts';
+import { declaredD1Bindings, entryFor, KINDS, makeConnectionCommand } from './make-connection.ts';
 
 const BASE = `// The project file. The comment below must survive every edit.
 export default {
@@ -257,5 +258,43 @@ describe('make:connection (CLI-017)', () => {
       makeConnectionCommand(['audit', '--kind', 'database', '--driver', 'postgres']),
     );
     expect(error).toBeInstanceOf(UsageError);
+  });
+});
+
+describe('make:connection · the driver list is the registry, not a copy', () => {
+  test('every kind lists the drivers its own package accepts', () => {
+    // The bug this covers: this table said `mysql` while `DATABASE_ENGINES` had only `d1` and
+    // `postgres`, so the command wrote a `tsir.js` the schema refused at boot. A copy of a list
+    // drifts; reading the exported constant cannot.
+    expect(KINDS['database']?.drivers).toEqual([...DATABASE_ENGINES]);
+    expect(KINDS['cache']?.drivers).toContain('cloudflare-kv');
+    expect(KINDS['queue']?.drivers).toContain('sqs');
+    expect(KINDS['storage']?.drivers).toContain('s3');
+    expect(KINDS['mail']?.drivers).toContain('ses');
+  });
+
+  test('a driver that is not in the registry is refused, by kind, before anything is written', () => {
+    // `mysql` was this fixture until it shipped, which is the trap: a negative fixture names a
+    // driver that does not exist *yet*, and the day it lands the test fails for the right reason
+    // in the wrong place. `oracle` is not on any roadmap here.
+    expect(() => entryFor('database', 'oracle', { urlEnv: 'DATABASE_URL' })).toThrow(
+      /is not a database driver/u,
+    );
+    expect(() => entryFor('cache', 'memcached', {})).toThrow(/is not a cache driver/u);
+    expect(() => entryFor('queue', 'rabbitmq', {})).toThrow(/is not a queue driver/u);
+  });
+
+  test('a newly shipped driver is accepted the moment it is in the constant', () => {
+    // The positive half of the same rule: `mysql` and `sqlite` are drivers now, so the command
+    // must write them without this file being edited.
+    expect(entryFor('database', 'mysql', { urlEnv: 'MYSQL_HTTP_URL' })).toEqual({
+      driver: 'mysql',
+      url: { fromEnv: 'MYSQL_HTTP_URL' },
+    });
+  });
+
+  test('a driver that is in the registry is accepted', () => {
+    expect(entryFor('cache', 'redis', {})).toEqual({ driver: 'redis' });
+    expect(entryFor('storage', 'local', {})).toEqual({ driver: 'local' });
   });
 });

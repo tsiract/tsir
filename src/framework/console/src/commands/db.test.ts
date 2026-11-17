@@ -506,6 +506,27 @@ describe('module-local migration journals', () => {
     expect(calls).toBe(1);
   });
 
+  test('the default schema glob finds a model where `make:model` actually writes it', async () => {
+    // Regression: `make:model order shop` writes `shop/models/order.model.ts`, but the default
+    // glob here was `shop/*.model.ts` — so the documented pair (`make:model`, then
+    // `make:migration`) failed with "no schema files found" even though the model was right there.
+    // The release journey is what caught it, because it runs the pair in order.
+    const { dir } = await project();
+    await moduleJournal(dir, 'shop', 'create table "shop_order" (\"id\" integer);\n');
+    await mkdir(join(dir, 'shop/models'), { recursive: true });
+    await writeFile(join(dir, 'shop/models/order.model.ts'), '// schema fixture\n');
+    let seenSchema = '';
+    const runner = async (command: readonly string[], cwd: string) => {
+      expect(cwd).toBe(dir);
+      seenSchema = command[command.indexOf('--schema') + 1] ?? '';
+      return { exitCode: 0, stdout: 'no changes', stderr: '' };
+    };
+    expect(await quiet(() => makeMigrationCommand(['create-orders', 'shop'], runner))).toBe(0);
+    // The CLI hands drizzle-kit a **glob**, not a resolved file: `generate` takes a schema pattern.
+    // What matters is that the pattern reaches into `models/`, which is where `make:model` writes.
+    expect(seenSchema).toBe(join(dir, 'shop', '**', '*.model.ts'));
+  });
+
   test('named connections select distinct module folders and database bookkeeping', async () => {
     const { dir } = await project();
     const sqlite = new SQLite(':memory:');

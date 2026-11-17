@@ -1,8 +1,10 @@
 # Installation
 
-Tsir is a pre-alpha TypeScript backend framework. This guide takes you from the distributed
-`tsir` command to a running HTTP application. The packages are **not published to npm yet**;
-use a matching Tsir distribution rather than a registry install.
+Tsir is a pre-alpha TypeScript backend framework. This guide takes you from nothing to a running
+HTTP application. The packages are **not published to npm yet**, and **no release archive has been
+published either** — so today there is exactly one install path, and it is three commands from a
+clone (below). When a release exists, the archive path in § _From a release archive_ is the shorter
+one.
 
 ## Prerequisites
 
@@ -12,8 +14,23 @@ verified for this distribution launcher.
 
 ## Install the Tsir command
 
-Obtain the `tsir-<version>-dist.tar.gz` archive from a project release if one is available.
-Extract it into a stable directory and install its dependencies (replace the archive path):
+### From a clone (the only path today)
+
+```sh
+git clone https://github.com/tsiract/tsir && cd tsir
+make install     # bun install --frozen-lockfile
+make dist        # compiles every framework package, installs dist/ dependencies
+./dist/tsir --help
+```
+
+`make dist` installs its own dependencies, so `./dist/tsir --help` works immediately and
+`./dist/bin` can go on `PATH`. The [contributor build guide](./guides/make.md) has the rest of the
+Makefile. Application developers do not need it once `dist/` exists.
+
+### From a release archive (when one exists)
+
+Obtain `tsir-<version>-dist.tar.gz` from the release. Extract it into a stable directory and
+install its dependencies (replace the archive path):
 
 ```sh
 mkdir -p "$HOME/tsir-dist"
@@ -31,9 +48,7 @@ installed. If you move it, update the `workspaces` path in your app's `package.j
 `bun install` again. Treat the archive and packages as trusted code. `--ignore-scripts` avoids
 running dependency install scripts; some optional integrations may need their own setup.
 
-If a release archive is not available, a framework contributor can build `dist/` from a checkout
-using the [contributor build guide](./guides/make.md). A fresh `make dist` installs its dependencies,
-so `./dist/tsir --help` works immediately. Use that `dist/` in place of `$HOME/tsir-dist`.
+Use the extracted `$HOME/tsir-dist/` in the same place as a built `dist/`.
 Application developers do not need the repository Makefile.
 
 ## What the distribution contains
@@ -81,13 +96,13 @@ In a directory **outside** the distribution, create and install an application:
 
 ```sh
 cd "$HOME"
-tsir new hello
-cd hello
+tsir new hello          # creates apps/hello/
+cd apps/hello
 bun install --ignore-scripts
 tsir dev
 ```
 
-`tsir dev` boots the app and serves the exported fetch handler at `http://127.0.0.1:3000`. Visit that address to see `{"message":"Welcome to Tsir"}`.
+`tsir dev` boots the app and serves the exported fetch handler at `http://127.0.0.1:3000`. Visit that address to see `{"message":"Welcome to hello app!"}` — the starter greets with your application's own name, so a different project name gives a different message.
 Stop it with Ctrl+C. Change the bind address or port with `tsir dev --host 127.0.0.1 --port 3001`;
 use `--host 0.0.0.0` only when you intend to expose the server to your network. There is no
 built-in file watcher: restart the command after changing code.
@@ -165,8 +180,11 @@ Edit `config.ts` to declare environment variables; `.env` is ignored by the star
 [configuration and secrets](./guides/configuration.md) before adding credentials. Continue with
 [controllers](./guides/controllers.md), [models and queries](./guides/database.md),
 [queues](./guides/queues.md), [caching](./guides/caching.md), or the
-[Cloudflare-to-AWS guide](./guides/providers.md). The [package references](./packages/core.md)
-document API details and limitations.
+[Cloudflare-to-AWS guide](./guides/providers.md). Before going to production, read
+[services, drivers and defaults](./guides/drivers.md): it maps every capability to the drivers
+this build ships and the values each one needs — the starter's defaults are deliberately ephemeral
+and `production: true` refuses them. The [package references](./packages/core.md) document API
+details and limitations.
 
 `tsir --help` lists commands. `tsir test` runs Bun's test runner; `tsir lint` and
 `tsir typecheck` run the corresponding scripts **if you add them** to your application's

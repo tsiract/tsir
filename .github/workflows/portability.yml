@@ -55,6 +55,24 @@ jobs:
           /bin/bash --version | head -n 1
           bun --version
       - run: make install
+      - name: Verify the install is reproducible
+        # Two reproducibility invariants:
+        #   1. the runner's Bun must be the version `packageManager` pins. A different major
+        #      cannot parse `bun.lock` (lockfileVersion 2) and silently re-resolves the whole
+        #      graph instead — reproduced locally with bun 1.2.21, which rewrote bun.lock;
+        #   2. a `--frozen-lockfile` install must leave `bun.lock` byte-identical, so a manifest
+        #      edit that forgot to regenerate the lockfile fails here instead of drifting.
+        # Neither would have caught the 2026-11 admin failure: the lockfile was consistent and
+        # the manifest was incomplete. `make boundaries` now checks that (check-boundaries rule 4).
+        run: |
+          pinned="$(sed -n 's/.*"packageManager": *"bun@\([0-9.]*\)".*/\1/p' package.json)"
+          actual="$(bun --version)"
+          echo "bun pinned=$pinned actual=$actual"
+          test "$pinned" = "$actual" || { echo "::error::Bun $actual is not the pinned $pinned"; exit 1; }
+          git diff --exit-code -- bun.lock || {
+            echo "::error::bun.lock changed during a frozen install; commit the regenerated lockfile"
+            exit 1
+          }
       - name: Verify installed commit hook
         run: |
           message="$(mktemp)"
@@ -63,24 +81,86 @@ jobs:
           printf 'not a conventional commit\n' > "$message"
           if .git/hooks/commit-msg "$message"; then echo 'invalid commit was accepted'; exit 1; fi
           rm "$message"
+      - name: Install buf
+        # `make check` runs `proto-check`, which regenerates the committed gRPC contracts and diffs
+        # them. It skips when `buf` is missing — the right call on a laptop, a hole in CI — so the
+        # runner installs it and sets `REQUIRE_BUF`, which turns that skip into a failure.
+        # The npm distribution ships the binary, so this needs no Go toolchain. Installed into a
+        # throwaway prefix rather than with `bun add`, because that would edit `package.json` and
+        # `bun.lock` and trip the frozen-install reproducibility check that runs after this.
+        run: |
+          npm install --prefix "$RUNNER_TEMP/buf" --no-save @bufbuild/buf
+          echo "BUF=$RUNNER_TEMP/buf/node_modules/@bufbuild/buf/bin/buf" >> "$GITHUB_ENV"
       - run: make help doctor kill-ports-dry
       - name: Test cleanup without touching host processes
         run: |
           temporary_root="$(mktemp -d)"
           TSIR_ROOT="$temporary_root" make kill-owned
           rm -rf "$temporary_root"
-      - run: make check
+      # `make` exits 2 for *any* failed recipe, so a bare `- run: make check` reports "exit code 2"
+      # and nothing else: the job log is the only place the failing check appears, and it is not
+      # reachable from the API (`--log-failed` returns EOF) or from a fork's annotations. Echoing
+      # the tail as `::error::` lines puts the actual failure in the check annotations.
+      - name: make check
+        run: |
+          set +e
+          REQUIRE_BUF=1 make check > check.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            # GitHub keeps at most 10 error annotations per step, so annotate the lines that
+            # identify the failure instead of a blind tail (the first attempt annotated a tail of
+            # 25/120 lines and spent the whole budget on `lint`'s per-package progress lines).
+            {
+              grep -nE "✗|error TS|error:|Error [0-9]|make: \*\*\*|Killed|FATAL|Out of memory" check.log | head -n 6
+              echo "── last 3 lines of make check ──"
+              tail -n 3 check.log
+            } | while IFS= read -r line; do
+              [ -n "$line" ] && printf '::error::%s\n' "${line}" | cut -c1-900
+            done
+            tail -n 40 check.log
+          fi
+          exit "$status"
       - run: make test
       - run: make release-pack # includes verify-dist and installs/boots the tarballs
+      # The templates are emitted by `make dist`; this installs each one from the registry and builds
+      # it, which is the only check that catches a dependency version that stopped resolving. It is
+      # not in `make check` on purpose: `make check` must pass offline.
+      # `make` reports a failed recipe as "Error 2" and nothing else, and the job logs are not
+      # reachable from the API. Annotating the identifying lines is what makes this gate's failure
+      # diagnosable at all; the templates themselves print why they failed.
+      - name: make verify-templates
+        run: |
+          set +e
+          make verify-templates > templates.log 2>&1
+          status=$?
+          if [ "$status" -ne 0 ]; then
+            {
+              grep -nE "✗|error|Error|failed|ELIFECYCLE|ENOENT|status [1-9]" templates.log | tail -n 6
+              echo "── last 12 lines of make verify-templates ──"
+              tail -n 12 templates.log
+            } | while IFS= read -r line; do
+              [ -n "$line" ] && printf '::error::%s\n' "$line" | cut -c1-900
+            done
+            tail -n 30 templates.log
+          fi
+          exit "$status"
       - run: make release-pack-fast
       - name: Validate archive and checksums
         run: |
           cd dist/release
-          shasum -a 256 -c SHA256SUMS.txt
+          # `sha256sum` on Linux, `shasum` on macOS: the workflow runs on both, and only one of
+          # them is on PATH per runner. `--check` reads the same `SHA256SUMS.txt` either way.
+          if command -v sha256sum >/dev/null 2>&1; then
+            sha256sum -c SHA256SUMS.txt
+          else
+            shasum -a 256 -c SHA256SUMS.txt
+          fi
           tar -tzf tsir-*-dist.tar.gz > archive-contents.txt
-          grep -q '^frontpage/docs/' archive-contents.txt
+          # Applications are nested under `apps/` in the dist tree; the front page is one of them.
+          grep -q '^apps/frontpage/docs/' archive-contents.txt
           grep -q '^tsir$' archive-contents.txt
-          grep -q '^src/apps/admin.product.com/modules/users/' archive-contents.txt
-          grep -q '^src/apps/admin.product.com/modules/auth/' archive-contents.txt
+          # Applications ship at `apps/<name>`; `src/` holds only the baked frontpage/docs.
+          grep -q '^apps/admin.product.com/modules/users/' archive-contents.txt
+          grep -q '^apps/admin.product.com/modules/auth/' archive-contents.txt
           if grep -q 'node_modules/' archive-contents.txt; then echo 'archive contains installed dependencies'; exit 1; fi
           rm archive-contents.txt

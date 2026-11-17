@@ -48,7 +48,19 @@ function markdown(dir: string): string[] {
   return found.sort();
 }
 
-const documents = markdown(PLANS);
+/**
+ * Generated indexes are checked by the tool that writes them, not by the hand-written ones.
+ *
+ * `plans/tasks/STATUS.md` and `plans/tasks/checklists/<ledger>.md` are output: they are excluded
+ * here because `make tasks-check` compares every byte against a fresh render, which is a stronger
+ * claim than "somebody linked it". Requiring each of thirty-four generated pages to be listed in a
+ * hand-written README would mean editing an index by hand every time a ledger is added — the
+ * failure this repository keeps paying for.
+ */
+const GENERATED =
+  /^plans[\\/]tasks[\\/](?:STATUS\.md|checklists[\\/][^\\/]+\.md|docs[\\/][^\\/]+\.md)$/u;
+
+const documents = markdown(PLANS).filter((path) => !GENERATED.test(rel(path)));
 const byName = new Set(documents);
 
 // ── 1. Every document is reachable from plans/README.md within two hops ─────
@@ -102,7 +114,7 @@ for (const [folder, label] of [
   if (!existsSync(index)) continue;
 
   const listed = new Set(links(index).filter((path) => byName.has(path)));
-  const present = markdown(dir).filter((path) => path !== index);
+  const present = markdown(dir).filter((path) => path !== index && !GENERATED.test(rel(path)));
 
   for (const file of present) {
     if (!listed.has(file)) {

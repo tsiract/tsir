@@ -27,6 +27,7 @@ export {
   privateExposed,
   queueOutboxMissing,
   queueTriggerMissing,
+  listenerNotBuilt,
   secretLeak,
   sizeBudget,
   unitEmpty,
@@ -35,8 +36,13 @@ export {
 export type { DeployErrorCode } from './errors.ts';
 
 export { applyTopology, DEFAULT_TOPOLOGY, resolveUnits, UNIT_KINDS } from './units.ts';
-export { compileListeners } from './listeners.ts';
-export type { CompileListenersOptions, ListenerContext, ListenerController } from './listeners.ts';
+export { compileListeners, listenerUnitFor } from './listeners.ts';
+export type {
+  CompileListenersOptions,
+  ListenerApp,
+  ListenerContext,
+  ListenerController,
+} from './listeners.ts';
 export { invokeUnit, publish, setInternalTransport } from './internal.ts';
 export type { InternalTransport } from './internal.ts';
 export {

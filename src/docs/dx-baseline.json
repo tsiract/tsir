@@ -1,0 +1,52 @@
+{
+  "applications": {
+    "src/apps/admin.product.com": {
+      "drizzleParams": 12,
+      "tokenEntries": 19,
+      "casts": 0,
+      "querySites": 34,
+      "tables": 26,
+      "files": 20
+    },
+    "src/apps/examples/full-actions-example.com": {
+      "drizzleParams": 0,
+      "tokenEntries": 0,
+      "casts": 0,
+      "querySites": 0,
+      "tables": 0,
+      "files": 0
+    },
+    "src/apps/examples/http": {
+      "drizzleParams": 0,
+      "tokenEntries": 0,
+      "casts": 0,
+      "querySites": 0,
+      "tables": 0,
+      "files": 0
+    },
+    "src/apps/examples/minimal": {
+      "drizzleParams": 0,
+      "tokenEntries": 0,
+      "casts": 0,
+      "querySites": 0,
+      "tables": 0,
+      "files": 0
+    },
+    "src/apps/examples/todo-app-example.com": {
+      "drizzleParams": 0,
+      "tokenEntries": 0,
+      "casts": 0,
+      "querySites": 0,
+      "tables": 0,
+      "files": 0
+    }
+  },
+  "totals": {
+    "drizzleParams": 12,
+    "tokenEntries": 19,
+    "casts": 0,
+    "querySites": 34,
+    "tables": 26,
+    "files": 20
+  }
+}

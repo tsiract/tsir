@@ -46,7 +46,11 @@ describe('hands-on documentation examples', () => {
       JSON.stringify({
         extends: '../../tsconfig.base.json',
         compilerOptions: { types: ['bun'] },
-        include: ['*.ts'],
+        // The repository's own tsconfig picks up ambient `.d.ts` files under `src/` (the
+        // examples rely on one: `@tsir/deploy` declares its lazy AWS SDK imports rather than
+        // depending on the SDK). Without this, an example that is correct in the checkout fails
+        // to typecheck here, and the failure would be blamed on the documentation.
+        include: ['*.ts', '../../src/**/*.d.ts'],
       }),
     );
     const typecheck = Bun.spawnSync(

@@ -1,0 +1,93 @@
+# Tsir
+
+> A backend-only TypeScript framework for Bun, Cloudflare Workers and AWS Lambda — one
+> codebase, all three, inside each free tier. Pre-alpha: not published to npm.
+
+This file is the machine-readable index. Every path below exists; `make llms` regenerates it
+and `make check` fails when it is stale.
+
+## Start here
+
+- [AGENTS.md](AGENTS.md): Orientation for a coding agent (or a person arriving cold) working in this repository.
+- [Tsir documentation](src/docs/index.md): Tsir is a backend-only TypeScript framework for Bun, Cloudflare Workers and AWS Lambda: one codebase, all three targets, sized to…
+- [Installation](src/docs/installation.md): Tsir is a pre-alpha TypeScript backend framework.
+- [Contributing to Tsir](CONTRIBUTING.md): Thanks for helping build Tsir.
+- [README](README.md): the landing page — what Tsir is for, what is real today, and the four rules a change is reviewed against
+
+## Using the framework
+
+- [Caching](src/docs/guides/caching.md): A cache stores the result of an expensive operation (a database query, an API call, a computed value) so the next request can…
+- [Configuration and secrets](src/docs/guides/configuration.md): Tsir splits configuration into two layers, and neither one magically creates runtime clients: The rule: declaring a resource in…
+- [Controllers and HTTP routes](src/docs/guides/controllers.md): Controllers group related HTTP actions in plain classes.
+- [Models, Drizzle queries and migrations](src/docs/guides/database.md): Tsir deliberately does not provide an Active Record base class.
+- [Services, drivers, and defaults](src/docs/guides/drivers.md): Every capability in tsir is a port with several drivers, chosen in tsir.js by name.
+- [Contributor build commands on macOS and Linux](src/docs/guides/make.md): This guide is for framework contributors building or testing the distribution.
+- [Moving between Cloudflare and AWS](src/docs/guides/providers.md): Tsir separates what your app does from where it runs.
+- [Jobs and queues](src/docs/guides/queues.md): A job is a unit of work that should happen outside the HTTP request/response cycle.
+- [Search](src/docs/guides/search.md): Full-text search over six engines — FTS5 and tsvector in the database you already have, three hosted services when the corpus…
+
+## Reference
+
+- [Error codes](src/docs/errors.md): Every TsirError code a framework package can raise.
+- [Capability matrix](src/docs/capabilities.md): What runs where.
+- [Compatibility policy and upgrade guide](src/docs/compatibility.md): What a version number promises, what counts as a breaking change, and how to move between versions.
+- [Runtime dependencies](src/docs/dependencies.md): A runtime dependency is one an application ships.
+- [Migrations & seeders runbook](src/docs/migrations.md): Everything tsir migrate, tsir migrate:status, tsir migrate:rollback, tsir migrate:verify, tsir make:migration and tsir db:seed…
+- [`src/docs/error-codes.json`](src/docs/error-codes.json): every error code as data — grep this before inventing one
+- [`src/docs/api-surface.json`](src/docs/api-surface.json): the exported surface of every package
+
+## Status and plan
+
+- [`status.json`](status.json): phase, milestone and version — the machine-readable truth the README badge reads
+- [Engineering plans](plans/README.md): the internal design and sequencing record — read it when you need the reasoning behind a decision, not to use the framework
+- [Task index: capabilities](plans/tasks/07-capabilities.md): every capability task and whether it has shipped — the honest backlog
+- [Task index](plans/tasks/README.md): all work items, grouped by phase
+- [Task status: what is done, partial, blocked — read this first](plans/tasks/STATUS.md): generated from the ledgers by `make tasks`; every open task by id
+- [Documentation gaps](plans/tasks/28-docs-inventory.md): which packages have no prose, which guides have no runnable example — measured, not asserted
+
+## Decisions
+
+Every design decision is recorded before it is built and cited from the code by id.
+
+- [ADR-0001](plans/decisions/0001-decorator-model.md): The project brief illustrates routing with parameter decorators: ts @Get('/:id') async findOne(@Param('id', IntParam) id:…
+- [ADR-0002](plans/decisions/0002-web-standard-http.md): Tsir must run on three structurally different targets: A core built on node:http's IncomingMessage/ServerResponse would need an…
+- [ADR-0003](plans/decisions/0003-validation-library.md): The brief requires runtime validation at every trust boundary and prefers established libraries over in-house engines.
+- [ADR-0004](plans/decisions/0004-link-package-shape.md): The brief adds "known service-to-service invocation using REST API, SOAP API, gRPC, WebSocket." Four protocols, each with: The…
+- [ADR-0005](plans/decisions/0005-deploy-topology-default.md): A Tsir application has several kinds of workloads: HTTP routing, WebSocket connections, queue consumption, scheduled tasks, and…
+- [ADR-0006](plans/decisions/0006-tsir-js-config.md): The brief requires "a tsir.js configuration, where we have our own default coded configuration in it, and they can do an…
+- [ADR-0007](plans/decisions/0007-migrations-over-drizzle.md): The brief asks for a "Laravel-inspired migration workflow while using Drizzle's supported migration generation and execution…
+- [ADR-0008](plans/decisions/0008-vault-key-state.md): The brief mandates APPKEYNOW and APPKEYNEXT and requires that rotation distinguish four states: adding: "the two environment…
+- [ADR-0009](plans/decisions/0009-postgres-transport.md): ADR-0016 made D1 the default and Postgres the escape hatch.
+- [ADR-0010](plans/decisions/0010-validate-is-a-thin-wrapper.md): ADR-0003 settled which validator Tsir accepts (any Standard Schema implementation, Zod 4 as the default) but left open what the…
+- [ADR-0011](plans/decisions/0011-src-and-dist-layout.md): The first layout put three concerns side by side at the repository root: text apps/ consumers (frontpage, examples) packages/ the…
+- [ADR-0012](plans/decisions/0012-dependency-policy.md): Tsir targets Cloudflare Workers (where a Worker is a single bundled module with a hard size limit) and AWS Lambda (where…
+- [ADR-0013](plans/decisions/0013-zod-mini.md): @tsir/validate was a thin wrapper over Zod 4, re-exporting z and adding validate/ validateSync with a Tsir-shaped ValidationError.
+- [ADR-0014](plans/decisions/0014-release-artifacts.md): There are two audiences for a Tsir release, and they want opposite things.
+- [ADR-0015](plans/decisions/0015-capability-drivers.md): Four Phase 7 modules (cache, queue, mail, notify) all need the same thing: one interface, N implementations, chosen by…
+- [ADR-0016](plans/decisions/0016-cloudflare-first-and-d1.md): The maintainer's proposal: use D1 as the database, cache and queue, default everything to Cloudflare services, and run locally…
+- [ADR-0017](plans/decisions/0017-error-and-log-sinks.md): Applications do not read their own logs; people read them in whatever their organisation already runs — CloudWatch,…
+- [ADR-0018](plans/decisions/0018-http-layer.md): The question was whether @tsir/http should be built on Hono, on another existing router, or stay ours.
+- [ADR-0019](plans/decisions/0019-multi-connection.md): Until now every port in Tsir has been singular.
+- [ADR-0020](plans/decisions/0020-mysql-engine.md): ADR-0016 fixed the engine set at two — D1 by default, Postgres as the escape hatch — and Q14 recorded "no MySQL until a caller…
+- [ADR-0021](plans/decisions/0021-next-key-writes.md): ADR-0008 made APPKEYNEXT inert on purpose: material could be deployed to every instance with zero behaviour change, and a…
+- [ADR-0022](plans/decisions/0022-subpath-dependency-scope.md): ADR-0012 says every runtime dependency must be allowlisted, ESM, tree-shakeable and declared pure, and make deps enforces it…
+- [ADR-0023](plans/decisions/0023-soap-xml-subset.md): plans/modules/07-link.md § 5 named fast-xml-parser for SOAP, with the hardening requirements spelled out: no attribute…
+- [ADR-0024](plans/decisions/0024-wsdl-compiled-at-build-time.md): LNK-016 asks for "WSDL → typed operations" with one acceptance line that decides the architecture: generated types compile; no…
+- [ADR-0025](plans/decisions/0025-rooms-are-durable-object-shaped.md): LNK-025 asks for "Durable Objects room model (Workers)" with one acceptance line: cross-instance fan-out via DO, documented.
+- [ADR-0026](plans/decisions/0026-deploy-graph-is-an-artefact.md): plans/modules/08-deploy.md § 2 says the unit graph "serializes to a stable JSON committed to the repo" and that a snapshot test…
+- [ADR-0027](plans/decisions/0027-capability-drivers.md): Phase 7 introduces the optional modules — cache, queue, events, schedule, mail, notify, storage — each driver-based.
+- [ADR-0028](plans/decisions/0028-docs-site-renderer.md): Phase 8 requires a docs site that covers every public package and every error code (DOC-009, DOC-010).
+- [ADR-0029](plans/decisions/0029-frontpage-daisyui.md): The public site needs a clearer product hierarchy, a complete ecosystem directory and consistent light/dark themes.
+- [ADR-0030](plans/decisions/0030-hybrid-cloud-and-workload-substrates.md): ADR-0016 settled one question: the database defaults to D1, and Postgres is selectable.
+- [ADR-0031](plans/decisions/0031-terminal-ui.md): Status: Accepted · 2026-11-07 Tsir's commands had three unrelated interfaces.
+- [ADR-0032](plans/decisions/0032-zero-boilerplate-data-layer.md): @tsir/database is correct and expensive to use.
+
+## Packages
+
+- [`src/framework/`](src/framework/): 34 packages; 8 carry their own `README.md`, the rest are documented on their package page
+- [`src/docs/packages/index.md`](src/docs/packages/index.md): every package grouped by job, one line each — the place to find the package for a task before knowing its name
+
+## Optional
+
+- [Requests for Comments](rfc/README.md): An RFC is a written proposal for changing the project itself, published before the work starts so that the design can be argued…
+- [Third-party attributions](src/docs/attributions.md): Tsir itself is MIT (see the LICENSE file at the repository root).

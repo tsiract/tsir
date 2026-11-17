@@ -14,7 +14,9 @@ export type MediaErrorCode =
   | 'FFMPEG_FAILED'
   | 'IMAGEKIT_UPLOAD_FAILED'
   | 'IMAGEKIT_DELIVERY_FAILED'
-  | 'MEDIA_NO_ADAPTER';
+  | 'MEDIA_NO_ADAPTER'
+  | 'CAP_DRIVER_MISSING'
+  | 'CAP_FORBIDDEN_IN_PRODUCTION';
 
 /** A Cloudinary upload failed. */
 export function cloudinaryUploadFailed(message: string): TsirError {
@@ -57,4 +59,43 @@ export function noAdapter(kind: string): TsirError {
     kind: 'internal',
     hint: 'set media.driver to one of: cloudinary, cloudflare, imagekit',
   });
+}
+
+/**
+ * A `media.adapters` name this build does not ship (`CAP-017`).
+ *
+ * Lists the adapters that exist, because the fix is one string — and because `sharp` and `ffmpeg`
+ * are not interchangeable with `cloudflare`: the first two need a binary in the image, the third
+ * needs an account.
+ */
+export function driverMissing(adapter: string, known: readonly string[]): TsirError {
+  return new TsirError(
+    'CAP_DRIVER_MISSING',
+    `media names adapter "${adapter}", which is not registered`,
+    {
+      kind: 'capability',
+      hint: `this build ships: ${known.join(', ')}`,
+      context: { adapter },
+    },
+  );
+}
+
+/**
+ * `memory`-shaped media work is refused where it would be a lie about durability (`CAP-017`).
+ *
+ * `sharp` and `ffmpeg` do not produce a stored asset — they hand bytes back to the caller, and on
+ * a Worker there is no filesystem to hand them to. That is fine on a long-lived server with a
+ * disk, and it is a dropped upload on a stateless target, which is why it is refused rather than
+ * documented.
+ */
+export function forbiddenInProduction(adapter: string, target: string): TsirError {
+  return new TsirError(
+    'CAP_FORBIDDEN_IN_PRODUCTION',
+    `media adapter "${adapter}" cannot be the production adapter on "${target}": it writes to the local process, which a stateless target does not keep`,
+    {
+      kind: 'capability',
+      hint: 'use `cloudflare` (Images and Stream), or `cloudinary` / `imagekit` — all three store the asset where the next request can reach it',
+      context: { adapter, target },
+    },
+  );
 }

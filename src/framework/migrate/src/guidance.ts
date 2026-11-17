@@ -11,7 +11,7 @@
 export const RUNBOOK = 'src/docs/migrations.md';
 
 export interface GuidanceInput {
-  readonly engine: 'd1' | 'postgres';
+  readonly engine: 'd1' | 'postgres' | 'sqlite';
   /** Where the migration is running: `production` prints the checklist. */
   readonly environment: string;
   readonly pending: number;

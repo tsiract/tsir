@@ -306,6 +306,132 @@ const projectSchema = z.object({
         .optional(),
     })
     .optional(),
+  // The broadcaster (`CAP-014`). `driver` is a string for the reason every driver here is: an
+  // unknown name fails in `@tsir/broadcast` with `CAP_DRIVER_MISSING` listing what this build
+  // ships. `broadcast` reads this block, and reading it is what lets the production check refuse
+  // `memory` — a broadcaster constructed in `app.ts` never passes through a guard at all.
+  broadcast: z
+    .object({
+      default: z.string().min(1).optional(),
+      connections: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            connection: z.string().optional(),
+            prefix: z.string().optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  // The search engine (`CAP-015`). The hosted three take a host and a collection and a key; the
+  // SQL two take a connection name and borrow the database port's own query function.
+  search: z
+    .object({
+      default: z.string().min(1).optional(),
+      engines: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            connection: z.string().optional(),
+            collection: z.string().optional(),
+            host: z.string().optional(),
+            apiKey: envRef.optional(),
+            searchApiKey: envRef.optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  // Media adapters (`CAP-017`). Named per destination, because a project usually wants images at
+  // one service and video at another; the first declared adapter of each kind is the default.
+  media: z
+    .object({
+      default: z.string().min(1).optional(),
+      adapters: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            accountId: z.string().optional(),
+            apiToken: envRef.optional(),
+            cloudName: z.string().optional(),
+            uploadPreset: z.string().optional(),
+            publicKey: z.string().optional(),
+            privateKey: envRef.optional(),
+            urlEndpoint: z.string().optional(),
+            imageVariant: z.string().optional(),
+            defaultFormat: z.string().optional(),
+            defaultQuality: z.number().int().positive().optional(),
+            ffmpegPath: z.string().optional(),
+            required: z.boolean().optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
+  // `CAP-018`: sessions and API keys were constructors the entry module wired by hand, so a
+  // `memorySessionStore` was a legal choice for a deployed app — and a session in one process means
+  // the next request lands on an instance that never heard of it. The user is logged out at random.
+  // `driver` is a string for the same reason every other registry's is.
+  auth: z
+    .object({
+      sessions: z
+        .object({
+          store: z
+            .object({
+              driver: z.string().min(1),
+              table: z.string().min(1).optional(),
+              connection: z.string().min(1).optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+      apiKeys: z
+        .object({
+          store: z
+            .object({
+              driver: z.string().min(1),
+              table: z.string().min(1).optional(),
+              connection: z.string().min(1).optional(),
+            })
+            .optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  // `CAP-006`: feature flags were a constructor the entry module wired by hand, and the admin app
+  // wired `memoryStore` — in production every rollout reset on the next deploy, and two instances
+  // disagreed about who was in the experiment. `driver` is a string for the same reason every other
+  // registry's is: an unknown name is a message that lists the real ones.
+  featureFlags: z
+    .object({
+      default: z.string().min(1).optional(),
+      stores: z
+        .record(
+          z.string(),
+          z.object({
+            driver: z.string().min(1),
+            table: z.string().min(1).optional(),
+            connection: z.string().min(1).optional(),
+            defaults: z
+              .array(
+                z.object({
+                  name: z.string().min(1),
+                  description: z.string().optional(),
+                  rule: z.record(z.string(), z.unknown()),
+                }),
+              )
+              .optional(),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
   // The scheduler's lock. One lock for the project, because
   // a scheduler takes one provider — and `driver` is a string for the same reason the cache and
   // queue drivers are: an unknown name is a message that lists the real ones.

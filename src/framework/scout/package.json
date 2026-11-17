@@ -9,6 +9,10 @@
     ".": {
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./conformance": {
+      "types": "./src/conformance.ts",
+      "default": "./src/conformance.ts"
     }
   },
   "sideEffects": false,

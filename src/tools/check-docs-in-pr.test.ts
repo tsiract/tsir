@@ -7,6 +7,52 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 
 import { checkDocsInPr, docsInPrProblems } from './check-docs-in-pr.ts';
 
+describe('docs-in-pr catches a renamed contract (DOCS-011)', () => {
+  const base = {
+    config: ['app', 'database'],
+    commands: ['dev', 'migrate'],
+    errors: ['CFG_INVALID'],
+  };
+  const current = {
+    config: ['app', 'database'],
+    commands: ['dev', 'migrate'],
+    errors: ['CFG_INVALID'],
+  };
+
+  test('a removed command with no documentation change fails', () => {
+    const problems = docsInPrProblems(
+      ['src/framework/console/src/index.ts', '.changeset/quiet.md'],
+      base,
+      { ...current, commands: ['dev'] },
+    );
+    expect(problems.some((problem) => problem.includes('CLI command migrate'))).toBe(true);
+  });
+
+  test('the same removal with a documentation change passes', () => {
+    const problems = docsInPrProblems(
+      ['src/framework/console/src/index.ts', '.changeset/quiet.md', 'src/docs/guides/make.md'],
+      base,
+      { ...current, commands: ['dev'] },
+    );
+    expect(problems).toEqual([]);
+  });
+
+  test('a removed tsir.js key is named as a key, not as a command', () => {
+    const problems = docsInPrProblems(
+      ['src/framework/config/src/project-file.ts', '.changeset/quiet.md'],
+      base,
+      { ...current, config: ['app'] },
+    );
+    expect(problems.some((problem) => problem.includes('`tsir.js` key database'))).toBe(true);
+  });
+
+  test('a removed error code fails even with a documentation change', () => {
+    // Append-only: a page changing does not make deleting a code a caller branches on acceptable.
+    const problems = docsInPrProblems(['src/docs/errors.md'], base, { ...current, errors: [] });
+    expect(problems.some((problem) => problem.includes('append-only'))).toBe(true);
+  });
+});
+
 describe('docs-in-pr (DXS-012)', () => {
   test('a framework source change with no changeset is a problem', () => {
     expect(docsInPrProblems(['src/framework/cache/src/memory.ts'])).toHaveLength(1);

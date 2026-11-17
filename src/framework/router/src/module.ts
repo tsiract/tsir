@@ -43,7 +43,7 @@ import type { Provider } from '@tsir/container';
 
 import { compileRoutes } from './compile.ts';
 import { type ControllerEntry, type RouteRegistry, routeRegistry } from './registry.ts';
-import type { RouteTable } from './types.ts';
+import type { ControllerClass, DeclaredListener, RouteTable } from './types.ts';
 
 export interface RouteModuleOptions<TConfig extends ConfigSpec = ConfigSpec> {
   /** Unique module name; also what `tsir route:list` prints and boot errors name. */
@@ -167,6 +167,73 @@ export function collectRouteEntries(scope?: readonly RouteModule[]): readonly Co
   }
 
   return entries;
+}
+
+/** One listener-bearing controller, in the form `@tsir/deploy` compiles into a unit. */
+export interface ListenerControllerEntry {
+  readonly controller: ControllerClass;
+  readonly listeners: readonly DeclaredListener[];
+}
+
+/**
+ * The listener-bearing controllers **this app declares**, scoped to one module list.
+ *
+ * This is the deploy build's view, and it deliberately differs from
+ * `collectRouteEntries()` in two ways that matter for a bundle:
+ *
+ * 1. **Scoped, never global.** `deploy:build` runs in a process that imported exactly one
+ *    application entry. Reading the process-global `routeRegistry` there would make the
+ *    artifact depend on whatever else the build process happened to import — the same
+ *    leak `MOD-006` closes for tests.
+ * 2. **Only what this module list registered.** A module object does not expose its
+ *    registry, so the declarations are read from the process and then *filtered* down to
+ *    the classes a matching `routeModule` declared. An app with two `users` modules in one
+ *    process therefore gets its own controllers, not both sets (`DPL-026`).
+ *
+ * A module-less controller — `@Controller(registry)` with no `routeModule` — is included by
+ * the second pass only when every declared module's registry has been considered, because
+ * there is nothing to scope it to.
+ */
+export function listenerControllers(
+  modules: readonly ModuleDefinition[] = [],
+): readonly ListenerControllerEntry[] {
+  const declared = routeModules();
+  const units = new Set(modules.map((module) => module.name));
+  const scoped = declared.filter((module) => units.has(module.module.name));
+
+  // Controllers registered by the modules this app declares. `MOD-006`'s rule, applied to a
+  // build: an unlisted module cannot contribute a class to this artifact.
+  const owned = new Set<unknown>();
+  for (const module of scoped) {
+    for (const entry of module.registry.entries()) owned.add(entry.controller);
+  }
+
+  const entries: ControllerEntry[] = [];
+  const seen = new Set<unknown>();
+  for (const entry of collectRouteEntries(scoped)) {
+    if (seen.has(entry.controller)) continue;
+    // A controller is this app's if a declared module registered it, or if no declared
+    // module claims it at all (the module-less registration path).
+    if (owned.size > 0 && !owned.has(entry.controller) && claimsController(entry.controller)) {
+      continue;
+    }
+    seen.add(entry.controller);
+    entries.push(entry);
+  }
+
+  return entries
+    .filter((entry) => entry.listeners.length > 0)
+    .map((entry) => ({ controller: entry.controller, listeners: entry.listeners }));
+}
+
+/** Whether any declared module (in this process) registered this controller. */
+function claimsController(controller: ControllerClass): boolean {
+  for (const declared of routeModules()) {
+    for (const entry of declared.registry.entries()) {
+      if (entry.controller === controller) return true;
+    }
+  }
+  return false;
 }
 
 /**

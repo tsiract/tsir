@@ -323,7 +323,7 @@ RFC 9457 (`application/problem+json`):
 - Ordering is **declared**, not inherited implicitly: global middleware list first (config order), then route metadata order.
 - Guards return `Principal`, not a boolean — there is no "authenticated" flag floating in context.
 - `Decision` is a discriminated union: `{ allowed: true } | { allowed: false; reason: string; audit?: true }`.
-- Business-critical rules must be callable without HTTP: policies are registered in the container and can be invoked from services via `PolicyContext` (see `_capabilities.md`).
+- Business-critical rules must be callable without HTTP: policies are registered in the container and can be invoked from services via `PolicyContext` (see [`15-capabilities.md § 4.7`](./15-capabilities.md#47-tsirpolicy)).
 
 ---
 
@@ -541,7 +541,10 @@ type-level `Equals` checks fail `tsc` if `RouteArgs` degrades to `unknown`.
 
 - Generated from the compiled route table + schemas (via `z.toJSONSchema`) — never from decorators at runtime.
 - OpenAPI 3.1 output; `operationId` defaults to `controllerName.method`; stable and used by client generators.
-- Emitted by `tsir openapi:generate --out openapi.json` and served in dev at `/__tsir/openapi.json` (disabled in production by default).
+- Emitted by `tsir openapi:generate --out openapi.json` (shipped 2026-10-30, `DXS-011`) and — still
+  `[PLANNED]` — served in dev at `/__tsir/openapi.json` (disabled in production by default). The dev
+  server serves `/__tsir/health` today; the OpenAPI route is `HTP-022` in
+  [`../tasks/03-http.md`](../tasks/03-http.md).
 - A CI test validates the document against the OpenAPI 3.1 schema and fails on unresolved `$ref`.
 
 ### 9.1 What is implemented
@@ -569,9 +572,11 @@ repository dependency; it runs as a one-off check, so the dependency policy is u
 A snapshot of the output lives at [`openapi.example.json`](../../openapi.example.json) — regenerate it
 by running the same fixture through `createOpenApiDocument`; it is a snapshot, not a source of truth.
 
-Still absent: the `tsir openapi:generate` command, the dev-only `/__tsir/openapi.json` route,
-response contracts, and a CI job that re-runs the meta-schema check on every commit (the validator
-is a one-off, deliberately outside the dependency policy).
+Still absent: the dev-only `/__tsir/openapi.json` route (`HTP-022`), response contracts, and a CI job
+that re-runs the meta-schema check on every commit (the validator is a one-off, deliberately outside
+the dependency policy). **Corrected 2026-11-08:** `tsir openapi:generate` _does_ exist
+(`src/framework/console/src/commands/openapi.ts`, registered in the CLI); this paragraph previously
+said it did not, and `tasks/03-http.md` repeated the error.
 
 ---
 

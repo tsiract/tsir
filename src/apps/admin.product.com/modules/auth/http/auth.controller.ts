@@ -16,7 +16,7 @@ import { registry } from '../registry.ts';
 import { type AuthService, type AppPrincipal } from '../services/auth.service.ts';
 import type { CaptchaService } from '../services/captcha.service.ts';
 import { type PasswordResetService } from '../services/password-reset.service.ts';
-import { type MailService } from '../../mail/services/mail.service.ts';
+import { type MailService } from '../../mail/index.ts';
 import { type AuditService } from '../../shared/audit.ts';
 
 export const LoginBody = z.object({

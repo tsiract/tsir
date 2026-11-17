@@ -17,6 +17,26 @@
     "./postgres/drizzle": {
       "types": "./src/postgres/drizzle.ts",
       "default": "./src/postgres/drizzle.ts"
+    },
+    "./bun": {
+      "types": "./src/bun.ts",
+      "default": "./src/bun.ts"
+    },
+    "./redaction": {
+      "types": "./src/redaction.ts",
+      "default": "./src/redaction.ts"
+    },
+    "./from-config": {
+      "types": "./src/from-config.ts",
+      "default": "./src/from-config.ts"
+    },
+    "./drizzle": {
+      "types": "./src/drizzle.ts",
+      "default": "./src/drizzle.ts"
+    },
+    "./config": {
+      "types": "./src/config.ts",
+      "default": "./src/config.ts"
     }
   },
   "sideEffects": false,

@@ -1,9 +1,10 @@
 import { describe, expect, test } from 'bun:test';
 
 import { compileRoutes } from './compile.ts';
-import { Controller, Get, Route } from './decorators.ts';
+import { Controller, Get, OnSns, Route } from './decorators.ts';
 import {
   collectRouteEntries,
+  listenerControllers,
   removeRouteModule,
   type RouteModule,
   type RouteModuleOptions,
@@ -229,4 +230,48 @@ describe('removeRouteModule', () => {
       // The global registry is untouched: only the module was removed.
       expect(routeRegistry.entries()).toHaveLength(1);
     }));
+});
+
+describe('listenerControllers (DPL-026)', () => {
+  test('a controller with only listeners is a listener controller, not an empty one', () => {
+    withCleanModules((declare) => {
+      const registry = new RouteRegistry();
+      const declared = declare({ name: 'listener-only', registry });
+
+      @Controller(registry)
+      class Notify {
+        @OnSns({ topic: 'orders' })
+        onOrder(): void {}
+      }
+      void Notify;
+
+      const found = listenerControllers([declared.module]);
+      expect(found).toHaveLength(1);
+      expect(found[0]?.controller).toBe(Notify);
+      expect(found[0]?.listeners.map((listener) => listener.meta.kind)).toEqual(['sns']);
+    });
+  });
+
+  test('another module’s listeners are not in this app’s list', () => {
+    withCleanModules((declare) => {
+      const mine = new RouteRegistry();
+      const theirs = new RouteRegistry();
+      const declaredMine = declare({ name: 'mine', registry: mine });
+      const declaredTheirs = declare({ name: 'theirs', registry: theirs });
+
+      @Controller(theirs)
+      class Theirs {
+        @OnSns({ topic: 'other' })
+        onOther(): void {}
+      }
+      void Theirs;
+
+      // An app that declares only `mine` must not receive `theirs`' controller: a build process
+      // imports one application, and an artifact must not depend on what else it imported.
+      expect(listenerControllers([declaredTheirs.module]).map((c) => c.controller)).toEqual([
+        Theirs,
+      ]);
+      expect(listenerControllers([declaredMine.module])).toEqual([]);
+    });
+  });
 });

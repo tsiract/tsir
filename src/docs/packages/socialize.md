@@ -14,6 +14,18 @@ The packages are not yet published to npm.
 
 ## Public surface
 
+**`@tsir/socialize`**
+
+`GitHubProviderConfig`, `GoogleProviderConfig`, `ProviderConfig`, `SocialUser`, `Socialize`, `SocializeBootstrap`, `SocializeBootstrapOptions`, `SocializeConfig`, `SocializeProvider`, `StateStore`, `TokenResponse`, `createSocializeBootstrap`, `generateState`, `githubProvider`, `googleProvider`, `socialize`, `verifyState`
+
+**`@tsir/socialize/github`**
+
+`GitHubProviderConfig`, `githubProvider`
+
+**`@tsir/socialize/google`**
+
+`GoogleProviderConfig`, `googleProvider`
+
 ## Error codes
 
 Owned by this package (5). Each one is described in the [error-code reference](../errors.md).
@@ -26,12 +38,69 @@ Owned by this package (5). Each one is described in the [error-code reference](.
 
 ## Example
 
-_Pending: a worked example for this package is not written yet._
+The flow has two halves and the caller owns the step between them: `redirect()` builds the provider's
+authorisation URL, and `callback()` turns the code the provider sends back into a user. The state token
+is what proves the callback belongs to the request that started the flow.
+
+```ts
+import { generateState, socialize, verifyState } from '@tsir/socialize';
+import type { SocializeProvider } from '@tsir/socialize';
+
+// A provider is three methods, and a real one (google, github, …) is about forty lines. This stub
+// shows the contract: the package never talks to a vendor directly, it calls these.
+const example: SocializeProvider = {
+  name: 'example',
+  getAuthorizationUrl: (state) => `https://id.example/authorize?state=${state}`,
+  exchangeCodeForToken: async () => ({ accessToken: 'token-from-provider' }),
+  getUserFromToken: async () => ({
+    id: 'u_1',
+    email: 'person@example.com',
+    name: 'A Person',
+    provider: 'example',
+    raw: {},
+  }),
+};
+
+const auth = socialize({ providers: { example } });
+
+const state = await generateState();
+console.log(auth.redirect('example', state).slice(0, 46));
+
+// The provider sends `code` and the `state` it was given. Verification is the caller's step,
+// because storing the state is the caller's choice — a cookie, or the session.
+console.log('state verifies:', await verifyState(state));
+
+const user = await auth.callback('example', 'code-from-provider');
+console.log(user.id, user.email, user.provider);
+```
 
 ## Failure modes
 
-_Pending: the conditions behind each code above for this package is not written yet._
+- `SOCIALIZE_UNKNOWN_PROVIDER`: `redirect()` or `callback()` was called with a provider name that is
+  not in the map. The message lists the providers that are configured, which is usually enough to spot
+  a typo or a provider whose config block an environment does not load.
+- `GOOGLE_TOKEN_FAILED`: the token exchange endpoint returned a non-2xx status. The message carries the
+  status; a `400` is almost always a `redirect_uri` that does not match the one registered with the
+  provider, and a `401` is a rotated client secret.
+- `GOOGLE_USERINFO_FAILED`: the token was accepted but the userinfo call failed. Rare, and usually an
+  API that needs a scope the flow did not request.
+- `GITHUB_TOKEN_FAILED` / `GITHUB_USER_FAILED`: the same two steps for GitHub. Note that GitHub can
+  return `200` with an error body, so a "successful" exchange that produced no token is reported here
+  rather than surfacing later as an unauthorised userinfo call.
 
 ## Security notes
 
-_Pending: the security notes for this package is not written yet._
+**State is mandatory and the caller verifies it.** `redirect()` takes the state as an argument rather
+than generating one, because the only correct place to keep it is where the callback can read it —
+a cookie or the session. `verifyState()` checks the signature and the age (ten minutes), and a
+tampered or expired token is refused.
+
+`setStateSecret()` is the part that is easy to get wrong: without it, each process generates its own
+HMAC key, so a callback that lands on a different instance fails verification. That is safe, and it
+looks like a random login failure in production. Set it from the application's secret store at
+startup, the same value everywhere.
+
+There is no vendor SDK here on purpose. Every provider is `fetch` and `crypto`, so the transport is
+the same one the rest of the framework uses and there is no third-party code in the token path. The
+`raw` field on `SocialUser` carries the provider's own payload: treat it as untrusted input even
+though it came from the provider, because it is a JSON document over the network either way.
